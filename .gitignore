@@ -1,0 +1,77 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+
+# Compiled templates
+*.gottp
+
+
+# Binaries
+gottp
+gottp-gen
+
+# Sphinx documentation build output
+docs/_build/
+docs/.doctrees/
+
+# Python cache (for any Python scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.python-version
+
+# Editor backup files
+*.bak
+*.orig
+
+# Test results (if temporary)
+test_results.txt
+
+# Transient/Status Documentation
+IMPLEMENTATION_STATUS.md
+PROGRESS.md
+TEST_FAILURES.md
+TODO_IMPLEMENTATION.md
+test/TESTING_STATUS.md
+test/TEST_RESULTS.md
+test/TEST_SUMMARY.md
+test/UNTESTED_FEATURES.md
+test/comparison/KNOWN_DIFFERENCES.md
+test/comparison/TEST_COVERAGE.md
+
+# Temporary Templates
+cable_modem_template_fixed.ttp
+
+# External Dependencies
+ttp-original/

@@ -1,0 +1,445 @@
+package gottp
+
+import (
+	"fmt"
+
+	"github.com/roc-ops/gottp/api/python"
+	"github.com/roc-ops/gottp/internal/compiled"
+	"github.com/roc-ops/gottp/internal/compiler"
+	"github.com/roc-ops/gottp/internal/macro"
+	"github.com/roc-ops/gottp/internal/parser"
+	"github.com/roc-ops/gottp/internal/validator"
+	"github.com/roc-ops/gottp/internal/yang"
+)
+
+// ValidateTemplate validates a template string before compilation.
+// Returns an error if the template has validation issues.
+func ValidateTemplate(templateStr string) error {
+	v := validator.NewValidator()
+	result := v.ValidateTemplateString(templateStr, "")
+	if !result.Valid {
+		if len(result.Errors) > 0 {
+			return result.Errors[0]
+		}
+		return fmt.Errorf("template validation failed")
+	}
+	return nil
+}
+
+// CompileTemplate compiles a TTP template text into a CompiledTemplate.
+//
+// The compiled template is immutable and stateless, allowing it to be used
+// repeatedly without reset. It can be safely shared across goroutines.
+//
+// Example:
+//
+//	template := `<group name="test">{{ value }}</group>`
+//	compiled, err := gottp.CompileTemplate(template)
+//	if err != nil {
+//		// handle error
+//	}
+func CompileTemplate(templateText string) (*CompiledTemplate, error) {
+	// Parse template
+	tmpl, err := parser.ParseTemplate(templateText)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	// Compile template
+	comp := compiler.NewCompiler()
+	compiled, err := comp.CompileTemplate(tmpl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile template: %w", err)
+	}
+
+	return &CompiledTemplate{compiled: compiled}, nil
+}
+
+// CompiledTemplate is a stateless, immutable compiled template.
+//
+// Once compiled, a template can be used to parse multiple inputs without
+// any state resets. The Parse() method is safe for concurrent use from
+// multiple goroutines, though each goroutine should create its own Runtime
+// instance (which happens automatically in Parse()).
+//
+// Compiled templates can be serialized and saved for later use, or embedded
+// in Go code using the gottp-gen code generation tool.
+type CompiledTemplate struct {
+	compiled *compiler.CompiledTemplate
+}
+
+// ParseResult contains the parsed results and validation results
+type ParseResult struct {
+	Data             interface{}                          // Parsed data
+	ValidationResults map[string]*yang.ValidationResult // YANG validation results by group name
+}
+
+// Parse executes the compiled template with given inputs and variables.
+//
+// This method is stateless and can be called repeatedly without reset.
+// It does not modify the CompiledTemplate instance, making it safe for
+// concurrent use. However, for best performance with concurrent parsing,
+// create a new CompiledTemplate instance for each goroutine or use the
+// parallel parsing utilities.
+//
+// Parameters:
+//   - inputs: Map of input names to input data strings
+//   - vars: Map of variable names to variable values (can be nil)
+//   - options: Parse options (can be nil for defaults)
+//
+// Returns:
+//   - Parsed results as interface{} (typically map[string]interface{} or []interface{})
+//   - error if parsing fails
+//
+// Example:
+//
+//	result, err := compiled.Parse(
+//		gottp.Inputs{"Default_Input": "interface Loopback0\n ip address 1.1.1.1/24"},
+//		gottp.Vars{"site": "datacenter1"},
+//		nil,
+//	)
+func (ct *CompiledTemplate) Parse(inputs Inputs, vars Vars, options *ParseOptions) (interface{}, error) {
+	result, err := ct.ParseWithValidation(inputs, vars, options)
+	if err != nil {
+		return nil, err
+	}
+	return result.Data, nil
+}
+
+// ParseWithValidation parses and returns both data and validation results
+func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOptions) (*ParseResult, error) {
+	runtime := compiled.NewRuntime(ct.compiled)
+
+	// Convert Inputs to map[string]string
+	inputMap := make(map[string]string)
+	for k, v := range inputs {
+		inputMap[k] = v
+	}
+
+	// Convert Vars to map[string]interface{}
+	varMap := make(map[string]interface{})
+	for k, v := range vars {
+		varMap[k] = v
+	}
+
+	// Handle YANG modules
+	var opts *compiled.ParseOptions
+	if options != nil {
+		opts = &compiled.ParseOptions{}
+		
+		// Load YANG modules if provided
+		if options.YANGModules != nil {
+			moduleSet, err := loadYANGModules(options.YANGModules)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load YANG modules: %w", err)
+			}
+			opts.YANGModuleSet = moduleSet
+		}
+	}
+
+	data, err := runtime.Parse(inputMap, varMap, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get validation results
+	validationResults := runtime.GetValidationResults()
+	if validationResults == nil {
+		validationResults = make(map[string]*yang.ValidationResult)
+	}
+
+	return &ParseResult{
+		Data:             data,
+		ValidationResults: validationResults,
+	}, nil
+}
+
+// Inputs represents input data for parsing
+type Inputs map[string]string
+
+// Vars represents template variables
+type Vars map[string]interface{}
+
+// loadYANGModules loads YANG modules from YANGModules structure
+// All modules are parsed first, then processed together to resolve dependencies
+func loadYANGModules(yangMods *YANGModules) (*yang.ModuleSet, error) {
+	moduleSet := yang.NewModuleSet()
+	
+	// First, parse all modules (don't process yet to allow dependencies to be added)
+	// We'll collect parse errors but continue to parse all modules
+	var parseErrors []error
+	
+	// Load modules from strings
+	if yangMods.Modules != nil {
+		for name, content := range yangMods.Modules {
+			if err := moduleSet.AddModule(name, content); err != nil {
+				// Continue parsing other modules even if one fails
+				// We'll process all together at the end
+				parseErrors = append(parseErrors, fmt.Errorf("failed to add module '%s': %w", name, err))
+			}
+		}
+	}
+	
+	// Load modules from files
+	if yangMods.Files != nil {
+		for _, filePath := range yangMods.Files {
+			content, err := yang.LoadModuleFromFile(filePath)
+			if err != nil {
+				parseErrors = append(parseErrors, fmt.Errorf("failed to load module from file '%s': %w", filePath, err))
+				continue
+			}
+			// Extract module name from content
+			moduleName, err := yang.ExtractModuleName(content)
+			if err != nil {
+				parseErrors = append(parseErrors, fmt.Errorf("failed to extract module name from file '%s': %w", filePath, err))
+				continue
+			}
+			if err := moduleSet.AddModule(moduleName, content); err != nil {
+				parseErrors = append(parseErrors, fmt.Errorf("failed to add module '%s' from file '%s': %w", moduleName, filePath, err))
+			}
+		}
+	}
+	
+	// Load modules from URLs
+	if yangMods.URLs != nil {
+		for _, url := range yangMods.URLs {
+			content, err := yang.LoadModuleFromURL(url)
+			if err != nil {
+				parseErrors = append(parseErrors, fmt.Errorf("failed to load module from URL '%s': %w", url, err))
+				continue
+			}
+			// Extract module name from content
+			moduleName, err := yang.ExtractModuleName(content)
+			if err != nil {
+				parseErrors = append(parseErrors, fmt.Errorf("failed to extract module name from URL '%s': %w", url, err))
+				continue
+			}
+			if err := moduleSet.AddModule(moduleName, content); err != nil {
+				parseErrors = append(parseErrors, fmt.Errorf("failed to add module '%s' from URL '%s': %w", moduleName, url, err))
+			}
+		}
+	}
+	
+	// If we had parse errors, return them
+	if len(parseErrors) > 0 {
+		return nil, fmt.Errorf("failed to parse some YANG modules: %v", parseErrors)
+	}
+	
+	// Now process all modules together to resolve dependencies
+	// This ensures dependencies are available regardless of the order modules were added
+	if err := moduleSet.ProcessAllModules(); err != nil {
+		return nil, err
+	}
+	
+	return moduleSet, nil
+}
+
+// YANGModules represents YANG modules for validation
+type YANGModules struct {
+	Modules map[string]string // name -> content
+	Files   []string          // file paths
+	URLs    []string          // URLs to fetch
+}
+
+// ParseOptions represents options for parsing
+type ParseOptions struct {
+	YANGModules *YANGModules // YANG modules for validation
+}
+
+// Runtime provides access to the underlying runtime for advanced operations
+// such as registering native Go macros before parsing
+type Runtime struct {
+	runtime *compiled.Runtime
+}
+
+// MacroRegistry provides access to register native Go macros
+type MacroRegistry struct {
+	registry *macro.MacroRegistry
+}
+
+// RegisterGoMacro registers a native Go macro function
+// This allows high-performance macro execution without conversion overhead
+// The function signature matches group functions:
+//   func(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error)
+func (mr *MacroRegistry) RegisterGoMacro(name string, fn func(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error)) {
+	mr.registry.RegisterGoMacro(name, macro.GoMacroFunc(fn))
+}
+
+// GetMacroRegistry returns the macro registry for registering Go macros
+// This allows you to register native Go macros for high-performance execution
+func (r *Runtime) GetMacroRegistry() *MacroRegistry {
+	return &MacroRegistry{
+		registry: r.runtime.GetMacroRegistry(),
+	}
+}
+
+// Parse executes the runtime with given inputs and variables
+func (r *Runtime) Parse(inputs Inputs, vars Vars, options *ParseOptions) (interface{}, error) {
+	result, err := r.ParseWithValidation(inputs, vars, options)
+	if err != nil {
+		return nil, err
+	}
+	return result.Data, nil
+}
+
+// ParseWithValidation parses and returns both data and validation results
+func (r *Runtime) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOptions) (*ParseResult, error) {
+	// Convert Inputs to map[string]string
+	inputMap := make(map[string]string)
+	for k, v := range inputs {
+		inputMap[k] = v
+	}
+
+	// Convert Vars to map[string]interface{}
+	varMap := make(map[string]interface{})
+	for k, v := range vars {
+		varMap[k] = v
+	}
+
+	// Handle YANG modules
+	var opts *compiled.ParseOptions
+	if options != nil {
+		opts = &compiled.ParseOptions{}
+
+		// Load YANG modules if provided
+		if options.YANGModules != nil {
+			moduleSet, err := loadYANGModules(options.YANGModules)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load YANG modules: %w", err)
+			}
+			opts.YANGModuleSet = moduleSet
+		}
+	}
+
+	data, err := r.runtime.Parse(inputMap, varMap, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get validation results
+	validationResults := r.runtime.GetValidationResults()
+	if validationResults == nil {
+		validationResults = make(map[string]*yang.ValidationResult)
+	}
+
+	return &ParseResult{
+		Data:             data,
+		ValidationResults: validationResults,
+	}, nil
+}
+
+// NewRuntime creates a reusable Runtime instance for a compiled template
+// This allows you to register Go macros and reuse the runtime for multiple parses
+func (ct *CompiledTemplate) NewRuntime() *Runtime {
+	return &Runtime{
+		runtime: compiled.NewRuntime(ct.compiled),
+	}
+}
+
+// NewParser creates a new Python-compatible parser (stateful API)
+func NewParser() *PythonParser {
+	return &PythonParser{
+		parser: python.NewParser(),
+	}
+}
+
+// PythonParser provides Python-compatible API
+type PythonParser struct {
+	parser *python.Parser
+}
+
+// AddTemplate adds a template
+func (p *PythonParser) AddTemplate(template string) error {
+	return p.parser.AddTemplate(template)
+}
+
+// AddInput adds input data
+func (p *PythonParser) AddInput(data, inputName string) {
+	p.parser.AddInput(data, inputName)
+}
+
+// AddVars adds variables
+func (p *PythonParser) AddVars(vars Vars) {
+	p.parser.AddVars(map[string]interface{}(vars))
+}
+
+// Parse parses all inputs
+func (p *PythonParser) Parse() error {
+	return p.parser.Parse()
+}
+
+// Result returns results
+func (p *PythonParser) Result() []interface{} {
+	return p.parser.Result()
+}
+
+// ClearInput clears inputs
+func (p *PythonParser) ClearInput() {
+	p.parser.ClearInput()
+}
+
+// ClearResult clears results
+func (p *PythonParser) ClearResult() {
+	p.parser.ClearResult()
+}
+
+// SaveCompiledTemplate saves a compiled template to bytes in the specified format
+// Supported formats: "gob", "json", "yaml"
+func SaveCompiledTemplate(ct *CompiledTemplate, format string) ([]byte, error) {
+	var f compiler.SerializationFormat
+	switch format {
+	case "gob":
+		f = compiler.FormatGob
+	case "json":
+		f = compiler.FormatJSON
+	case "yaml":
+		f = compiler.FormatYAML
+	default:
+		return nil, fmt.Errorf("unsupported format: %s (supported: gob, json, yaml)", format)
+	}
+	return compiler.SaveCompiledTemplateToBytes(ct.compiled, f)
+}
+
+// LoadCompiledTemplate loads a compiled template from bytes in the specified format
+func LoadCompiledTemplate(data []byte, format string) (*CompiledTemplate, error) {
+	var f compiler.SerializationFormat
+	switch format {
+	case "gob":
+		f = compiler.FormatGob
+	case "json":
+		f = compiler.FormatJSON
+	case "yaml":
+		f = compiler.FormatYAML
+	default:
+		return nil, fmt.Errorf("unsupported format: %s (supported: gob, json, yaml)", format)
+	}
+	compiled, err := compiler.LoadCompiledTemplateFromBytes(data, f)
+	if err != nil {
+		return nil, err
+	}
+	return &CompiledTemplate{compiled: compiled}, nil
+}
+
+// SerializationFormat represents the format for serialization
+type SerializationFormat = compiler.SerializationFormat
+
+const (
+	FormatGob  SerializationFormat = compiler.FormatGob
+	FormatJSON SerializationFormat = compiler.FormatJSON
+	FormatYAML SerializationFormat = compiler.FormatYAML
+)
+
+// SaveCompiledTemplateToBytes saves a compiled template to bytes
+func SaveCompiledTemplateToBytes(ct *CompiledTemplate, format SerializationFormat) ([]byte, error) {
+	return compiler.SaveCompiledTemplateToBytes(ct.compiled, format)
+}
+
+// LoadCompiledTemplateFromBytes loads a compiled template from bytes
+func LoadCompiledTemplateFromBytes(data []byte, format SerializationFormat) (*CompiledTemplate, error) {
+	compiled, err := compiler.LoadCompiledTemplateFromBytes(data, format)
+	if err != nil {
+		return nil, err
+	}
+	return &CompiledTemplate{compiled: compiled}, nil
+}
+

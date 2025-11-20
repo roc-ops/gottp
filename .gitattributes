@@ -1,0 +1,17 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Go files
+*.go text eol=lf
+
+# Documentation
+*.md text eol=lf
+*.rst text eol=lf
+
+# Binary files
+*.wasm binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+
