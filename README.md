@@ -10,6 +10,7 @@ A Go implementation of the Template Text Parser (TTP) library, providing semi-st
 - **Dual API Design**: Python-compatible API for easy porting, plus Go-idiomatic API ✅
 - **Thread-Safe**: Compiled templates are immutable and safe for concurrent use ✅
 - **High Performance**: Leverages Go's compiled nature for better performance
+- **Source Maps**: Optional source map generation to track which input lines/characters matched which template patterns (useful for editor visualization and debugging)
 
 ## Status
 

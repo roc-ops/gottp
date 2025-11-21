@@ -43,6 +43,29 @@
 //		}
 //
 //		fmt.Printf("%+v\n", result)
+//
+//		// With source maps enabled:
+//		parseResult, err := compiled.ParseWithValidation(
+//			gottp.Inputs{"Default_Input": data},
+//			nil, // vars
+//			&gottp.ParseOptions{EnableSourceMap: true},
+//		)
+//		if err != nil {
+//			panic(err)
+//		}
+//
+//		// Access parsed data
+//		fmt.Printf("Data: %+v\n", parseResult.Data)
+//
+//		// Access source map to see which input lines matched
+//		if parseResult.SourceMap != nil {
+//			inputMap := parseResult.SourceMap.Inputs["Default_Input"]
+//			for _, line := range inputMap.Lines {
+//				if line.Matched {
+//					fmt.Printf("Line %d matched\n", line.LineNumber+1)
+//				}
+//			}
+//		}
 //	}
 //
 // # Key Features
@@ -52,6 +75,7 @@
 //   - Multi-Language Macros: Support for Starlark, JavaScript, and Python macros
 //   - Thread-Safe: Compiled templates are immutable and safe for concurrent use
 //   - High Performance: Leverages Go's compiled nature for better performance
+//   - Source Maps: Track which parts of input text matched which template patterns (optional)
 //
 // # Stateless Design
 //
