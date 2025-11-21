@@ -562,56 +562,12 @@ function buildSourceMapNavigationData(sourceMap, inputName = 'Default_Input') {
     
     // Build mapping from result paths to input positions
     // Track match order per result path to map to specific array items
+    // We use sequential ordering: each match for a result path gets an incrementing matchOrder
+    // Matches on the same line with the same pattern index are considered the same object
     const matchOrderPerPath = {}; // resultPath -> counter
+    const lastMatchInfoPerPath = {}; // resultPath -> {lineIndex, patternIndex} for tracking object boundaries
     
-    // First pass: collect all matches for each result path to understand the order
-    const matchesByPath = {}; // resultPath -> array of {lineIndex, matchIndex, match}
-    inputSourceMap.Lines.forEach((lineMapping, lineIndex) => {
-        if (lineMapping.Matches && lineMapping.Matches.length > 0) {
-            lineMapping.Matches.forEach((match, matchIndex) => {
-                const resultPath = match.ResultPath || match.GroupName || '';
-                if (resultPath) {
-                    if (!matchesByPath[resultPath]) {
-                        matchesByPath[resultPath] = [];
-                    }
-                    matchesByPath[resultPath].push({lineIndex, matchIndex, match});
-                }
-            });
-        }
-    });
-    
-    // Second pass: group matches by array object and assign matchOrder
-    // Matches from the same array object should have the same matchOrder
-    // We group matches by looking for gaps in line numbers (gaps indicate new objects)
-    const objectGroupsByPath = {}; // resultPath -> array of object groups (each group is array of match indices)
-    
-    // Group matches by object: consecutive matches with same resultPath belong to same object
-    Object.keys(matchesByPath).forEach(resultPath => {
-        const matches = matchesByPath[resultPath];
-        if (matches.length === 0) return;
-        
-        const groups = [];
-        let currentGroup = [0]; // Start with first match
-        
-        for (let i = 1; i < matches.length; i++) {
-            const prevLine = matches[i - 1].lineIndex;
-            const currLine = matches[i].lineIndex;
-            const lineGap = currLine - prevLine;
-            
-            // If there's a gap of more than 1 line, it's likely a new object
-            // Also, if line numbers are decreasing, it's a new object
-            if (lineGap > 1 || lineGap < 0) {
-                groups.push(currentGroup);
-                currentGroup = [i];
-            } else {
-                currentGroup.push(i);
-            }
-        }
-        groups.push(currentGroup); // Add last group
-        objectGroupsByPath[resultPath] = groups;
-    });
-    
-    // Third pass: assign matchOrder based on object group
+    // Process matches in order (by line, then by match index) to assign matchOrder
     inputSourceMap.Lines.forEach((lineMapping, lineIndex) => {
         if (lineMapping.Matches && lineMapping.Matches.length > 0) {
             lineMapping.Matches.forEach((match, matchIndex) => {
@@ -627,32 +583,43 @@ function buildSourceMapNavigationData(sourceMap, inputName = 'Default_Input') {
                     sourceMapNavigationData.groupNameToResultPath[groupName] = resultPath;
                 }
                 
-                // Get match order: find which object group this match belongs to
+                // Determine matchOrder: increment when we detect a new object
+                // In TTP, when a group matches, it processes patterns in order (0, 1, 2, ...)
+                // All matches with increasing pattern indices belong to the same object
+                // A new object starts when:
+                // 1. This is the first match for this result path, OR
+                // 2. The pattern index is <= a previous pattern index (pattern reset = new object), OR
+                // 3. There's a significant line gap (more than 1 line = likely new object)
                 let matchOrder = null;
-                if (resultPath && matchesByPath[resultPath] && objectGroupsByPath[resultPath]) {
-                    // Find the match index in matchesByPath
-                    const matchIndexInPath = matchesByPath[resultPath].findIndex(
-                        m => m.lineIndex === lineIndex && m.matchIndex === matchIndex
-                    );
-                    
-                    if (matchIndexInPath >= 0) {
-                        // Find which object group contains this match index
-                        const groups = objectGroupsByPath[resultPath];
-                        for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
-                            if (groups[groupIdx].includes(matchIndexInPath)) {
-                                matchOrder = groupIdx; // matchOrder is the object index
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-                // If matchOrder is still null, use sequential counter (fallback)
-                if (matchOrder === null && resultPath) {
+                if (resultPath) {
                     if (!matchOrderPerPath[resultPath]) {
                         matchOrderPerPath[resultPath] = 0;
                     }
-                    matchOrder = matchOrderPerPath[resultPath]++;
+                    
+                    const lastMatch = lastMatchInfoPerPath[resultPath];
+                    if (!lastMatch) {
+                        // First match for this result path
+                        matchOrder = matchOrderPerPath[resultPath];
+                    } else {
+                        // Check if this is a new object
+                        const lineGap = lineIndex - lastMatch.lineIndex;
+                        const patternReset = match.PatternIndex <= lastMatch.patternIndex;
+                        
+                        // If pattern reset (went back to earlier pattern) or significant gap, it's a new object
+                        if (patternReset || lineGap > 1) {
+                            matchOrderPerPath[resultPath]++;
+                            matchOrder = matchOrderPerPath[resultPath];
+                        } else {
+                            // Same object (pattern index increased), use the same matchOrder
+                            matchOrder = matchOrderPerPath[resultPath];
+                        }
+                    }
+                    
+                    // Update last match info
+                    lastMatchInfoPerPath[resultPath] = {
+                        lineIndex: lineIndex,
+                        patternIndex: match.PatternIndex
+                    };
                 }
                 
                 // Create match info with unique identifier
@@ -959,12 +926,12 @@ function navigateToResultPath(resultPath, matchOrder = null) {
                                     // Check if this line contains the property we're looking for
                                     if (propIndent === propertyIndent) {
                                         const propMatch = propLine.match(new RegExp(`"${variableEscaped}"\\s*:`));
-                                    if (propMatch) {
-                                        targetLine = j + 1;
-                                        targetColumn = propMatch.index + 1;
-                                        foundProperty = true;
-                                        break;
-                                    }
+                                        if (propMatch) {
+                                            targetLine = j + 1;
+                                            targetColumn = propMatch.index + 1;
+                                            foundProperty = true;
+                                            break;
+                                        }
                                     }
                                     
                                     // Track object brace depth
@@ -974,16 +941,16 @@ function navigateToResultPath(resultPath, matchOrder = null) {
                                     }
                                 }
                                 
-                            if (!foundProperty) {
-                                // Fallback to object start if property not found
+                                if (!foundProperty) {
+                                    // Fallback to object start if property not found
+                                    targetLine = objectStartLine;
+                                    targetColumn = line.indexOf('{') + 1;
+                                }
+                            } else {
+                                // No variable, just navigate to object start
                                 targetLine = objectStartLine;
                                 targetColumn = line.indexOf('{') + 1;
                             }
-                        } else {
-                            // No variable, just navigate to object start
-                            targetLine = i + 1;
-                            targetColumn = line.indexOf('{') + 1;
-                        }
                             break;
                         }
                         objectCount++;
