@@ -83,8 +83,10 @@ func parseTemplate(this js.Value, args []js.Value) interface{} {
 	}
 
 	// Optional 5th argument: cacheKey (for faster lookup)
+	// Optional 6th argument: enableSourceMap (boolean string)
 	var compiled *gottp.CompiledTemplate
 	var err error
+	enableSourceMap := false
 	
 	if len(args) >= 5 && args[4].String() != "" && args[4].String() != "null" {
 		// Try to get from cache first
@@ -113,6 +115,12 @@ func parseTemplate(this js.Value, args []js.Value) interface{} {
 			}
 		}
 	}
+	
+	// Check for enableSourceMap parameter (6th argument)
+	if len(args) >= 6 && args[5].String() != "" && args[5].String() != "null" {
+		enableSourceMapStr := args[5].String()
+		enableSourceMap = enableSourceMapStr == "true" || enableSourceMapStr == "True" || enableSourceMapStr == "TRUE"
+	}
 
 	// Parse inputs
 	var inputs gottp.Inputs
@@ -132,11 +140,12 @@ func parseTemplate(this js.Value, args []js.Value) interface{} {
 		}
 	}
 
-	// Create parse options with YANG modules
+	// Create parse options with YANG modules and source map
 	var options *gottp.ParseOptions
-	if yangModules != nil {
+	if yangModules != nil || enableSourceMap {
 		options = &gottp.ParseOptions{
-			YANGModules: yangModules,
+			YANGModules:     yangModules,
+			EnableSourceMap: enableSourceMap,
 		}
 	}
 
@@ -164,11 +173,29 @@ func parseTemplate(this js.Value, args []js.Value) interface{} {
 		}
 	}
 
-	return map[string]interface{}{
+	// Serialize source map to JSON if present
+	var sourceMapJSON string
+	if parseResult.SourceMap != nil {
+		sourceMapBytes, err := json.Marshal(parseResult.SourceMap)
+		if err != nil {
+			return map[string]interface{}{
+				"error": fmt.Sprintf("failed to serialize source map: %v", err),
+			}
+		}
+		sourceMapJSON = string(sourceMapBytes)
+	}
+
+	result := map[string]interface{}{
 		"result":            string(resultJSON),
 		"validationResults": string(validationResultsJSON),
 		"error":             nil,
 	}
+	
+	if sourceMapJSON != "" {
+		result["sourceMap"] = sourceMapJSON
+	}
+
+	return result
 }
 
 // formatJSON formats data as JSON

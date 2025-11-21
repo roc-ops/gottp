@@ -72,6 +72,40 @@ type CompiledTemplate struct {
 type ParseResult struct {
 	Data             interface{}                          // Parsed data
 	ValidationResults map[string]*yang.ValidationResult // YANG validation results by group name
+	SourceMap        *SourceMap                          // Source map tracking input positions to results (optional)
+}
+
+// SourceMap tracks which parts of input text matched which template patterns
+type SourceMap struct {
+	Inputs map[string]*InputSourceMap // input name -> source map
+}
+
+// InputSourceMap contains source mapping for a single input
+type InputSourceMap struct {
+	Lines []*LineMapping // one entry per input line
+}
+
+// LineMapping represents the mapping for a single line of input
+type LineMapping struct {
+	LineNumber int            // 0-indexed line number
+	Matched    bool           // whether this line matched
+	Matches    []*MatchMapping // matches on this line
+}
+
+// MatchMapping represents a single match on a line
+type MatchMapping struct {
+	StartCol     int                    // start column (0-indexed)
+	EndCol       int                    // end column (exclusive)
+	GroupName    string                 // group name that matched
+	PatternIndex int                    // pattern index within group
+	Variables    map[string]*VarRange   // variable name -> character range
+	ResultPath   string                 // path in result structure (e.g., "interfaces[0]")
+}
+
+// VarRange represents the character range for a variable within a match
+type VarRange struct {
+	StartCol int // start column (0-indexed)
+	EndCol   int // end column (exclusive)
 }
 
 // Parse executes the compiled template with given inputs and variables.
@@ -122,10 +156,12 @@ func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, option
 		varMap[k] = v
 	}
 
-	// Handle YANG modules
+	// Handle YANG modules and source map option
 	var opts *compiled.ParseOptions
 	if options != nil {
-		opts = &compiled.ParseOptions{}
+		opts = &compiled.ParseOptions{
+			EnableSourceMap: options.EnableSourceMap,
+		}
 		
 		// Load YANG modules if provided
 		if options.YANGModules != nil {
@@ -137,7 +173,7 @@ func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, option
 		}
 	}
 
-	data, err := runtime.Parse(inputMap, varMap, opts)
+	data, internalSourceMap, err := runtime.ParseWithSourceMap(inputMap, varMap, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -148,9 +184,16 @@ func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, option
 		validationResults = make(map[string]*yang.ValidationResult)
 	}
 
+	// Convert internal source map to public source map
+	var sourceMap *SourceMap
+	if internalSourceMap != nil {
+		sourceMap = convertSourceMap(internalSourceMap)
+	}
+
 	return &ParseResult{
 		Data:             data,
 		ValidationResults: validationResults,
+		SourceMap:        sourceMap,
 	}, nil
 }
 
@@ -243,7 +286,8 @@ type YANGModules struct {
 
 // ParseOptions represents options for parsing
 type ParseOptions struct {
-	YANGModules *YANGModules // YANG modules for validation
+	YANGModules     *YANGModules // YANG modules for validation
+	EnableSourceMap bool          // Enable source map collection (zero overhead when false)
 }
 
 // Runtime provides access to the underlying runtime for advanced operations
@@ -296,10 +340,12 @@ func (r *Runtime) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOp
 		varMap[k] = v
 	}
 
-	// Handle YANG modules
+	// Handle YANG modules and source map option
 	var opts *compiled.ParseOptions
 	if options != nil {
-		opts = &compiled.ParseOptions{}
+		opts = &compiled.ParseOptions{
+			EnableSourceMap: options.EnableSourceMap,
+		}
 
 		// Load YANG modules if provided
 		if options.YANGModules != nil {
@@ -311,7 +357,7 @@ func (r *Runtime) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOp
 		}
 	}
 
-	data, err := r.runtime.Parse(inputMap, varMap, opts)
+	data, internalSourceMap, err := r.runtime.ParseWithSourceMap(inputMap, varMap, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -322,9 +368,16 @@ func (r *Runtime) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOp
 		validationResults = make(map[string]*yang.ValidationResult)
 	}
 
+	// Convert internal source map to public source map
+	var sourceMap *SourceMap
+	if internalSourceMap != nil {
+		sourceMap = convertSourceMap(internalSourceMap)
+	}
+
 	return &ParseResult{
 		Data:             data,
 		ValidationResults: validationResults,
+		SourceMap:        sourceMap,
 	}, nil
 }
 
@@ -441,5 +494,56 @@ func LoadCompiledTemplateFromBytes(data []byte, format SerializationFormat) (*Co
 		return nil, err
 	}
 	return &CompiledTemplate{compiled: compiled}, nil
+}
+
+// convertSourceMap converts internal source map to public source map
+func convertSourceMap(internal *compiled.SourceMap) *SourceMap {
+	if internal == nil {
+		return nil
+	}
+
+	public := &SourceMap{
+		Inputs: make(map[string]*InputSourceMap),
+	}
+
+	for inputName, internalInput := range internal.Inputs {
+		publicInput := &InputSourceMap{
+			Lines: make([]*LineMapping, len(internalInput.Lines)),
+		}
+
+		for i, internalLine := range internalInput.Lines {
+			publicLine := &LineMapping{
+				LineNumber: internalLine.LineNumber,
+				Matched:    internalLine.Matched,
+				Matches:    make([]*MatchMapping, len(internalLine.Matches)),
+			}
+
+			for j, internalMatch := range internalLine.Matches {
+				publicMatch := &MatchMapping{
+					StartCol:     internalMatch.StartCol,
+					EndCol:       internalMatch.EndCol,
+					GroupName:    internalMatch.GroupName,
+					PatternIndex: internalMatch.PatternIndex,
+					ResultPath:   internalMatch.ResultPath,
+					Variables:    make(map[string]*VarRange),
+				}
+
+				for varName, internalVarRange := range internalMatch.Variables {
+					publicMatch.Variables[varName] = &VarRange{
+						StartCol: internalVarRange.StartCol,
+						EndCol:   internalVarRange.EndCol,
+					}
+				}
+
+				publicLine.Matches[j] = publicMatch
+			}
+
+			publicInput.Lines[i] = publicLine
+		}
+
+		public.Inputs[inputName] = publicInput
+	}
+
+	return public
 }
 

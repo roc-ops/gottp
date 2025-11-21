@@ -17,6 +17,7 @@ A powerful browser-based TTP (Template Text Parser) template editor that runs en
 * **Professional UI**: Modern dark theme with dropdown menus, modals, and notifications
 * **TTP Syntax Highlighting**: Custom syntax highlighting for TTP templates
 * **Auto-completion**: Context-aware suggestions for TTP functions
+* **Source Maps**: Visual debugging feature that shows which input lines matched which template patterns, with bidirectional navigation between input and output
 
 ## Getting Started
 
@@ -111,6 +112,23 @@ Define reusable variables that can be used in your templates:
 }
 ```
 
+### Source Maps (Debug Feature)
+
+The editor includes a powerful source map visualization feature for debugging templates:
+
+* **Enable Source Maps**: Click "Options" → Enable "Source Maps" checkbox
+* **Visual Indicators**: 
+  - Green markers in the gutter indicate matched lines
+  - Red markers indicate unmatched lines
+  - Orange highlights show which parts of each line matched
+  - Blue highlights show individual variable matches
+* **Bidirectional Navigation**:
+  - Click on a match in the input editor to highlight the corresponding result in the output
+  - Click on a property in the output editor to highlight the corresponding input line
+  - Hover over matches to see tooltips with group names and result paths
+* **Customizable Colors**: Adjust highlight colors and opacities in "Options" → "Debug" section
+* **Performance**: Source maps are optional and disabled by default for better performance
+
 ### Export/Import
 
 Save and share complete configurations:
@@ -129,6 +147,7 @@ The application features a modern, organized interface:
 * **Config Dropdown**: Inputs, Variables, Lookups
 * **File Dropdown**: Export, Import
 * **Workspace Dropdown**: Save, Load, Manage workspaces
+* **Options Dropdown**: Source maps toggle, highlight color customization
 * **Auto-completion**: Context-aware suggestions for TTP functions
 * **Syntax Highlighting**: Custom highlighting for TTP templates
 * **Professional Modals**: Beautiful dialogs for configuration and management

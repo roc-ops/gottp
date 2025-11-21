@@ -64,6 +64,90 @@ body {
     100% { transform: rotate(360deg); }
 }
 
+/* Source Map Visualization Styles */
+/* Gutter markers for matched/unmatched lines - using glyph margin */
+/* Use universal selector to catch any element with these classes */
+.monaco-editor [class*="source-map-matched-gutter"] {
+    background-color: rgba(137, 209, 133, 0.9) !important; /* success-color - green */
+    width: 6px !important;
+    min-width: 6px !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.monaco-editor [class*="source-map-unmatched-gutter"] {
+    background-color: rgba(244, 135, 113, 0.9) !important; /* error-color - red */
+    width: 6px !important;
+    min-width: 6px !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* More specific selectors */
+.monaco-editor .monaco-glyph-margin .source-map-matched-gutter {
+    background-color: rgba(137, 209, 133, 0.9) !important;
+    width: 6px !important;
+    min-width: 6px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.monaco-editor .monaco-glyph-margin .source-map-unmatched-gutter {
+    background-color: rgba(244, 135, 113, 0.9) !important;
+    width: 6px !important;
+    min-width: 6px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Remove spacing from glyph margin cells to eliminate gaps */
+.monaco-editor .monaco-glyph-margin .monaco-glyph-margin-glyphs .monaco-glyph-margin-glyph-cell {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 0 !important;
+}
+
+.monaco-editor .monaco-glyph-margin .monaco-glyph-margin-glyphs {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.monaco-editor .source-map-match-highlight {
+    background-color: rgba(255, 165, 0, 0.15) !important; /* Orange for match highlights - reduced opacity further */
+    /* No left border - gutter markers handle the visual indicator */
+}
+
+.monaco-editor .source-map-variable-highlight {
+    background-color: rgba(0, 122, 204, 0.2) !important; /* accent-color with transparency */
+    border-bottom: 1px solid rgba(0, 122, 204, 0.4) !important;
+}
+
+.monaco-editor .source-map-hover-highlight {
+    background-color: rgba(0, 122, 204, 0.25) !important;
+    border-left: 3px solid var(--accent-color) !important;
+}
+
+.monaco-editor .source-map-clickable {
+    cursor: pointer !important;
+}
+
+.monaco-editor .source-map-match-highlight {
+    cursor: pointer !important;
+}
+
+.monaco-editor .source-map-clickable-key {
+    background-color: rgba(0, 122, 204, 0.15) !important;
+    border-bottom: 1px dashed rgba(0, 122, 204, 0.5) !important;
+    cursor: pointer !important;
+}
+
+.monaco-editor .source-map-clickable-key:hover {
+    background-color: rgba(0, 122, 204, 0.25) !important;
+    border-bottom: 2px solid rgba(0, 122, 204, 0.7) !important;
+}
+
 /* App Container */
 .app-container {
     display: flex;

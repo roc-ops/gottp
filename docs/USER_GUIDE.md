@@ -248,6 +248,71 @@ Templates can extend other templates:
 - **`vars`**: Filter variables to include
 - **`lookups`**: Filter lookups to include
 
+## Source Maps
+
+Source maps allow you to track which parts of the input text matched which template patterns. This is particularly useful for editor visualization and debugging. Source maps are optional and have zero overhead when disabled.
+
+### Enabling Source Maps
+
+To enable source maps, use `ParseWithValidation` with `EnableSourceMap: true`:
+
+```go
+parseResult, err := compiled.ParseWithValidation(
+    gottp.Inputs{"Default_Input": data},
+    nil, // vars
+    &gottp.ParseOptions{
+        EnableSourceMap: true,
+    },
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Access parsed data
+result := parseResult.Data
+
+// Access source map
+if parseResult.SourceMap != nil {
+    inputMap := parseResult.SourceMap.Inputs["Default_Input"]
+    for _, line := range inputMap.Lines {
+        if line.Matched {
+            fmt.Printf("Line %d matched\n", line.LineNumber+1)
+            for _, match := range line.Matches {
+                fmt.Printf("  Match: %s (cols %d-%d)\n", 
+                    match.GroupName, match.StartCol, match.EndCol)
+                fmt.Printf("  Result path: %s\n", match.ResultPath)
+            }
+        }
+    }
+}
+```
+
+### Source Map Structure
+
+The source map provides detailed information about matches:
+
+- **`SourceMap.Inputs`**: Map of input name to input source map
+- **`InputSourceMap.Lines`**: Array of line mappings, one per input line
+- **`LineMapping.Matched`**: Whether the line matched any pattern
+- **`LineMapping.Matches`**: Array of matches on this line
+- **`MatchMapping.StartCol`/`EndCol`**: Character range of the match (0-indexed)
+- **`MatchMapping.GroupName`**: Name of the group that matched
+- **`MatchMapping.ResultPath`**: Path in result structure (e.g., "interfaces[0]")
+- **`MatchMapping.Variables`**: Map of variable names to their character ranges
+
+### Use Cases
+
+Source maps are useful for:
+
+- **Editor Visualization**: Highlight which input lines matched in a text editor
+- **Debugging**: Understand why certain lines matched or didn't match
+- **Error Reporting**: Show users exactly which parts of their input were processed
+- **Interactive Tools**: Enable click-to-navigate between input and output
+
+### Performance
+
+Source maps have minimal overhead when enabled, but for maximum performance in production, leave them disabled unless needed.
+
 ## Stateless Parsing
 
 One of GoTTP's key features is stateless parsing. Unlike Python TTP, you don't need to reset state between parses:

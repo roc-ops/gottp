@@ -78,7 +78,8 @@ func (r *Runtime) GetMacroRegistry() *macro.MacroRegistry {
 
 // ParseOptions contains options for parsing
 type ParseOptions struct {
-	YANGModuleSet *yang.ModuleSet // YANG modules for validation
+	YANGModuleSet   *yang.ModuleSet // YANG modules for validation
+	EnableSourceMap bool             // Enable source map collection
 }
 
 // Parse executes the compiled template with given inputs and variables.
@@ -578,6 +579,436 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 		return []interface{}{finalResults}, nil
 	}
 	return finalResults, nil
+}
+
+// ParseWithSourceMap executes the compiled template and returns both data and source map
+func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]interface{}, options *ParseOptions) (interface{}, *SourceMap, error) {
+	// If source map is not enabled, just call Parse
+	if options == nil || !options.EnableSourceMap {
+		data, err := r.Parse(inputs, vars, options)
+		return data, nil, err
+	}
+
+	// Create source map collector
+	sourceMap := &SourceMap{
+		Inputs: make(map[string]*InputSourceMap),
+	}
+
+	// Clear previous validation results
+	r.validationResults = make(map[string]*yang.ValidationResult)
+	// Clear recorded vars (from record() function)
+	r.recordedVars = make(map[string]interface{})
+
+	// Set YANG module set if provided
+	if options != nil && options.YANGModuleSet != nil {
+		r.SetYANGModuleSet(options.YANGModuleSet)
+	}
+
+	// Merge template vars (from <vars> tag) with passed vars
+	// Template vars are the base, passed vars override them
+	if r.compiled.Vars != nil || vars != nil {
+		mergedVars := make(map[string]interface{})
+		// First add template vars
+		if r.compiled.Vars != nil {
+			for k, v := range r.compiled.Vars {
+				mergedVars[k] = v
+			}
+		}
+		// Then add passed vars (override template vars)
+		for k, v := range vars {
+			mergedVars[k] = v
+		}
+		vars = mergedVars
+	}
+
+	// Track all input names for per_input results method
+	// Use a slice to preserve order (inputs from template first, then passed inputs)
+	allInputNames := make(map[string]bool)
+	inputOrder := make([]string, 0)
+
+	// Track which inputs are referenced by groups (via input attribute)
+	// Inputs that are only referenced by groups shouldn't create separate result entries
+	inputsReferencedByGroups := make(map[string]bool)
+
+	// First, identify which inputs are referenced by groups
+	// Only count inputs that actually exist in the inputs map
+	for _, group := range r.compiled.Groups {
+		if !group.IsNested {
+			inputName := group.Input
+			if inputName == "" {
+				inputName = "Default_Input"
+			}
+			// Only mark as referenced if the input actually exists
+			if _, exists := inputs[inputName]; exists {
+				inputsReferencedByGroups[inputName] = true
+			}
+		}
+	}
+
+	// Process input tags from template first (preserve template order)
+	// This allows <input> tags in templates to provide data even when data is passed separately
+	if r.compiled.Inputs != nil {
+		for _, input := range r.compiled.Inputs {
+			// Only process inputs with load="text" (embedded data)
+			// The data is stored in the input's Data field after compilation
+			if input.Load == "text" && input.Data != "" {
+				// If input name already exists in inputs map, don't overwrite (passed data takes precedence)
+				if _, exists := inputs[input.Name]; !exists {
+					inputs[input.Name] = input.Data
+				}
+			}
+		}
+	}
+
+	// Build inputOrder: preserve order from template inputs first, then passed inputs
+	// Python TTP behavior: inputs are ordered as they appear in template, then passed inputs
+	// All inputs are included in results, even if not referenced by groups (they get empty results)
+
+	// First, add template inputs in the order they appear in the template
+	if r.compiled.Inputs != nil {
+		for _, input := range r.compiled.Inputs {
+			// Check if this input exists (either from template or passed)
+			if _, exists := inputs[input.Name]; exists {
+				if !allInputNames[input.Name] {
+					allInputNames[input.Name] = true
+					inputOrder = append(inputOrder, input.Name)
+				}
+			}
+		}
+	}
+
+	// Then add passed inputs that weren't already added (in the order they were passed)
+	// We need to preserve the order from the inputs map, but Go maps don't preserve order
+	// So we'll add them in a deterministic way: sorted by name for non-template inputs
+	passedInputNames := make([]string, 0)
+	for name := range inputs {
+		if !allInputNames[name] {
+			passedInputNames = append(passedInputNames, name)
+		}
+	}
+	// Sort to ensure deterministic order (Python TTP may have different ordering, but this is consistent)
+	sort.Strings(passedInputNames)
+	for _, name := range passedInputNames {
+		allInputNames[name] = true
+		inputOrder = append(inputOrder, name)
+	}
+
+	// Initialize source maps for all inputs
+	for inputName := range allInputNames {
+		inputData := inputs[inputName]
+		lines := strings.Split(inputData, "\n")
+		inputSourceMap := &InputSourceMap{
+			Lines: make([]*LineMapping, len(lines)),
+		}
+		for i := range lines {
+			inputSourceMap.Lines[i] = &LineMapping{
+				LineNumber: i,
+				Matched:    false,
+				Matches:    make([]*MatchMapping, 0),
+			}
+		}
+		sourceMap.Inputs[inputName] = inputSourceMap
+	}
+
+	// For per_input results method, track results per input
+	// For per_template, use a single results map
+	var results map[string]interface{}
+	var resultsPerInput map[string]map[string]interface{} // input name -> results map
+
+	if r.compiled.ResultsMethod == "per_input" {
+		resultsPerInput = make(map[string]map[string]interface{})
+		// Initialize results map for each input
+		for inputName := range allInputNames {
+			resultsPerInput[inputName] = make(map[string]interface{})
+		}
+	} else {
+		results = make(map[string]interface{})
+	}
+
+	// Helper function to get the appropriate results map for storing group results
+	getResultsMap := func(inputName string) map[string]interface{} {
+		if r.compiled.ResultsMethod == "per_input" {
+			// Get or create results map for this input
+			if resultsMap, exists := resultsPerInput[inputName]; exists {
+				return resultsMap
+			}
+			// Create new results map if input wasn't tracked yet
+			resultsMap := make(map[string]interface{})
+			resultsPerInput[inputName] = resultsMap
+			return resultsMap
+		}
+		return results
+	}
+
+	// Process each group
+	for _, group := range r.compiled.Groups {
+		// Skip nested groups - they're processed within their parent group
+		if group.IsNested {
+			// Nested groups should never be processed as top-level groups
+			// They are only processed within their parent group's context
+			// If we see a nested group here, it shouldn't be in the top-level list
+			// This is a bug - nested groups should only be in parent's Groups field
+			continue
+		}
+
+		// Determine which input this group should parse
+		inputName := group.Input
+		if inputName == "" {
+			inputName = "Default_Input"
+		}
+
+		// Get input data
+		inputData, exists := inputs[inputName]
+		if !exists {
+			// Input doesn't exist - skip this group
+			continue
+		}
+
+		// Parse group with source map collection
+		groupResults, err := r.parseGroupWithSourceMap(group, inputData, vars, inputName, sourceMap, getResultsMap(inputName))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// Store group results using the same logic as parseGroup
+		// Track the actual path strings used when storing
+		resultsMap := getResultsMap(inputName)
+		var actualResultPaths []string // Track paths that were actually used
+		
+		// Store results using the same logic as parseGroup (from Parse method)
+		if groupResults != nil && group.Name != "" {
+			// Check if path is dynamic (contains {{ }})
+			isDynamicPath := strings.Contains(group.Name, "{{")
+			
+			// Extract variables used in dynamic path (if any)
+			pathVars := r.pathResolver.ExtractVariablesFromPath(group.Name)
+			pathVarSet := make(map[string]bool)
+			for _, v := range pathVars {
+				pathVarSet[v] = true
+			}
+			
+			// Helper function to remove path variables from a match
+			removePathVars := func(match map[string]interface{}) map[string]interface{} {
+				if len(pathVarSet) == 0 {
+					return match
+				}
+				cleaned := make(map[string]interface{})
+				for k, v := range match {
+					if !pathVarSet[k] {
+						cleaned[k] = v
+					}
+				}
+				return cleaned
+			}
+			
+			// Store results using storeAtPath (same as parseGroup does)
+			if matches, ok := groupResults.([]map[string]interface{}); ok {
+				// Multiple matches - group by resolved path
+				groupedResults := make(map[string][]map[string]interface{})
+				for _, match := range matches {
+					resolvedName, err := r.pathResolver.ResolvePath(group.Name, match, vars)
+					if err == nil && resolvedName != "" && resolvedName != group.Name {
+						cleanedMatch := removePathVars(match)
+						groupedResults[resolvedName] = append(groupedResults[resolvedName], cleanedMatch)
+					} else {
+						cleanedMatch := removePathVars(match)
+						groupedResults[group.Name] = append(groupedResults[group.Name], cleanedMatch)
+					}
+				}
+				for resolvedName, matches := range groupedResults {
+					var valueToStore interface{}
+					if len(matches) == 1 {
+						valueToStore = matches[0]
+					} else {
+						resultList := make([]interface{}, len(matches))
+						for i, m := range matches {
+							resultList[i] = m
+						}
+						valueToStore = resultList
+					}
+					pathToUse := resolvedName
+					if len(matches) > 1 && !strings.HasSuffix(pathToUse, "*") && !strings.HasSuffix(pathToUse, "**") {
+						pathToUse = pathToUse + "*"
+					}
+					r.storeAtPath(resultsMap, pathToUse, valueToStore)
+					actualResultPaths = append(actualResultPaths, pathToUse)
+				}
+			} else if singleMatch, ok := groupResults.(map[string]interface{}); ok {
+				// Single match
+				resolvedName, err := r.pathResolver.ResolvePath(group.Name, singleMatch, vars)
+				cleanedMatch := removePathVars(singleMatch)
+				if err == nil && resolvedName != "" && resolvedName != group.Name {
+					r.storeAtPath(resultsMap, resolvedName, cleanedMatch)
+					actualResultPaths = append(actualResultPaths, resolvedName)
+				} else {
+					r.storeAtPath(resultsMap, group.Name, cleanedMatch)
+					actualResultPaths = append(actualResultPaths, group.Name)
+				}
+			} else {
+				// Other types
+				resolvedName, err := r.pathResolver.ResolvePath(group.Name, nil, vars)
+				if err == nil && resolvedName != "" && resolvedName != group.Name {
+					if isDynamicPath {
+						if valueList, ok := groupResults.([]interface{}); ok {
+							r.storeAtPath(resultsMap, resolvedName, valueList)
+						} else {
+							r.storeAtPath(resultsMap, resolvedName, []interface{}{groupResults})
+						}
+					} else {
+						r.storeAtPath(resultsMap, resolvedName, groupResults)
+					}
+					actualResultPaths = append(actualResultPaths, resolvedName)
+				} else {
+					r.storeAtPath(resultsMap, group.Name, groupResults)
+					actualResultPaths = append(actualResultPaths, group.Name)
+				}
+			}
+		} else if groupResults != nil && group.Name == "" {
+			// Anonymous group
+			r.storeAtPath(resultsMap, "_anonymous_*", groupResults)
+			actualResultPaths = append(actualResultPaths, "_anonymous_*")
+		}
+		
+		// If no paths tracked, use group name as fallback
+		if len(actualResultPaths) == 0 && group.Name != "" {
+			actualResultPaths = append(actualResultPaths, group.Name)
+		} else if len(actualResultPaths) == 0 && group.Name == "" {
+			actualResultPaths = append(actualResultPaths, "_anonymous_")
+		}
+		
+		// Update result paths in source map with actual paths used
+		if len(actualResultPaths) > 0 {
+			inputSourceMap, exists := sourceMap.Inputs[inputName]
+			if exists && inputSourceMap != nil {
+				for _, lineMapping := range inputSourceMap.Lines {
+					for _, matchMapping := range lineMapping.Matches {
+						if matchMapping.GroupName == group.Name {
+							// Use the first actual path (most common case)
+							matchMapping.ResultPath = actualResultPaths[0]
+						}
+					}
+				}
+			}
+		}
+
+		// YANG validation
+		if r.yangValidator != nil && groupResults != nil {
+			if yangPath, ok := group.Attributes["yang"]; ok && yangPath != "" {
+				validationResult := r.yangValidator.Validate(groupResults, yangPath, group.Name)
+				r.validationResults[group.Name] = validationResult
+			}
+		}
+	}
+
+	// Process vars with name attribute (store in result structure)
+	if r.compiled.VarsWithName != nil {
+		for _, varsWithName := range r.compiled.VarsWithName {
+			// Store vars in result structure at the specified path
+			// For per_input, store in each input's results
+			if r.compiled.ResultsMethod == "per_input" {
+				for _, inputName := range inputOrder {
+					resultsMap := getResultsMap(inputName)
+					// Use storeAtPath to set nested values
+					r.storeAtPath(resultsMap, varsWithName.Name, varsWithName.Vars)
+				}
+			} else {
+				// For per_template, store in main results map
+				r.storeAtPath(results, varsWithName.Name, varsWithName.Vars)
+			}
+		}
+	}
+
+	// Format results based on results method
+	var resultsToFormat interface{}
+
+	if r.compiled.ResultsMethod == "per_template" {
+		// per_template - return single results map
+		resultsToFormat = results
+	} else {
+		// per_input - handle anonymous groups
+		// Anonymous groups with multiple matches need special handling
+		for _, inputResults := range resultsPerInput {
+			if anonymousResults, ok := inputResults["_anonymous_"]; ok {
+				// If _anonymous_ is a list, that becomes the input's result
+				// Otherwise, merge it into inputResults
+				if anonymousList, ok := anonymousResults.([]interface{}); ok {
+					// Anonymous group with multiple matches - store the list for later use
+					// We'll handle this when creating resultsList
+					// Store it back in the map temporarily so we can access it
+					inputResults["_anonymous_list"] = anonymousList
+				} else {
+					// Single match or other type - merge into inputResults
+					delete(inputResults, "_anonymous_")
+					if anonymousMap, ok := anonymousResults.(map[string]interface{}); ok {
+						for k, v := range anonymousMap {
+							inputResults[k] = v
+						}
+					}
+				}
+			}
+		}
+
+		// per_input - create a result for each input, even if empty
+		// Create results list with one entry per input
+		resultsList := make([]interface{}, 0)
+
+		// Use inputOrder to preserve the order inputs appear in template
+		// If we don't have order info, fall back to sorted names
+		inputNamesList := inputOrder
+		if len(inputNamesList) == 0 {
+			// Fallback: collect and sort if we don't have order
+			inputNamesList = make([]string, 0, len(allInputNames))
+			for name := range allInputNames {
+				inputNamesList = append(inputNamesList, name)
+			}
+			sort.Strings(inputNamesList)
+		}
+
+		for _, inputName := range inputNamesList {
+			if inputResults, exists := resultsPerInput[inputName]; exists {
+				// Check if this input has anonymous group results stored as a list
+				// Anonymous groups with multiple matches are stored at "_anonymous_list" key
+				if anonymousList, ok := inputResults["_anonymous_list"]; ok {
+					if list, ok := anonymousList.([]interface{}); ok {
+						// Anonymous group results - these should BE the entire result list
+						// Don't append, just use the list directly as the result
+						resultsToFormat = list
+						goto skipResultsListBuild
+					}
+				}
+
+				// This input had results - use its results map
+				resultsList = append(resultsList, inputResults)
+			} else {
+				// Empty result for this input (matches Python TTP behavior)
+				resultsList = append(resultsList, make(map[string]interface{}))
+			}
+		}
+
+		resultsToFormat = resultsList
+	skipResultsListBuild:
+	}
+
+	// Process output functions if any
+	var finalResults interface{} = resultsToFormat
+	if len(r.compiled.Outputs) > 0 {
+		var err error
+		finalResults, err = r.processOutputFunctions(resultsToFormat, vars)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to process output functions: %w", err)
+		}
+	}
+
+	// Handle results method for return structure
+	if r.compiled.ResultsMethod == "per_template" {
+		return finalResults, sourceMap, nil
+	}
+
+	// per_input - return as list (already wrapped if formatted, or wrap if not)
+	if _, isList := finalResults.([]interface{}); !isList {
+		return []interface{}{finalResults}, sourceMap, nil
+	}
+	return finalResults, sourceMap, nil
 }
 
 // parseGroup parses input data against a compiled group
@@ -3333,6 +3764,359 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		}
 		return mergedMatches, nil
 	}
+}
+
+// parseGroupWithSourceMap parses input data against a compiled group and collects source map data
+func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputData string, vars map[string]interface{}, inputName string, sourceMap *SourceMap, resultsMap map[string]interface{}) (interface{}, error) {
+	if len(group.Patterns) == 0 {
+		return nil, nil
+	}
+
+	// Get input source map
+	inputSourceMap, exists := sourceMap.Inputs[inputName]
+	if !exists {
+		// Should not happen - input source map should be initialized
+		// Fall back to parseGroup without source map
+		return r.parseGroup(group, inputData, vars)
+	}
+
+	// Collect all matches with their positions and source map data
+	type patternMatch struct {
+		patternIdx int
+		spanStart  int
+		spanEnd    int
+		result     map[string]interface{}
+		lineIdx    int                    // line index for source map
+		varRanges  map[string]*VarRange // variable name -> character range
+	}
+
+	var allMatches []patternMatch
+
+	// Process each pattern and collect matches with positions
+	lines := strings.Split(inputData, "\n")
+	lineOffsets := make([]int, len(lines)+1) // Track byte offsets for each line
+	offset := 0
+	for i, line := range lines {
+		lineOffsets[i] = offset
+		offset += len(line) + 1 // +1 for newline
+	}
+	lineOffsets[len(lines)] = offset
+
+	for patternIdx, compiledPattern := range group.Patterns {
+		hasAnchors := strings.Contains(compiledPattern.Regex.String(), "^") ||
+			strings.Contains(compiledPattern.Regex.String(), "$")
+
+		if hasAnchors {
+			// Match line by line
+			for lineIdx, line := range lines {
+				line = strings.TrimRight(line, "\r \t")
+				trimmedLine := strings.TrimSpace(line)
+
+				hasStartIndicator := false
+				hasEndIndicator := false
+				for varName := range compiledPattern.Variables {
+					if varName == "_start_" {
+						hasStartIndicator = true
+					}
+					if varName == "_end_" {
+						hasEndIndicator = true
+					}
+					for _, funcStr := range compiledPattern.Variables[varName].Functions {
+						if funcStr == "_start_" {
+							hasStartIndicator = true
+						}
+						if funcStr == "_end_" {
+							hasEndIndicator = true
+						}
+					}
+					if hasStartIndicator && hasEndIndicator {
+						break
+					}
+				}
+
+				if trimmedLine == "" && !hasStartIndicator && !hasEndIndicator {
+					continue
+				}
+
+				matchLine := line
+				if trimmedLine == "" && (hasStartIndicator || hasEndIndicator) {
+					matchLine = ""
+				}
+
+				match := compiledPattern.Regex.FindStringSubmatch(matchLine)
+				if match != nil {
+					// Find character positions for the match
+					matchIndices := compiledPattern.Regex.FindStringSubmatchIndex(matchLine)
+					if matchIndices == nil || len(matchIndices) < 2 {
+						continue
+					}
+
+					result := r.extractMatchResult(match, compiledPattern, vars)
+					
+					hasOnlySpecialIndicators := true
+					for varName := range compiledPattern.Variables {
+						if varName != "ignore" && varName != "_start_" && varName != "_end_" && varName != "_line_" && varName != "_exact_" && varName != "_exact_space_" {
+							hasOnlySpecialIndicators = false
+							break
+						}
+					}
+
+					ignoreUsesTemplateVar := false
+					for _, variable := range compiledPattern.Variables {
+						if variable.Name == "ignore" && variable.IgnoreUsesTemplateVar {
+							ignoreUsesTemplateVar = true
+							break
+						}
+					}
+
+					hasJoinMatches := false
+					for _, variable := range compiledPattern.Variables {
+						for _, funcStr := range variable.Functions {
+							if strings.HasPrefix(funcStr, "joinmatches") {
+								hasJoinMatches = true
+								break
+							}
+						}
+						if hasJoinMatches {
+							break
+						}
+					}
+
+					if result != nil && (len(result) > 0 || hasOnlySpecialIndicators || ignoreUsesTemplateVar || hasJoinMatches) {
+						spanStart := lineOffsets[lineIdx] + matchIndices[0]
+						spanEnd := lineOffsets[lineIdx] + matchIndices[1]
+						
+						// Extract variable ranges from match indices
+						varRanges := make(map[string]*VarRange)
+						varIndex := 1 // First capture group is at index 1
+						for _, varName := range compiledPattern.VariableOrder {
+							_, ok := compiledPattern.Variables[varName]
+							if !ok {
+								continue
+							}
+							
+							// Skip special variables
+							if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+								varIndex++
+								continue
+							}
+							
+							// Get variable range from match indices
+							if varIndex*2 < len(matchIndices) {
+								varStart := matchIndices[varIndex*2]
+								varEnd := matchIndices[varIndex*2+1]
+								if varStart >= 0 && varEnd >= 0 {
+									varRanges[varName] = &VarRange{
+										StartCol: varStart,
+										EndCol:   varEnd,
+									}
+								}
+							}
+							varIndex++
+						}
+
+						allMatches = append(allMatches, patternMatch{
+							patternIdx: patternIdx,
+							spanStart:  spanStart,
+							spanEnd:    spanEnd,
+							result:     result,
+							lineIdx:    lineIdx,
+							varRanges:  varRanges,
+						})
+					}
+				}
+			}
+		} else {
+			// Match against entire input
+			allIndices := compiledPattern.Regex.FindAllStringSubmatchIndex(inputData, -1)
+
+			for _, indices := range allIndices {
+				if len(indices) < 2 {
+					continue
+				}
+
+				matchGroups := make([]string, len(indices)/2)
+				for i := 0; i < len(indices); i += 2 {
+					if indices[i] >= 0 && indices[i+1] >= 0 {
+						matchGroups[i/2] = inputData[indices[i]:indices[i+1]]
+					}
+				}
+
+				result := r.extractMatchResult(matchGroups, compiledPattern, vars)
+				ignoreUsesTemplateVar := false
+				for _, variable := range compiledPattern.Variables {
+					if variable.Name == "ignore" && variable.IgnoreUsesTemplateVar {
+						ignoreUsesTemplateVar = true
+						break
+					}
+				}
+				
+				if result != nil && (len(result) > 0 || ignoreUsesTemplateVar) {
+					// Find which line this match is on
+					lineIdx := 0
+					for i, offset := range lineOffsets {
+						if indices[0] < offset {
+							lineIdx = i - 1
+							break
+						}
+					}
+					if lineIdx < 0 {
+						lineIdx = 0
+					}
+					if lineIdx >= len(lines) {
+						lineIdx = len(lines) - 1
+					}
+
+					// Extract variable ranges (relative to line start)
+					varRanges := make(map[string]*VarRange)
+					varIndex := 1
+					lineStart := lineOffsets[lineIdx]
+					for _, varName := range compiledPattern.VariableOrder {
+						_, ok := compiledPattern.Variables[varName]
+						if !ok {
+							continue
+						}
+						
+						if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+							varIndex++
+							continue
+						}
+						
+						if varIndex*2 < len(indices) {
+							// Calculate absolute positions, then convert to relative to line
+							varStartAbs := indices[varIndex*2]
+							varEndAbs := indices[varIndex*2+1]
+							if varStartAbs >= 0 && varEndAbs >= 0 {
+								varStart := varStartAbs - lineStart
+								varEnd := varEndAbs - lineStart
+								if varStart >= 0 && varEnd >= 0 {
+									varRanges[varName] = &VarRange{
+										StartCol: varStart,
+										EndCol:   varEnd,
+									}
+								}
+							}
+						}
+						varIndex++
+					}
+
+					allMatches = append(allMatches, patternMatch{
+						patternIdx: patternIdx,
+						spanStart:  indices[0],
+						spanEnd:    indices[1],
+						result:     result,
+						lineIdx:    lineIdx,
+						varRanges:  varRanges,
+					})
+				}
+			}
+		}
+	}
+
+	// Sort matches by position
+	sort.Slice(allMatches, func(i, j int) bool {
+		if allMatches[i].spanStart == allMatches[j].spanStart {
+			return allMatches[i].patternIdx < allMatches[j].patternIdx
+		}
+		return allMatches[i].spanStart < allMatches[j].spanStart
+	})
+
+	// Filter matches for table method
+	if group.Method == "table" {
+		filteredMatches := make([]patternMatch, 0, len(allMatches))
+		seenPositions := make(map[int]bool)
+		for _, match := range allMatches {
+			if !seenPositions[match.spanStart] {
+				seenPositions[match.spanStart] = true
+				filteredMatches = append(filteredMatches, match)
+			}
+		}
+		allMatches = filteredMatches
+	}
+
+	// Now delegate to parseGroup for the complex merging logic
+	// But first, record matches in source map
+	for _, match := range allMatches {
+		if match.lineIdx >= 0 && match.lineIdx < len(inputSourceMap.Lines) {
+			lineMapping := inputSourceMap.Lines[match.lineIdx]
+			lineMapping.Matched = true
+			
+			// Calculate column positions relative to line start
+			lineStart := lineOffsets[match.lineIdx]
+			startCol := match.spanStart - lineStart
+			endCol := match.spanEnd - lineStart
+			
+			// Adjust variable ranges to be relative to line start
+			adjustedVarRanges := make(map[string]*VarRange)
+			for varName, varRange := range match.varRanges {
+				adjustedVarRanges[varName] = &VarRange{
+					StartCol: varRange.StartCol,
+					EndCol:   varRange.EndCol,
+				}
+			}
+			
+			matchMapping := &MatchMapping{
+				StartCol:     startCol,
+				EndCol:       endCol,
+				GroupName:    group.Name,
+				PatternIndex: match.patternIdx,
+				Variables:    adjustedVarRanges,
+				ResultPath:   "", // Will be set when we know the result path
+			}
+			
+			lineMapping.Matches = append(lineMapping.Matches, matchMapping)
+		}
+	}
+
+	// Call parseGroup to do the actual parsing and merging
+	// This ensures we get the same results as parseGroup
+	result, err := r.parseGroup(group, inputData, vars)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update result paths in source map based on how results are stored
+	// Try to determine the actual result path from the resultsMap
+	if result != nil && group.Name != "" {
+		// Check if group name exists in results map (might be resolved path)
+		resultPath := group.Name
+		
+		// Check if resultsMap has this group
+		if resultsMap != nil {
+			if _, exists := resultsMap[group.Name]; exists {
+				resultPath = group.Name
+			} else {
+				// Try to find resolved path - check all keys in resultsMap
+				for key := range resultsMap {
+					// Check if key starts with group name (for dynamic paths)
+					if strings.HasPrefix(key, group.Name) || group.Name == "" {
+						resultPath = key
+						break
+					}
+				}
+			}
+		}
+		
+		// Update all matches for this group with the result path
+		for _, lineMapping := range inputSourceMap.Lines {
+			for _, matchMapping := range lineMapping.Matches {
+				if matchMapping.GroupName == group.Name {
+					matchMapping.ResultPath = resultPath
+				}
+			}
+		}
+	} else if result != nil && group.Name == "" {
+		// Anonymous group - use "_anonymous_" as path
+		for _, lineMapping := range inputSourceMap.Lines {
+			for _, matchMapping := range lineMapping.Matches {
+				if matchMapping.GroupName == "" {
+					matchMapping.ResultPath = "_anonymous_"
+				}
+			}
+		}
+	}
+
+	return result, nil
 }
 
 // processFunctions applies function pipeline to a value
