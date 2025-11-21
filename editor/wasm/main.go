@@ -51,11 +51,29 @@ func compileTemplate(this js.Value, args []js.Value) interface{} {
 		}
 	}
 
-	return map[string]interface{}{
-		"result":   string(compiledJSON),
-		"cacheKey": cacheKey,
-		"error":    nil,
+	// Get compilation warnings
+	warnings := compiled.GetWarnings()
+	warningsJSON, marshalErr := json.Marshal(warnings)
+	if marshalErr != nil {
+		warningsJSON = []byte("[]")
 	}
+
+	// Create result object - ensure all fields are explicitly set
+	// Go WASM may drop nil values, so we use empty string for error if nil
+	resultError := ""
+	if err != nil {
+		resultError = err.Error()
+	}
+
+	// Create result map and explicitly set all fields
+	// Using js.ValueOf on the map should preserve all fields
+	result := make(map[string]interface{})
+	result["result"] = string(compiledJSON)
+	result["cacheKey"] = cacheKey
+	result["warnings"] = string(warningsJSON)
+	result["error"] = resultError
+
+	return result
 }
 
 // parseTemplate parses input data using a compiled template

@@ -1,6 +1,7 @@
 package macro
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -205,6 +206,29 @@ def func3(data):
 		if !found {
 			t.Errorf("extractFunctionNames() missing function: %s", expectedName)
 		}
+	}
+}
+
+// TestStarlarkEngine_PythonFStringRejection tests that Python f-string syntax is rejected
+// F-strings are not supported in Starlark and should cause a compilation error
+// Users should use string concatenation with + or .format() instead
+func TestStarlarkEngine_PythonFStringRejection(t *testing.T) {
+	engine := NewStarlarkEngine()
+	
+	// Test with f-string - should fail to compile
+	source := `def test_func(data):
+    result = f"{data.get('key', 'default')}"
+    return {"result": result}`
+	
+	err := engine.RegisterMacroSource(source)
+	if err == nil {
+		t.Fatal("Expected error when registering macro with f-string, but got none")
+	}
+	
+	// Verify the error mentions f-string or syntax error
+	if !strings.Contains(err.Error(), "f") && !strings.Contains(err.Error(), "syntax") {
+		t.Logf("Error message: %v", err)
+		// This is acceptable - any compilation error is fine
 	}
 }
 

@@ -533,7 +533,7 @@ body {
 /* Notifications */
 .notifications {
     position: fixed;
-    top: 20px;
+    bottom: 20px;
     right: 20px;
     z-index: 3000;
     display: flex;
@@ -548,7 +548,7 @@ body {
     padding: 12px 16px;
     min-width: 300px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    animation: slideIn 0.3s ease-out;
+    animation: slideInFromBottom 0.3s ease-out;
 }
 
 @keyframes slideIn {
@@ -558,6 +558,17 @@ body {
     }
     to {
         transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInFromBottom {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
         opacity: 1;
     }
 }

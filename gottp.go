@@ -68,6 +68,14 @@ type CompiledTemplate struct {
 	compiled *compiler.CompiledTemplate
 }
 
+// GetWarnings returns compilation warnings (non-fatal issues like Python-specific syntax in Starlark macros)
+func (ct *CompiledTemplate) GetWarnings() []string {
+	if ct.compiled == nil {
+		return []string{}
+	}
+	return ct.compiled.Warnings
+}
+
 // ParseResult contains the parsed results and validation results
 type ParseResult struct {
 	Data             interface{}                          // Parsed data
