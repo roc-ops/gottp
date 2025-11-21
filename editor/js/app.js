@@ -235,20 +235,35 @@ class GottpEditor {
             let compileTime = null;
             let executionTime = null;
             
-            // Compile template if needed
-            if (!this.state.compiledTemplate) {
+            // Compile template if needed (always compile to check for warnings)
+            if (!this.state.compiledTemplate || this.state.templateCacheKey !== this.state.template) {
                 this.showNotification('Compiling template...', 'info');
                 try {
                     const compileStart = performance.now();
                     const compileResult = await wasmBridge.compileTemplate(this.state.template);
                     compileTime = performance.now() - compileStart;
+                    
                     // Store both JSON and cache key for faster parsing
                     this.state.compiledTemplate = compileResult.compiledJSON || compileResult;
                     this.state.templateCacheKey = compileResult.cacheKey || this.state.template;
+                    
+                    // Display compilation warnings if any
+                    if (compileResult.warnings && compileResult.warnings.length > 0) {
+                        const warningsText = compileResult.warnings.join('\n');
+                        this.showNotification(`Compilation warnings:\n${warningsText}`, 'warning');
+                        
+                        // Set Monaco editor markers for macro warnings
+                        this.setMacroWarnings(compileResult.warnings);
+                    } else {
+                        // Clear macro warning markers if no warnings
+                        this.clearMacroWarnings();
+                    }
                 } catch (compileError) {
                     // Clear compiled template on error so we retry next time
                     this.state.compiledTemplate = null;
                     this.state.templateCacheKey = null;
+                    // Clear macro warnings on error
+                    this.clearMacroWarnings();
                     throw compileError;
                 }
             }
@@ -1236,6 +1251,99 @@ class GottpEditor {
             }
             this.showNotification(`YANG Validation: ${messages.join(', ')}`, totalErrors > 0 ? 'error' : 'warning');
         }
+    }
+    
+    /**
+     * Set Monaco editor markers for macro compilation warnings
+     * @param {Array<string>} warnings - Array of warning messages
+     */
+    setMacroWarnings(warnings) {
+        if (!templateEditor || !warnings || warnings.length === 0) {
+            return;
+        }
+        
+        const model = templateEditor.getModel();
+        const templateText = model.getValue();
+        const markers = [];
+        
+        // Find all <macro> tags in the template
+        const macroRegex = /<macro[^>]*>([\s\S]*?)<\/macro>/gi;
+        let macroMatch;
+        let macroIndex = 0;
+        
+        while ((macroMatch = macroRegex.exec(templateText)) !== null) {
+            const macroContent = macroMatch[1];
+            const macroStartIndex = macroMatch.index;
+            const macroTagStart = macroMatch[0].indexOf('>') + 1;
+            const macroContentStart = macroStartIndex + macroTagStart;
+            
+            // Find line number for the start of this macro
+            const beforeMacro = templateText.substring(0, macroContentStart);
+            const macroStartLine = (beforeMacro.match(/\n/g) || []).length + 1;
+            
+            // Check each warning to see if it's for this macro
+            for (const warning of warnings) {
+                // Extract line number from warning if present (format: "on line X")
+                const lineMatch = warning.match(/on line (\d+)/i);
+                let warningLine = null;
+                if (lineMatch) {
+                    warningLine = parseInt(lineMatch[1], 10);
+                }
+                
+                // If warning mentions a line number, use it relative to macro start
+                // Otherwise, mark the first line of the macro content
+                let actualLine = macroStartLine;
+                if (warningLine && warningLine > 0) {
+                    // Count lines in macro content
+                    const macroLines = macroContent.split('\n');
+                    if (warningLine <= macroLines.length) {
+                        actualLine = macroStartLine + warningLine - 1;
+                    } else {
+                        actualLine = macroStartLine + macroLines.length - 1;
+                    }
+                } else {
+                    // No line number, mark the first line of macro content (after the <macro> tag)
+                    actualLine = macroStartLine + 1;
+                }
+                
+                const cleanMessage = warning.replace(/^macro \(language=[^)]+\): /, ''); // Remove language prefix
+                
+                markers.push({
+                    severity: monaco.MarkerSeverity.Warning,
+                    startLineNumber: actualLine,
+                    startColumn: 1,
+                    endLineNumber: actualLine,
+                    endColumn: 999,
+                    message: cleanMessage
+                });
+            }
+            
+            macroIndex++;
+        }
+        
+        // If we couldn't find macro tags but have warnings, mark the first line
+        if (markers.length === 0 && warnings.length > 0) {
+            markers.push({
+                severity: monaco.MarkerSeverity.Warning,
+                startLineNumber: 1,
+                startColumn: 1,
+                endLineNumber: 1,
+                endColumn: 999,
+                message: warnings[0].replace(/^macro \(language=[^)]+\): /, '')
+            });
+        }
+        
+        monaco.editor.setModelMarkers(model, 'macro-warnings', markers);
+    }
+    
+    /**
+     * Clear macro warning markers
+     */
+    clearMacroWarnings() {
+        if (!templateEditor) return;
+        
+        const model = templateEditor.getModel();
+        monaco.editor.setModelMarkers(model, 'macro-warnings', []);
     }
     
     setupOptionsHandlers() {

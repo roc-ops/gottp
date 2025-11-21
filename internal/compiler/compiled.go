@@ -8,6 +8,7 @@ import (
 
 	"github.com/roc-ops/gottp/internal/parser"
 	"github.com/roc-ops/gottp/internal/pattern"
+	"github.com/roc-ops/gottp/internal/validator"
 	"github.com/roc-ops/gottp/internal/variable"
 )
 
@@ -46,6 +47,9 @@ type CompiledTemplate struct {
 
 	// Version for compatibility checking
 	Version string
+
+	// Compilation warnings (non-fatal issues like Python-specific syntax in Starlark macros)
+	Warnings []string
 }
 
 // CompiledVarsWithName represents compiled vars with name attribute
@@ -146,6 +150,7 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 		Version:       "1.0.0", // TODO: use actual version
 		Vars:          make(map[string]interface{}),
 		VarsWithName:  []*CompiledVarsWithName{},
+		Warnings:      []string{},
 	}
 
 	// Parse and copy vars
@@ -325,7 +330,7 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 		compiled.Lookups = append(compiled.Lookups, compiledLookup)
 	}
 
-	// Compile macros
+	// Compile macros and validate for Starlark compatibility
 	for _, macro := range tmpl.Macros {
 		compiledMacro := &CompiledMacro{
 			Language:   macro.Language,
@@ -333,6 +338,12 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 			Attributes: macro.Attributes,
 		}
 		compiled.Macros = append(compiled.Macros, compiledMacro)
+		
+		// Validate macro source for Python-specific syntax that's not compatible with Starlark
+		macroWarnings := validator.ValidateMacroSource(macro.Content, macro.Language)
+		for _, warning := range macroWarnings {
+			compiled.Warnings = append(compiled.Warnings, fmt.Sprintf("macro (language=%s): %s", macro.Language, warning))
+		}
 	}
 
 	// Compile child templates

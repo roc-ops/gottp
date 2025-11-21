@@ -114,10 +114,26 @@ class GottpWasmBridge {
                 throw new Error(resultObj.error);
             }
 
-            // Return both JSON and cache key
+            // Return both JSON and cache key, plus warnings
+            let warnings = [];
+            if (resultObj.warnings) {
+                // Check if it's already an array (from jsValueToObject conversion)
+                if (Array.isArray(resultObj.warnings)) {
+                    warnings = resultObj.warnings;
+                } else if (typeof resultObj.warnings === 'string') {
+                    // It's a JSON string, parse it
+                    try {
+                        warnings = JSON.parse(resultObj.warnings);
+                    } catch (e) {
+                        // If parsing fails, ignore warnings
+                    }
+                }
+            }
+            
             return {
                 compiledJSON: resultObj.result,
-                cacheKey: resultObj.cacheKey || templateText
+                cacheKey: resultObj.cacheKey || templateText,
+                warnings: warnings
             };
         } catch (error) {
             throw new Error(`Template compilation failed: ${error.message}`);
@@ -312,8 +328,13 @@ class GottpWasmBridge {
         }
 
         const obj = {};
-        const keys = Object.keys(jsValue);
+        // Use Object.getOwnPropertyNames to get all properties, including non-enumerable ones
+        const keys = Object.getOwnPropertyNames(jsValue);
         for (const key of keys) {
+            // Skip internal properties
+            if (key.startsWith('_') || key === 'constructor' || key === 'prototype') {
+                continue;
+            }
             const value = jsValue[key];
             if (value && typeof value === 'object' && value.constructor && value.constructor.name === 'Object') {
                 obj[key] = this.jsValueToObject(value);

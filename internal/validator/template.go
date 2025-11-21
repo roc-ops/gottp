@@ -60,6 +60,14 @@ func (v *Validator) ValidateTemplate(tmpl *parser.Template) *ValidationResult {
 		v.validateLookup(lookup, tmpl.Name, result)
 	}
 
+	// Validate macros
+	for _, macro := range tmpl.Macros {
+		macroWarnings := ValidateMacroSource(macro.Content, macro.Language)
+		for _, warning := range macroWarnings {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("macro (language=%s): %s", macro.Language, warning))
+		}
+	}
+
 	result.Valid = len(result.Errors) == 0
 	return result
 }
@@ -245,5 +253,41 @@ func (v *Validator) ValidateTemplateString(templateStr, templateName string) *Va
 
 	result.Valid = len(result.Errors) == 0
 	return result
+}
+
+// ValidateMacroSource validates macro source code and returns warnings for
+// Python-specific features that are not compatible with Starlark
+func ValidateMacroSource(source, language string) []string {
+	var warnings []string
+	
+	// Only validate Starlark macros (default) - Python macros are expected to use Python syntax
+	if language != "" && language != "starlark" {
+		return warnings
+	}
+	
+	// Check for Python f-strings (f"..." or f'...')
+	fStringPattern := regexp.MustCompile(`\bf["']`)
+	if fStringPattern.MatchString(source) {
+		warnings = append(warnings, "macro contains Python f-string syntax (f\"...\" or f'...'). Starlark does not support f-strings. Use string concatenation with + or .format() instead.")
+	}
+	
+	// Check for implicit string concatenation (adjacent string literals)
+	// Pattern: "string1" "string2" or 'string1' 'string2'
+	// This is tricky because we need to avoid matching strings that are part of expressions
+	// We'll look for patterns like: "..." "..." or '...' '...' on the same line
+	// Go's regexp doesn't support backreferences, so we'll check for both patterns separately
+	lines := strings.Split(source, "\n")
+	for lineNum, line := range lines {
+		// Look for adjacent double-quoted strings: "..." "..."
+		doubleQuotePattern := regexp.MustCompile(`"[^"]*"\s+"[^"]*"`)
+		// Look for adjacent single-quoted strings: '...' '...'
+		singleQuotePattern := regexp.MustCompile(`'[^']*'\s+'[^']*'`)
+		
+		if doubleQuotePattern.MatchString(line) || singleQuotePattern.MatchString(line) {
+			warnings = append(warnings, fmt.Sprintf("macro contains implicit string concatenation (adjacent string literals) on line %d. Starlark does not support implicit concatenation. Use + operator to concatenate strings explicitly.", lineNum+1))
+		}
+	}
+	
+	return warnings
 }
 
