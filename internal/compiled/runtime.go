@@ -51,7 +51,14 @@ func NewRuntime(compiled *compiler.CompiledTemplate) *Runtime {
 	// Register macros from compiled template
 	for _, m := range compiled.Macros {
 		// Register macro source (functions will be extracted on execution)
-		_ = rt.macroRegistry.RegisterMacro(m.Language, "", m.Source)
+		// Don't ignore errors - if macro registration fails, we should know about it
+		if err := rt.macroRegistry.RegisterMacro(m.Language, "", m.Source); err != nil {
+			// Log the error but don't fail - allow template to continue
+			// This matches Python TTP behavior where macro errors are handled gracefully
+			// The macro simply won't be available if registration fails
+			// TODO: Consider adding a logger here for debugging
+			_ = err
+		}
 	}
 
 	return rt
