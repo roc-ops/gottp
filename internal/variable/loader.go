@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -39,17 +40,50 @@ func (l *Loader) Load(data string, format string) (map[string]interface{}, error
 
 // LoadPython loads Python-formatted variables
 func (l *Loader) LoadPython(data string) (map[string]interface{}, error) {
-	// For now, we'll use a simple approach
-	// In production, we might want to use a Python parser or Starlark
-	// For basic Python dict syntax, we can parse it manually
 	result := make(map[string]interface{})
 	
-	// Simple key=value parsing for now
-	// TODO: Implement proper Python dict parsing
+	// Split by lines but handle multi-line dictionaries
 	lines := strings.Split(data, "\n")
+	
+	var currentKey string
+	var currentValue strings.Builder
+	var inDict bool
+	var braceDepth int
+	
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
+		
+		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		
+		// Check if we're in a multi-line dictionary
+		if inDict {
+			currentValue.WriteString("\n")
+			currentValue.WriteString(line)
+			
+			// Count braces to track dictionary depth
+			for _, char := range line {
+				if char == '{' {
+					braceDepth++
+				} else if char == '}' {
+					braceDepth--
+					if braceDepth == 0 {
+						// End of dictionary
+						inDict = false
+						// Parse the dictionary value
+						dictStr := currentValue.String()
+						parsed, err := l.parsePythonValue(dictStr)
+						if err == nil {
+							result[currentKey] = parsed
+						}
+						currentKey = ""
+						currentValue.Reset()
+						continue
+					}
+				}
+			}
 			continue
 		}
 		
@@ -59,14 +93,125 @@ func (l *Loader) LoadPython(data string) (map[string]interface{}, error) {
 			if len(parts) == 2 {
 				key := strings.TrimSpace(parts[0])
 				value := strings.TrimSpace(parts[1])
-				// Remove quotes if present
-				value = strings.Trim(value, `"'`)
-				result[key] = value
+				
+				// Check if value starts with { (dictionary)
+				if strings.HasPrefix(value, "{") {
+					// Multi-line dictionary
+					currentKey = key
+					currentValue.WriteString(value)
+					inDict = true
+					braceDepth = strings.Count(value, "{") - strings.Count(value, "}")
+					
+					// Check if dictionary closes on same line
+					if braceDepth == 0 {
+						// Single-line dictionary
+						parsed, err := l.parsePythonValue(value)
+						if err == nil {
+							result[key] = parsed
+						} else {
+							// Fallback to string
+							result[key] = value
+						}
+						inDict = false
+						currentValue.Reset()
+					}
+				} else {
+					// Simple value
+					parsed, err := l.parsePythonValue(value)
+					if err == nil {
+						result[key] = parsed
+					} else {
+						// Remove quotes if present and use as string
+						value = strings.Trim(value, `"'`)
+						result[key] = value
+					}
+				}
 			}
 		}
 	}
 	
 	return result, nil
+}
+
+// parsePythonValue parses a Python value (dict, list, bool, number, string)
+func (l *Loader) parsePythonValue(value string) (interface{}, error) {
+	value = strings.TrimSpace(value)
+	
+	// Handle Python booleans and None
+	if value == "True" || value == "true" {
+		return true, nil
+	}
+	if value == "False" || value == "false" {
+		return false, nil
+	}
+	if value == "None" || value == "none" || value == "null" {
+		return nil, nil
+	}
+	
+	// Handle dictionaries (convert Python dict syntax to JSON-like)
+	if strings.HasPrefix(value, "{") && strings.HasSuffix(value, "}") {
+		// Convert Python dict to JSON-like format
+		jsonStr := l.pythonDictToJSON(value)
+		var result map[string]interface{}
+		if err := json.Unmarshal([]byte(jsonStr), &result); err == nil {
+			return result, nil
+		}
+		return nil, fmt.Errorf("failed to parse dictionary")
+	}
+	
+	// Handle lists
+	if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
+		// Convert Python list to JSON-like format
+		jsonStr := l.pythonListToJSON(value)
+		var result []interface{}
+		if err := json.Unmarshal([]byte(jsonStr), &result); err == nil {
+			return result, nil
+		}
+		return nil, fmt.Errorf("failed to parse list")
+	}
+	
+	// Try to parse as number
+	if intVal, err := strconv.Atoi(value); err == nil {
+		return intVal, nil
+	}
+	if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+		return floatVal, nil
+	}
+	
+	// Remove quotes if present
+	value = strings.Trim(value, `"'`)
+	return value, nil
+}
+
+// pythonDictToJSON converts Python dict syntax to JSON
+func (l *Loader) pythonDictToJSON(pythonDict string) string {
+	// Replace Python booleans and None
+	result := pythonDict
+	result = strings.ReplaceAll(result, "True", "true")
+	result = strings.ReplaceAll(result, "False", "false")
+	result = strings.ReplaceAll(result, "None", "null")
+	
+	// Python allows single quotes for strings, JSON requires double quotes
+	// But we need to be careful not to replace quotes inside strings
+	// Simple approach: replace single quotes with double quotes (works for most cases)
+	// This is a simplified approach - for production, use a proper parser
+	result = strings.ReplaceAll(result, "'", `"`)
+	
+	return result
+}
+
+// pythonListToJSON converts Python list syntax to JSON
+func (l *Loader) pythonListToJSON(pythonList string) string {
+	// Replace Python booleans and None
+	result := pythonList
+	result = strings.ReplaceAll(result, "True", "true")
+	result = strings.ReplaceAll(result, "False", "false")
+	result = strings.ReplaceAll(result, "None", "null")
+	
+	// Replace single quotes with double quotes
+	result = strings.ReplaceAll(result, "'", `"`)
+	
+	return result
 }
 
 // LoadYAML loads YAML-formatted variables
