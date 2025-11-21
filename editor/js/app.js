@@ -81,6 +81,19 @@ class GottpEditor {
             this.onTemplateChange();
         });
         
+        // Word wrap toggle listeners
+        document.getElementById('input-word-wrap').addEventListener('change', (e) => {
+            this.toggleWordWrap('input', e.target.checked);
+        });
+        
+        document.getElementById('template-word-wrap').addEventListener('change', (e) => {
+            this.toggleWordWrap('template', e.target.checked);
+        });
+        
+        document.getElementById('output-word-wrap').addEventListener('change', (e) => {
+            this.toggleWordWrap('output', e.target.checked);
+        });
+        
         // Modal close buttons
         document.querySelectorAll('.modal-close').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -1344,6 +1357,35 @@ class GottpEditor {
         
         const model = templateEditor.getModel();
         monaco.editor.setModelMarkers(model, 'macro-warnings', []);
+    }
+    
+    /**
+     * Toggle word wrap for an editor
+     * @param {string} editorName - Name of the editor ('input', 'template', 'output')
+     * @param {boolean} enabled - Whether word wrap should be enabled
+     */
+    toggleWordWrap(editorName, enabled) {
+        let editor = null;
+        switch (editorName) {
+            case 'input':
+                editor = inputEditor;
+                break;
+            case 'template':
+                editor = templateEditor;
+                break;
+            case 'output':
+                editor = outputEditor;
+                break;
+        }
+        
+        if (editor) {
+            editor.updateOptions({
+                wordWrap: enabled ? 'on' : 'off'
+            });
+            
+            // Save to localStorage
+            localStorage.setItem(`wordWrap_${editorName}`, enabled ? 'on' : 'off');
+        }
     }
     
     setupOptionsHandlers() {

@@ -164,6 +164,17 @@ const ttpCompletionProvider = {
 };
 
 /**
+ * Get word wrap setting from localStorage
+ * @param {string} editorName - Name of the editor ('input', 'template', 'output')
+ * @returns {string} - 'on' or 'off'
+ */
+function getWordWrapSetting(editorName) {
+    const stored = localStorage.getItem(`wordWrap_${editorName}`);
+    // Default to 'on' if not set
+    return stored === 'off' ? 'off' : 'on';
+}
+
+/**
  * Initialize Monaco Editor
  */
 async function initMonacoEditor() {
@@ -177,6 +188,16 @@ async function initMonacoEditor() {
             monaco.languages.setMonarchTokensProvider('ttp', ttpLanguageDefinition);
             monaco.languages.registerCompletionItemProvider('ttp', ttpCompletionProvider);
             
+            // Get word wrap settings from localStorage
+            const inputWordWrap = getWordWrapSetting('input');
+            const templateWordWrap = getWordWrapSetting('template');
+            const outputWordWrap = getWordWrapSetting('output');
+            
+            // Initialize checkboxes with stored values
+            document.getElementById('input-word-wrap').checked = inputWordWrap === 'on';
+            document.getElementById('template-word-wrap').checked = templateWordWrap === 'on';
+            document.getElementById('output-word-wrap').checked = outputWordWrap === 'on';
+            
             // Create input editor
             inputEditor = monaco.editor.create(document.getElementById('input-editor'), {
                 value: '',
@@ -186,7 +207,7 @@ async function initMonacoEditor() {
                 fontFamily: 'Consolas, Monaco, "Courier New", monospace',
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
-                wordWrap: 'on',
+                wordWrap: inputWordWrap,
                 automaticLayout: true,
                 glyphMargin: true, // Enable glyph margin for gutter markers
                 lineNumbers: 'on',
@@ -203,7 +224,7 @@ async function initMonacoEditor() {
                 fontFamily: 'Consolas, Monaco, "Courier New", monospace',
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
-                wordWrap: 'on',
+                wordWrap: templateWordWrap,
                 automaticLayout: true
             });
             
@@ -231,7 +252,7 @@ async function initMonacoEditor() {
                 fontFamily: 'Consolas, Monaco, "Courier New", monospace',
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
-                wordWrap: 'on',
+                wordWrap: outputWordWrap,
                 automaticLayout: true,
                 readOnly: true,
                 folding: true,
