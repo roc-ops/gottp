@@ -704,11 +704,22 @@ class GottpEditor {
     
     // Export/Import
     exportConfig() {
+        // Get word wrap settings from localStorage
+        const wordWrapSettings = {
+            input: localStorage.getItem('wordWrap_input') === 'on',
+            template: localStorage.getItem('wordWrap_template') === 'on',
+            output: localStorage.getItem('wordWrap_output') === 'on'
+        };
+        
         const config = {
             template: this.state.template,
             inputs: this.state.inputs,
             variables: this.state.variables,
             lookups: this.state.lookups,
+            yangModules: this.state.yangModules,
+            sourceMapsEnabled: this.state.sourceMapsEnabled,
+            sourceMapColors: this.state.sourceMapColors,
+            wordWrap: wordWrapSettings,
             version: '1.0'
         };
         
@@ -716,7 +727,7 @@ class GottpEditor {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'gottp-config.export';
+        a.download = 'gottp-config.json';
         a.click();
         URL.revokeObjectURL(url);
         
@@ -726,14 +737,14 @@ class GottpEditor {
     importConfig() {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.export,.json';
+        input.accept = '.json';
         
         input.onchange = (e) => {
             const file = e.target.files[0];
             if (!file) return;
             
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = async (e) => {
                 try {
                     const config = JSON.parse(e.target.result);
                     
@@ -758,6 +769,51 @@ class GottpEditor {
                         this.state.lookups = config.lookups;
                     }
                     
+                    if (config.yangModules) {
+                        // Restore YANG modules to the UI (async)
+                        await this.restoreYANGModules(config.yangModules);
+                    }
+                    
+                    if (config.sourceMapsEnabled !== undefined) {
+                        this.state.sourceMapsEnabled = config.sourceMapsEnabled;
+                        // Update checkbox
+                        const sourceMapsCheckbox = document.getElementById('source-maps-enabled');
+                        if (sourceMapsCheckbox) {
+                            sourceMapsCheckbox.checked = config.sourceMapsEnabled;
+                        }
+                    }
+                    
+                    if (config.sourceMapColors) {
+                        this.state.sourceMapColors = { ...this.state.sourceMapColors, ...config.sourceMapColors };
+                        // Apply colors
+                        this.updateSourceMapColors();
+                    }
+                    
+                    // Restore word wrap settings
+                    if (config.wordWrap) {
+                        if (config.wordWrap.input !== undefined) {
+                            localStorage.setItem('wordWrap_input', config.wordWrap.input ? 'on' : 'off');
+                            document.getElementById('input-word-wrap').checked = config.wordWrap.input;
+                            if (inputEditor) {
+                                inputEditor.updateOptions({ wordWrap: config.wordWrap.input ? 'on' : 'off' });
+                            }
+                        }
+                        if (config.wordWrap.template !== undefined) {
+                            localStorage.setItem('wordWrap_template', config.wordWrap.template ? 'on' : 'off');
+                            document.getElementById('template-word-wrap').checked = config.wordWrap.template;
+                            if (templateEditor) {
+                                templateEditor.updateOptions({ wordWrap: config.wordWrap.template ? 'on' : 'off' });
+                            }
+                        }
+                        if (config.wordWrap.output !== undefined) {
+                            localStorage.setItem('wordWrap_output', config.wordWrap.output ? 'on' : 'off');
+                            document.getElementById('output-word-wrap').checked = config.wordWrap.output;
+                            if (outputEditor) {
+                                outputEditor.updateOptions({ wordWrap: config.wordWrap.output ? 'on' : 'off' });
+                            }
+                        }
+                    }
+                    
                     this.saveStateToStorage();
                     this.showNotification('Configuration imported', 'success');
                     
@@ -780,12 +836,23 @@ class GottpEditor {
         const name = prompt('Enter workspace name:');
         if (!name) return;
         
+        // Get word wrap settings from localStorage
+        const wordWrapSettings = {
+            input: localStorage.getItem('wordWrap_input') === 'on',
+            template: localStorage.getItem('wordWrap_template') === 'on',
+            output: localStorage.getItem('wordWrap_output') === 'on'
+        };
+        
         const workspace = {
             name: name,
             template: this.state.template,
             inputs: this.state.inputs,
             variables: this.state.variables,
             lookups: this.state.lookups,
+            yangModules: this.state.yangModules,
+            sourceMapsEnabled: this.state.sourceMapsEnabled,
+            sourceMapColors: this.state.sourceMapColors,
+            wordWrap: wordWrapSettings,
             timestamp: new Date().toISOString()
         };
         
@@ -876,7 +943,7 @@ class GottpEditor {
         this.showModal('workspace-manage-modal');
     }
     
-    loadWorkspaceByName(name) {
+    async loadWorkspaceByName(name) {
         const workspaces = this.getWorkspaces();
         if (!workspaces[name]) return;
         
@@ -888,7 +955,52 @@ class GottpEditor {
         this.state.inputs = workspace.inputs || { 'Default_Input': '' };
         this.state.variables = workspace.variables || null;
         this.state.lookups = workspace.lookups || {};
+        this.state.yangModules = workspace.yangModules || {};
         this.state.compiledTemplate = null;
+        
+        // Restore YANG modules to the UI (async)
+        if (workspace.yangModules) {
+            await this.restoreYANGModules(workspace.yangModules);
+        }
+        
+        // Restore debug settings
+        if (workspace.sourceMapsEnabled !== undefined) {
+            this.state.sourceMapsEnabled = workspace.sourceMapsEnabled;
+            const sourceMapsCheckbox = document.getElementById('source-maps-enabled');
+            if (sourceMapsCheckbox) {
+                sourceMapsCheckbox.checked = workspace.sourceMapsEnabled;
+            }
+        }
+        
+        if (workspace.sourceMapColors) {
+            this.state.sourceMapColors = { ...this.state.sourceMapColors, ...workspace.sourceMapColors };
+            this.updateSourceMapColors();
+        }
+        
+        // Restore word wrap settings
+        if (workspace.wordWrap) {
+            if (workspace.wordWrap.input !== undefined) {
+                localStorage.setItem('wordWrap_input', workspace.wordWrap.input ? 'on' : 'off');
+                document.getElementById('input-word-wrap').checked = workspace.wordWrap.input;
+                if (inputEditor) {
+                    inputEditor.updateOptions({ wordWrap: workspace.wordWrap.input ? 'on' : 'off' });
+                }
+            }
+            if (workspace.wordWrap.template !== undefined) {
+                localStorage.setItem('wordWrap_template', workspace.wordWrap.template ? 'on' : 'off');
+                document.getElementById('template-word-wrap').checked = workspace.wordWrap.template;
+                if (templateEditor) {
+                    templateEditor.updateOptions({ wordWrap: workspace.wordWrap.template ? 'on' : 'off' });
+                }
+            }
+            if (workspace.wordWrap.output !== undefined) {
+                localStorage.setItem('wordWrap_output', workspace.wordWrap.output ? 'on' : 'off');
+                document.getElementById('output-word-wrap').checked = workspace.wordWrap.output;
+                if (outputEditor) {
+                    outputEditor.updateOptions({ wordWrap: workspace.wordWrap.output ? 'on' : 'off' });
+                }
+            }
+        }
         
         this.saveStateToStorage();
         this.showNotification(`Workspace "${name}" loaded`, 'success');
@@ -1224,6 +1336,34 @@ class GottpEditor {
         this.updateYANGModulesList();
         this.saveStateToStorage();
         this.showNotification(`YANG module '${moduleName}' removed`, 'info');
+    }
+    
+    async restoreYANGModules(yangModules) {
+        if (!yangModules || Object.keys(yangModules).length === 0) {
+            return;
+        }
+        
+        // Clear existing modules first
+        this.state.yangModules = {};
+        
+        // Restore each YANG module
+        for (const [moduleName, content] of Object.entries(yangModules)) {
+            // Always restore to state (even if validation fails)
+            this.state.yangModules[moduleName] = content;
+            
+            // Try to validate, but don't fail if validation errors
+            try {
+                await wasmBridge.loadYANGModule(moduleName, content);
+            } catch (error) {
+                // Validation failed, but we still restore the module
+                // This allows restoring modules that were previously loaded
+                // The module will still be available for use during parsing
+            }
+        }
+        
+        // Update the UI
+        this.updateYANGModulesList();
+        this.saveStateToStorage();
     }
     
     displayValidationErrors(validationResults) {
