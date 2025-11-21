@@ -130,9 +130,11 @@ class GottpWasmBridge {
      * @param {string} inputsJSON - Inputs JSON
      * @param {string|null} varsJSON - Variables JSON (optional)
      * @param {string|null} yangModulesJSON - YANG modules JSON (optional)
-     * @returns {Promise<{data: *, validationResults: *}>}
+     * @param {string|null} cacheKey - Cache key for faster lookup (optional)
+     * @param {boolean} enableSourceMap - Enable source map collection (optional)
+     * @returns {Promise<{data: *, validationResults: *, sourceMap: *}>}
      */
-    async parseTemplate(compiledTemplate, inputsJSON, varsJSON = null, yangModulesJSON = null, cacheKey = null) {
+    async parseTemplate(compiledTemplate, inputsJSON, varsJSON = null, yangModulesJSON = null, cacheKey = null, enableSourceMap = false) {
         if (!this.initialized) {
             await this.init();
         }
@@ -154,13 +156,15 @@ class GottpWasmBridge {
             const varsJSONStr = varsJSON || 'null';
             const yangModulesJSONStr = yangModulesJSON || 'null';
             const cacheKeyStr = templateCacheKey || 'null';
+            const enableSourceMapStr = enableSourceMap ? 'true' : 'null';
             
             const result = this.gottp.parseTemplate(
                 compiledTemplateJSON,
                 inputsJSON,
                 varsJSONStr,
                 yangModulesJSONStr,
-                cacheKeyStr
+                cacheKeyStr,
+                enableSourceMapStr
             );
             const resultObj = this.jsValueToObject(result);
             
@@ -172,10 +176,14 @@ class GottpWasmBridge {
             const validationResults = resultObj.validationResults 
                 ? JSON.parse(resultObj.validationResults) 
                 : {};
+            const sourceMap = resultObj.sourceMap 
+                ? JSON.parse(resultObj.sourceMap) 
+                : null;
 
             return {
                 data: data,
-                validationResults: validationResults
+                validationResults: validationResults,
+                sourceMap: sourceMap
             };
         } catch (error) {
             throw new Error(`Template parsing failed: ${error.message}`);

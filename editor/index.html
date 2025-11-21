@@ -51,6 +51,9 @@
                     <a href="#" id="manage-workspaces-btn">Manage</a>
                 </div>
             </div>
+            <div class="menu-item">
+                <button class="menu-button" id="options-menu-btn">Options</button>
+            </div>
             <div class="menu-spacer"></div>
             <div class="menu-item">
                 <button class="action-button" id="process-button">Process</button>
@@ -173,6 +176,111 @@
             </div>
             <div class="modal-body">
                 <div id="examples-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Options Modal -->
+    <div id="options-modal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Options</h2>
+                <button class="modal-close" data-modal="options-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="options-section">
+                    <h3 style="margin-bottom: 15px;">Debug</h3>
+                    
+                    <!-- Source Maps Toggle -->
+                    <div style="margin-bottom: 20px;">
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="source-maps-enabled" style="width: auto;">
+                            <span>Enable Source Maps</span>
+                        </label>
+                        <p style="margin-top: 5px; color: var(--text-secondary); font-size: 0.9em;">
+                            Visualize which parts of the input matched which template patterns
+                        </p>
+                    </div>
+                    
+                    <!-- Color/Opacity Controls -->
+                    <div id="source-map-color-controls" style="display: none;">
+                        <!-- Input Highlights Section -->
+                        <h4 style="margin-bottom: 10px; margin-top: 20px;">Input Highlights</h4>
+                        
+                        <!-- Matched Gutter Marker -->
+                        <div class="color-control-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">Matched Line Marker</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="color" id="matched-gutter-color" value="#89d185" style="width: 60px; height: 30px;">
+                                <input type="range" id="matched-gutter-opacity" min="0" max="100" value="90" style="flex: 1;">
+                                <span id="matched-gutter-opacity-value" style="min-width: 40px;">90%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Unmatched Gutter Marker -->
+                        <div class="color-control-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">Unmatched Line Marker</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="color" id="unmatched-gutter-color" value="#f48771" style="width: 60px; height: 30px;">
+                                <input type="range" id="unmatched-gutter-opacity" min="0" max="100" value="90" style="flex: 1;">
+                                <span id="unmatched-gutter-opacity-value" style="min-width: 40px;">90%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Group Highlight (Input) -->
+                        <div class="color-control-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">Group Highlight</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="color" id="group-highlight-color" value="#ffa500" style="width: 60px; height: 30px;">
+                                <input type="range" id="group-highlight-opacity" min="0" max="100" value="15" style="flex: 1;">
+                                <span id="group-highlight-opacity-value" style="min-width: 40px;">15%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Match Highlight -->
+                        <div class="color-control-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">Match Highlight</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="color" id="match-highlight-color" value="#ffa500" style="width: 60px; height: 30px;">
+                                <input type="range" id="match-highlight-opacity" min="0" max="100" value="15" style="flex: 1;">
+                                <span id="match-highlight-opacity-value" style="min-width: 40px;">15%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Variable Highlight -->
+                        <div class="color-control-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">Variable Highlight</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="color" id="variable-highlight-color" value="#007acc" style="width: 60px; height: 30px;">
+                                <input type="range" id="variable-highlight-opacity" min="0" max="100" value="20" style="flex: 1;">
+                                <span id="variable-highlight-opacity-value" style="min-width: 40px;">20%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Hover Highlight -->
+                        <div class="color-control-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">Hover Highlight</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="color" id="hover-highlight-color" value="#007acc" style="width: 60px; height: 30px;">
+                                <input type="range" id="hover-highlight-opacity" min="0" max="100" value="25" style="flex: 1;">
+                                <span id="hover-highlight-opacity-value" style="min-width: 40px;">25%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Output Highlights Section -->
+                        <h4 style="margin-bottom: 10px; margin-top: 30px;">Output Highlights</h4>
+                        
+                        <!-- Group Name Highlight (Output) -->
+                        <div class="color-control-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">Group Name Highlight</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="color" id="output-group-highlight-color" value="#ffa500" style="width: 60px; height: 30px;">
+                                <input type="range" id="output-group-highlight-opacity" min="0" max="100" value="15" style="flex: 1;">
+                                <span id="output-group-highlight-opacity-value" style="min-width: 40px;">15%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

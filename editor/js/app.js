@@ -13,8 +13,23 @@ class GottpEditor {
             compiledTemplate: null,
             templateCacheKey: null, // Cache key for faster template lookup
             lastResult: null,
+            lastSourceMap: null, // Source map for visualization
+            sourceMapDecorations: [], // Monaco decoration IDs for source map (input)
+            outputSourceMapDecorations: [], // Monaco decoration IDs for source map (output)
             autoProcess: false, // Disabled by default to avoid issues with incomplete templates
-            outputFormat: 'json'
+            outputFormat: 'json',
+            sourceMapsEnabled: false, // Default to off
+            sourceMapColors: {
+                // Input highlights
+                matchedGutter: { color: '#89d185', opacity: 90 },
+                unmatchedGutter: { color: '#f48771', opacity: 90 },
+                groupHighlight: { color: '#ffa500', opacity: 15 },
+                matchHighlight: { color: '#ffa500', opacity: 15 },
+                variableHighlight: { color: '#007acc', opacity: 20 },
+                hoverHighlight: { color: '#007acc', opacity: 25 },
+                // Output highlights
+                outputGroupHighlight: { color: '#ffa500', opacity: 15 }
+            }
         };
         
         this.processDebounceTimer = null;
@@ -26,9 +41,11 @@ class GottpEditor {
     init() {
         // Wait for Monaco to be ready
         this.waitForMonaco().then(() => {
+            this.loadWorkspaceFromStorage(); // Load options before setting up listeners
             this.setupEventListeners();
-            this.loadWorkspaceFromStorage();
             this.setupKeyboardShortcuts();
+            // Apply colors after everything is set up
+            this.updateSourceMapColors();
         });
     }
     
@@ -103,6 +120,10 @@ class GottpEditor {
         document.getElementById('save-workspace-btn').addEventListener('click', () => this.saveWorkspace());
         document.getElementById('load-workspace-btn').addEventListener('click', () => this.loadWorkspace());
         document.getElementById('manage-workspaces-btn').addEventListener('click', () => this.showWorkspaceManageModal());
+        
+        // Options menu
+        document.getElementById('options-menu-btn').addEventListener('click', () => this.showOptionsModal());
+        this.setupOptionsHandlers();
     }
     
     setupMenuDropdowns() {
@@ -244,23 +265,38 @@ class GottpEditor {
                 });
             }
             
-            // Parse (pass cache key for faster execution)
+            // Parse (pass cache key for faster execution, enable source map if enabled in options)
             const parseStart = performance.now();
             const parseResult = await wasmBridge.parseTemplate(
                 this.state.compiledTemplate,
                 inputsJSON,
                 varsJSON,
                 yangModulesJSON,
-                this.state.templateCacheKey || this.state.template
+                this.state.templateCacheKey || this.state.template,
+                this.state.sourceMapsEnabled // Use state setting
             );
             executionTime = performance.now() - parseStart;
             
             this.state.lastResult = parseResult.data;
+            this.state.lastSourceMap = parseResult.sourceMap;
             this.displayOutput(parseResult.data);
             this.updateOutputStats(compileTime, executionTime);
             
             // Display validation errors if any
             this.displayValidationErrors(parseResult.validationResults);
+            
+            // Visualize source map if available
+            if (parseResult.sourceMap) {
+                this.visualizeSourceMap(parseResult.sourceMap);
+            } else {
+                // Clear decorations if no source map
+                if (this.state.sourceMapDecorations && this.state.sourceMapDecorations.length > 0) {
+                    if (typeof clearSourceMapDecorations === 'function') {
+                        clearSourceMapDecorations(this.state.sourceMapDecorations);
+                    }
+                    this.state.sourceMapDecorations = [];
+                }
+            }
             
             this.showNotification('Template processed successfully', 'success');
             
@@ -268,6 +304,14 @@ class GottpEditor {
             this.showNotification(`Processing failed: ${error.message}`, 'error');
             this.displayError(error.message);
             this.updateOutputStats(null, null);
+            
+            // Clear source map decorations on error
+            if (this.state.sourceMapDecorations && this.state.sourceMapDecorations.length > 0) {
+                if (typeof clearSourceMapDecorations === 'function') {
+                    clearSourceMapDecorations(this.state.sourceMapDecorations);
+                }
+                this.state.sourceMapDecorations = [];
+            }
             
             // Try to parse error for line numbers
             const errorMatch = error.message.match(/line (\d+)/i);
@@ -382,6 +426,16 @@ class GottpEditor {
                     } catch (e) {
                         // Action might not be available, ignore
                     }
+                    
+                    // Apply source map decorations to output editor if available
+                    if (this.state.lastSourceMap && typeof applySourceMapOutputDecorations === 'function') {
+                        // Clear previous output decorations
+                        if (this.state.outputSourceMapDecorations && this.state.outputSourceMapDecorations.length > 0) {
+                            outputEditor.deltaDecorations(this.state.outputSourceMapDecorations, []);
+                        }
+                        const outputDecorations = applySourceMapOutputDecorations(this.state.lastSourceMap, result);
+                        this.state.outputSourceMapDecorations = outputDecorations;
+                    }
                 }, 100);
             }
         } catch (error) {
@@ -473,9 +527,22 @@ class GottpEditor {
                 compiledTemplate: null,
                 templateCacheKey: null,
                 lastResult: null,
+                lastSourceMap: null,
+                sourceMapDecorations: [],
+                outputSourceMapDecorations: [],
                 autoProcess: this.state.autoProcess,
                 outputFormat: this.state.outputFormat
             };
+            
+            // Clear source map decorations
+            if (typeof clearSourceMapDecorations === 'function' && this.state.sourceMapDecorations) {
+                clearSourceMapDecorations(this.state.sourceMapDecorations);
+            }
+            
+            // Clear output source map decorations (reuse outputEditor from above)
+            if (outputEditor && this.state.outputSourceMapDecorations && this.state.outputSourceMapDecorations.length > 0) {
+                outputEditor.deltaDecorations(this.state.outputSourceMapDecorations, []);
+            }
             clearTemplateErrors();
             this.saveStateToStorage();
             this.showNotification('All cleared', 'success');
@@ -817,6 +884,11 @@ class GottpEditor {
     
     // Storage
     saveStateToStorage() {
+        // Also save options state separately
+        localStorage.setItem('gottp-editor-options', JSON.stringify({
+            sourceMapsEnabled: this.state.sourceMapsEnabled,
+            sourceMapColors: this.state.sourceMapColors
+        }));
         const state = {
             template: this.state.template,
             inputs: this.state.inputs,
@@ -829,6 +901,24 @@ class GottpEditor {
     }
     
     loadWorkspaceFromStorage() {
+        // Load options state first
+        const optionsJson = localStorage.getItem('gottp-editor-options');
+        if (optionsJson) {
+            try {
+                const options = JSON.parse(optionsJson);
+                if (options.sourceMapsEnabled !== undefined) {
+                    this.state.sourceMapsEnabled = options.sourceMapsEnabled;
+                }
+                if (options.sourceMapColors) {
+                    this.state.sourceMapColors = { ...this.state.sourceMapColors, ...options.sourceMapColors };
+                }
+                // Apply colors immediately
+                this.updateSourceMapColors();
+            } catch (e) {
+                console.error('Failed to load options:', e);
+            }
+        }
+        
         const stored = localStorage.getItem('gottp_state');
         if (!stored) return;
         
@@ -1145,6 +1235,265 @@ class GottpEditor {
                 messages.push(`${totalWarnings} warning${totalWarnings > 1 ? 's' : ''}`);
             }
             this.showNotification(`YANG Validation: ${messages.join(', ')}`, totalErrors > 0 ? 'error' : 'warning');
+        }
+    }
+    
+    setupOptionsHandlers() {
+        // Source maps toggle
+        const sourceMapsCheckbox = document.getElementById('source-maps-enabled');
+        if (sourceMapsCheckbox) {
+            sourceMapsCheckbox.checked = this.state.sourceMapsEnabled;
+            sourceMapsCheckbox.addEventListener('change', (e) => {
+                this.state.sourceMapsEnabled = e.target.checked;
+                const colorControls = document.getElementById('source-map-color-controls');
+                if (colorControls) {
+                    colorControls.style.display = e.target.checked ? 'block' : 'none';
+                }
+                this.saveStateToStorage();
+                
+                // If disabled, clear existing decorations and navigation data
+                if (!e.target.checked) {
+                    if (this.state.sourceMapDecorations && this.state.sourceMapDecorations.length > 0) {
+                        if (typeof clearSourceMapDecorations === 'function') {
+                            clearSourceMapDecorations(this.state.sourceMapDecorations);
+                        }
+                        this.state.sourceMapDecorations = [];
+                    }
+                    // Clear output decorations
+                    if (this.state.outputSourceMapDecorations && this.state.outputSourceMapDecorations.length > 0) {
+                        const outputEditor = getOutputEditor();
+                        if (outputEditor) {
+                            outputEditor.deltaDecorations(this.state.outputSourceMapDecorations, []);
+                        }
+                        this.state.outputSourceMapDecorations = [];
+                    }
+                    // Clear navigation click/hover decorations
+                    const inputEditor = getInputEditor();
+                    if (inputEditor && typeof window !== 'undefined') {
+                        // Access the global variables from monaco-config.js
+                        if (window.currentInputClickDecorations && window.currentInputClickDecorations.length > 0) {
+                            inputEditor.deltaDecorations(window.currentInputClickDecorations, []);
+                            window.currentInputClickDecorations.length = 0; // Clear array
+                        }
+                        if (window.currentInputHoverDecorations && window.currentInputHoverDecorations.length > 0) {
+                            inputEditor.deltaDecorations(window.currentInputHoverDecorations, []);
+                            window.currentInputHoverDecorations.length = 0; // Clear array
+                        }
+                    }
+                    const outputEditor = getOutputEditor();
+                    if (outputEditor && typeof window !== 'undefined') {
+                        if (window.currentOutputHoverDecorations && window.currentOutputHoverDecorations.length > 0) {
+                            outputEditor.deltaDecorations(window.currentOutputHoverDecorations, []);
+                            window.currentOutputHoverDecorations.length = 0; // Clear array
+                        }
+                    }
+                    // Clear navigation data to disable click handlers
+                    if (typeof buildSourceMapNavigationData === 'function') {
+                        buildSourceMapNavigationData(null, 'Default_Input');
+                    }
+                } else if (e.target.checked && this.state.lastSourceMap) {
+                    // If enabled and we have a source map, visualize it
+                    this.visualizeSourceMap(this.state.lastSourceMap);
+                }
+            });
+        }
+        
+        // Color/opacity controls - Input
+        const inputColorControls = [
+            { id: 'matched-gutter', key: 'matchedGutter' },
+            { id: 'unmatched-gutter', key: 'unmatchedGutter' },
+            { id: 'group-highlight', key: 'groupHighlight' },
+            { id: 'match-highlight', key: 'matchHighlight' },
+            { id: 'variable-highlight', key: 'variableHighlight' },
+            { id: 'hover-highlight', key: 'hoverHighlight' }
+        ];
+        
+        // Color/opacity controls - Output
+        const outputColorControls = [
+            { id: 'output-group-highlight', key: 'outputGroupHighlight' }
+        ];
+        
+        const colorControls = [...inputColorControls, ...outputColorControls];
+        
+        colorControls.forEach(control => {
+            const colorInput = document.getElementById(`${control.id}-color`);
+            const opacityInput = document.getElementById(`${control.id}-opacity`);
+            const opacityValue = document.getElementById(`${control.id}-opacity-value`);
+            
+            if (colorInput && opacityInput && opacityValue) {
+                // Initialize values
+                const colors = this.state.sourceMapColors[control.key];
+                colorInput.value = colors.color;
+                opacityInput.value = colors.opacity;
+                opacityValue.textContent = `${colors.opacity}%`;
+                
+                // Update on change
+                const updateColor = () => {
+                    const color = colorInput.value;
+                    const opacity = parseInt(opacityInput.value);
+                    this.state.sourceMapColors[control.key] = { color, opacity };
+                    opacityValue.textContent = `${opacity}%`;
+                    this.updateSourceMapColors();
+                    this.saveStateToStorage();
+                };
+                
+                colorInput.addEventListener('input', updateColor);
+                opacityInput.addEventListener('input', updateColor);
+            }
+        });
+        
+        // Initialize color controls visibility
+        const colorControlsDiv = document.getElementById('source-map-color-controls');
+        if (colorControlsDiv) {
+            colorControlsDiv.style.display = this.state.sourceMapsEnabled ? 'block' : 'none';
+        }
+    }
+    
+    updateSourceMapColors() {
+        const colors = this.state.sourceMapColors;
+        
+        // Convert hex to RGB and apply opacity
+        const hexToRgb = (hex) => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        };
+        
+        const applyColor = (selector, color, opacity) => {
+            const rgb = hexToRgb(color);
+            if (rgb) {
+                const style = document.createElement('style');
+                style.id = `source-map-${selector}-style`;
+                const existing = document.getElementById(`source-map-${selector}-style`);
+                if (existing) {
+                    existing.remove();
+                }
+                style.textContent = `
+                    .monaco-editor .source-map-${selector} {
+                        background-color: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity / 100}) !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        };
+        
+        // Apply colors
+        applyColor('matched-gutter', colors.matchedGutter.color, colors.matchedGutter.opacity);
+        applyColor('unmatched-gutter', colors.unmatchedGutter.color, colors.unmatchedGutter.opacity);
+        applyColor('group-highlight', colors.groupHighlight.color, colors.groupHighlight.opacity);
+        applyColor('match-highlight', colors.matchHighlight.color, colors.matchHighlight.opacity);
+        applyColor('variable-highlight', colors.variableHighlight.color, colors.variableHighlight.opacity);
+        applyColor('hover-highlight', colors.hoverHighlight.color, colors.hoverHighlight.opacity);
+        
+        // Apply group highlight to match highlights in input editor (the brown/orange highlights)
+        const groupRgb = hexToRgb(colors.groupHighlight.color);
+        if (groupRgb) {
+            const style = document.createElement('style');
+            style.id = 'source-map-group-highlight-style';
+            const existing = document.getElementById('source-map-group-highlight-style');
+            if (existing) {
+                existing.remove();
+            }
+            style.textContent = `
+                .monaco-editor .source-map-match-highlight {
+                    background-color: rgba(${groupRgb.r}, ${groupRgb.g}, ${groupRgb.b}, ${colors.groupHighlight.opacity / 100}) !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Apply output group highlight to clickable keys in output (group names) - separate from input
+        const outputGroupRgb = hexToRgb(colors.outputGroupHighlight.color);
+        if (outputGroupRgb) {
+            const style = document.createElement('style');
+            style.id = 'source-map-clickable-key-style';
+            const existing = document.getElementById('source-map-clickable-key-style');
+            if (existing) {
+                existing.remove();
+            }
+            style.textContent = `
+                .monaco-editor .source-map-clickable-key {
+                    background-color: rgba(${outputGroupRgb.r}, ${outputGroupRgb.g}, ${outputGroupRgb.b}, ${colors.outputGroupHighlight.opacity / 100}) !important;
+                    border-bottom: 1px dashed rgba(${outputGroupRgb.r}, ${outputGroupRgb.g}, ${outputGroupRgb.b}, ${colors.outputGroupHighlight.opacity / 100 * 2}) !important;
+                }
+                .monaco-editor .source-map-clickable-key:hover {
+                    background-color: rgba(${outputGroupRgb.r}, ${outputGroupRgb.g}, ${outputGroupRgb.b}, ${colors.outputGroupHighlight.opacity / 100 * 1.5}) !important;
+                    border-bottom: 2px solid rgba(${outputGroupRgb.r}, ${outputGroupRgb.g}, ${outputGroupRgb.b}, ${colors.outputGroupHighlight.opacity / 100 * 2.8}) !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Also update glyph margin markers (they use different selectors)
+        const applyGlyphColor = (selector, color, opacity) => {
+            const rgb = hexToRgb(color);
+            if (rgb) {
+                const style = document.createElement('style');
+                style.id = `source-map-glyph-${selector}-style`;
+                const existing = document.getElementById(`source-map-glyph-${selector}-style`);
+                if (existing) {
+                    existing.remove();
+                }
+                style.textContent = `
+                    .monaco-editor .monaco-glyph-margin .source-map-${selector} {
+                        background-color: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity / 100}) !important;
+                    }
+                    .monaco-editor [class*="source-map-${selector}"] {
+                        background-color: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity / 100}) !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        };
+        
+        applyGlyphColor('matched-gutter', colors.matchedGutter.color, colors.matchedGutter.opacity);
+        applyGlyphColor('unmatched-gutter', colors.unmatchedGutter.color, colors.unmatchedGutter.opacity);
+    }
+    
+    showOptionsModal() {
+        this.showModal('options-modal');
+        // Update controls to reflect current state
+        const sourceMapsCheckbox = document.getElementById('source-maps-enabled');
+        if (sourceMapsCheckbox) {
+            sourceMapsCheckbox.checked = this.state.sourceMapsEnabled;
+        }
+    }
+    
+    // Visualize source map
+    visualizeSourceMap(sourceMap) {
+        if (!sourceMap || !sourceMap.Inputs) {
+            return;
+        }
+        
+        // Clear previous decorations
+        if (this.state.sourceMapDecorations && this.state.sourceMapDecorations.length > 0) {
+            if (typeof clearSourceMapDecorations === 'function') {
+                clearSourceMapDecorations(this.state.sourceMapDecorations);
+            }
+            this.state.sourceMapDecorations = [];
+        }
+        
+        // Get input editor
+        const inputName = 'Default_Input';
+        const inputSourceMap = sourceMap.Inputs[inputName];
+        if (!inputSourceMap || !inputSourceMap.Lines) {
+            return;
+        }
+        
+        // Build navigation data structure
+        if (typeof buildSourceMapNavigationData === 'function') {
+            buildSourceMapNavigationData(sourceMap, inputName);
+        }
+        
+        // Apply Monaco decorations for visualization
+        if (typeof applySourceMapDecorations === 'function') {
+            const decorationIds = applySourceMapDecorations(sourceMap, inputName);
+            this.state.sourceMapDecorations = decorationIds;
+        } else {
+            console.warn('Source map decorations function not available');
         }
     }
     
