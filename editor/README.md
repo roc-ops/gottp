@@ -9,7 +9,7 @@ A powerful browser-based TTP (Template Text Parser) template editor that runs en
 * **Multiple Output Formats**: JSON, YAML, table, and CSV formats
 * **Global Variables**: Define reusable variables for templates
 * **Lookup Tables**: Define lookup tables for data enrichment (coming soon)
-* **Export/Import**: Save and share complete configurations as `.gottp.export` files
+* **Export/Import**: Save and share complete configurations as `gottp-config.json` files
 * **Workspace Management**: Save, load, and manage multiple workspaces
 * **Real-time Processing**: Auto-process templates as you type
 * **Error Marking**: Visual error indicators in template editor
@@ -133,10 +133,23 @@ The editor includes a powerful source map visualization feature for debugging te
 
 Save and share complete configurations:
 
-* **Export**: Click "File" → "Export" to download `.gottp.export` file
-* **Import**: Click "File" → "Import" to load configuration from file
+* **Export**: Click "File" → "Export" to download `gottp-config.json` file
+  * Exports all editor state including:
+    - Template
+    - Input data
+    - Variables
+    - Lookup tables
+    - YANG modules
+    - Debug settings (source maps enabled/disabled)
+    - Source map color customizations
+    - Word wrap settings for all editors
+* **Import**: Click "File" → "Import" to load configuration from `gottp-config.json` file
+  * Restores all exported settings automatically
 * **Workspace**: Use "Workspace" → "Save"/"Load" for local workspace management
+  * Workspaces include all the same settings as exports
 * **Manage Workspaces**: Click "Workspace" → "Manage" to organize saved workspaces
+
+**Note**: The exported `gottp-config.json` file can be directly attached to GitHub issues for bug reports, making it easy to reproduce issues with all editor settings preserved.
 
 ### User Interface
 
@@ -144,13 +157,22 @@ The application features a modern, organized interface:
 
 * **Main Actions**: Process, Download, Output Format selector
 * **Actions Dropdown**: Clear All, Load Example
-* **Config Dropdown**: Inputs, Variables, Lookups
+* **Config Dropdown**: Inputs, Variables, Lookups, YANG Modules
 * **File Dropdown**: Export, Import
 * **Workspace Dropdown**: Save, Load, Manage workspaces
 * **Options Dropdown**: Source maps toggle, highlight color customization
+* **Editor Headers**: Word wrap toggle checkboxes for each editor (Input, Template, Output)
 * **Auto-completion**: Context-aware suggestions for TTP functions
 * **Syntax Highlighting**: Custom highlighting for TTP templates
 * **Professional Modals**: Beautiful dialogs for configuration and management
+
+### Word Wrap Control
+
+Each editor (Input, Template, Output) has a word wrap checkbox in its header:
+
+* **Toggle Word Wrap**: Click the "Word Wrap" checkbox in any editor header to enable/disable word wrapping
+* **Persistent Settings**: Word wrap preferences are saved to localStorage and persist across sessions
+* **Export/Import**: Word wrap settings are included in exported configurations and workspaces
 
 ### Keyboard Shortcuts
 
