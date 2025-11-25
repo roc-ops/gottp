@@ -1,0 +1,47 @@
+{
+  "template": "<group name=\"show_system_detail.chassis\">\n!#### show system detail ####{{_start_}}\n\nProduct: {{model}}, System Uptime:{{uptime |ORPHRASE | _start_}}\n        Chassis Serial_No: {{chassis_serial}}\tPart_No: {{part_number}}\n        Manuf Serial_No: {{manf_serial}}\n        <group name=\"pems\">\n        PEM_{{position}} Serial_No: {{serial}}     Part_No: {{part_number}}\n        </group>\n        <group name=\"fans\">\n        FAN_{{position}} Serial_No: {{serial}}     Part_No: {{part_number}}\n        </group>\n        System Time: {{system_time | ORPHRASE}}\n        128MHz, 3 PPM Crystal Clock\n  <group name=\"line_cards\">\n        Module {{slot | to_int}}, {{master_slave | re('Master|Slave')}} {{model}}, Status {{status}}\n        Module {{slot | to_int | _start_}} {{model}} {{status}} ({{port_config|ORPHRASE}})\n        Module {{slot | to_int | let('status', 'Not Present')| _start_}} Not Present\n        Major rev {{major}}, Minor rev {{minor}}\n        Serial_No: {{serial}} Part_No: {{part_number}}\n        CFE version {{cfe_version}}\n        Uptime: {{uptime | ORPHRASE}}\n        Docsis channel: {{docsis_30_qams | to_int}}\n        Video channel: {{video_qams|to_int}}\n        Broadcast channel: {{broadcast_qams|to_int}}\n        OFDM spectrum: {{ofdm_spectrum|to_int}}MHz\n        <group name=\"io\">\n        {{model}} Serial_No: {{serial}} Part_No: {{part_number}}\n        Major rev {{major}}, Minor rev {{minor}}\n        </group>\n        \n  </group>\n</group>\n",
+  "inputs": {
+    "Default_Input": "!#### show system detail ####\n!\nProduct: C100G, System Uptime:419 d, 13 h, 23 m, 23 s\n        Chassis Serial_No: C100GDH7021  Part_No: CHS-1002-02\n        Manuf Serial_No: 1201602154\n        PEM_A Serial_No: 7201800285     Part_No: HDW-0212-00\n        PEM_B Serial_No: 1121601500     Part_No: HDW-0212-00\n        FAN_L Serial_No: 1201602329     Part_No: HDW-0211-00\n        FAN_M Serial_No: 1121603454     Part_No: HDW-0211-00\n        FAN_R Serial_No: 1201602285     Part_No: HDW-0211-00\n        System Time: Fri Aug 15 02:21:37 CST 2025\n        128MHz, 3 PPM Crystal Clock\n\n        Module 6, Master SMM_8x10G, Status ACTIVE\n        Major rev 1, Minor rev 5\n        Serial_No: SB11CIAS0277 Part_No: PCA-0056-00\n        CFE version 12.5.4\n        Uptime: 419 d, 13 h, 18 m, 20 s\n        SMM_LC Serial_No: MB11CI6S0137  Part_No: PCA-0042-02\n\n        Module 7, Slave SMM_8x10G, Status STANDBY\n        Major rev 1, Minor rev 5\n        Serial_No: SB11CI4S0037 Part_No: PCA-0056-00\n        CFE version 12.5.4\n        Uptime: 255 d, 16 h, 47 m, 57 s\n        SMM_LC Serial_No: MB11CI3S0700  Part_No: PCA-0042-02\n\n        Module 0 QAM_8x192 Running (8 ports, 64 channels/port, 128 shared channels, 2 ofdm channel/port)\n        Video channel: 0\n        Broadcast channel: 0\n        OFDM spectrum: 0MHz\n        Major rev 6, Minor rev 23\n        Serial_No: QB02DI9S0304 Part_No: PCA-0070-10\n        CFE version 2.2.7\n        Uptime: 419 d, 13 h, 7 m, 13 s\n        QAM_3_1 Serial_No: RB03EI4S0110 Part_No: PCA-\n        Major rev 01, Minor rev 02\n\n        Module 1 QAM_8x192 Running (8 ports, 64 channels/port, 128 shared channels, 2 ofdm channel/port)\n        Video channel: 0\n        Broadcast channel: 0\n        OFDM spectrum: 0MHz\n        Major rev 6, Minor rev 22\n        Serial_No: QB01DG9S0302 Part_No: PCA-0070-10\n        CFE version 2.2.7\n        Uptime: 419 d, 13 h, 7 m, 26 s\n        QAM_3_1 Serial_No: RB03EI4S0387 Part_No: PCA-\n        Major rev 01, Minor rev 02\n\n        Module 2 QAM_8x192 Running (8 ports, 64 channels/port, 128 shared channels, 2 ofdm channel/port)\n        Video channel: 0\n        Broadcast channel: 0\n        OFDM spectrum: 0MHz\n        Major rev 6, Minor rev 23\n        Serial_No: QB02DIBS0458 Part_No: PCA-0070-10\n        CFE version 2.2.7\n        Uptime: 419 d, 13 h, 11 m, 9 s\n        QAM_3_1 Serial_No: RB03EI4S0010 Part_No: PCA-0015-11\n        Major rev 01, Minor rev 02\n\n        Module 3 Not Present\n        QAM_3_1 Serial_No: RB03EIAS0072 Part_No: PCA-0015-11\n        Major rev 01, Minor rev 02\n\n        Module 5 QAM_8x192 Standby (8 ports, 64 channels/port, 128 shared channels, 2 ofdm channel/port)\n        Video channel: 0\n        Broadcast channel: 0\n        OFDM spectrum: 0MHz\n        Major rev 6, Minor rev 22\n        Serial_No: QB02DI5S0269 Part_No: PCA-0070-10\n        CFE version 2.2.7\n        Uptime: 406 d, 2 h, 31 m, 19 s\n        LC_SW Serial_No: LB11BJ2S0155   Part_No: PCA-0043-01\n        Major rev 00, Minor rev 00\n\n        Module 8 UPS_16x8 Standby (16 ports, 8 phy chans/port, 2 log chans/phy chan,scdma map 00)\n        Major rev 5, Minor rev 9\n        Serial_No: US15CIAS0015 Part_No: PCA-0069-10\n        CFE version 12.9.15\n        Uptime: 416 d, 10 h, 56 m, 58 s\n        LC_SW Serial_No: LB11BJ2S0007   Part_No: PCA-0043-01\n        Major rev 00, Minor rev 00\n\n        Module 9 Not Present\n        QAM_3_1 Serial_No: RB03EI4S0666 Part_No: PCA-0015-11\n        Major rev 01, Minor rev 02\n\n        Module 11 UPS_16x8 Running (16 ports, 8 phy chans/port, 2 log chans/phy chan,scdma map 00)\n        Docsis channel: 64\n        Major rev 5, Minor rev 9\n        Serial_No: US15CI5S1191 Part_No: PCA-0069-10\n        CFE version 12.9.15\n        Uptime: 416 d, 10 h, 49 m, 11 s\n        UPS_IO Serial_No: WS11BI7S0057  Part_No: PCA-0019-01\n        Major rev 01, Minor rev 02\n\n        Module 12 UPS_16x8 Running (16 ports, 8 phy chans/port, 2 log chans/phy chan,scdma map 00)\n        Major rev 5, Minor rev 9\n        Serial_No: US15CIAS0115 Part_No: PCA-0069-10\n        CFE version 12.9.15\n        Uptime: 415 d, 21 h, 52 m, 22 s\n        UPS_IO Serial_No: WS11BI5S0133  Part_No: PCA-0019-01\n        Major rev 01, Minor rev 02\n\n        Module 13 UPS_16x8 Running (16 ports, 8 phy chans/port, 2 log chans/phy chan,scdma map 00)\n        Major rev 5, Minor rev 9\n        Serial_No: US15CI8S0096 Part_No: PCA-0069-10\n        CFE version 12.9.15\n        Uptime: 415 d, 6 h, 14 m, 35 s\n        UPS_IO Serial_No: WS11BI5S0117  Part_No: PCA-0019-01\n        Major rev 01, Minor rev 02"
+  },
+  "variables": null,
+  "lookups": {},
+  "yangModules": {},
+  "sourceMapsEnabled": true,
+  "sourceMapColors": {
+    "matchedGutter": {
+      "color": "#89d185",
+      "opacity": 90
+    },
+    "unmatchedGutter": {
+      "color": "#f48771",
+      "opacity": 90
+    },
+    "groupHighlight": {
+      "color": "#00fbff",
+      "opacity": 14
+    },
+    "matchHighlight": {
+      "color": "#ff00d0",
+      "opacity": 15
+    },
+    "variableHighlight": {
+      "color": "#f3f718",
+      "opacity": 20
+    },
+    "hoverHighlight": {
+      "color": "#cc00a7",
+      "opacity": 89
+    },
+    "outputGroupHighlight": {
+      "color": "#00ffcc",
+      "opacity": 15
+    }
+  },
+  "wordWrap": {
+    "input": true,
+    "template": true,
+    "output": false
+  },
+  "version": "1.0"
+}
+

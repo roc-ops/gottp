@@ -1703,6 +1703,23 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 							break
 						}
 					}
+					// Also check if pattern is marked as a start pattern by checking if it has _start_ indicator
+					// Patterns can be start patterns even without _start_ as a variable if they're marked as such
+					// We check this by looking at the pattern's variables for _start_ indicator
+					if !currentMatchStartedByStart {
+						// Check if any variable in the pattern has _start_ in its functions
+						for _, variable := range startPattern.Variables {
+							for _, funcStr := range variable.Functions {
+								if funcStr == "_start_" {
+									currentMatchStartedByStart = true
+									break
+								}
+							}
+							if currentMatchStartedByStart {
+								break
+							}
+						}
+					}
 				}
 				// SPECIAL: With _start_/`_end_`, only `_start_` should start a new match
 				// Other patterns should merge into the match started by `_start_` until `_end_` is encountered
@@ -1777,12 +1794,28 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					// The count check is for patterns that can appear multiple times within the same block,
 					// but _start_ appearing again always indicates a new block (following Python TTP's behavior).
 					isStartPatternVar := false
+					isStartPattern := false
 					if match.patternIdx >= 0 && match.patternIdx < len(group.Patterns) {
 						pattern := group.Patterns[match.patternIdx]
 						for varName := range pattern.Variables {
 							if varName == "_start_" {
 								isStartPatternVar = true
+								isStartPattern = true
 								break
+							}
+						}
+						// Also check if any variable has _start_ in its functions
+						if !isStartPattern {
+							for _, variable := range pattern.Variables {
+								for _, funcStr := range variable.Functions {
+									if funcStr == "_start_" {
+										isStartPattern = true
+										break
+									}
+								}
+								if isStartPattern {
+									break
+								}
 							}
 						}
 					}
@@ -1804,12 +1837,26 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 							shouldStartNewMatch = true
 						}
 					} else if count == 0 {
-						// First time seeing this pattern in current match - merge instead of starting new
-						shouldStartNewMatch = false
+						// First time seeing this pattern in current match
+						// IMPORTANT: Even if this pattern doesn't have _start_, if it's the same pattern that started
+						// the current match and it matches again, it indicates a new block (like "Module 6" then "Module 7")
+						// So we should start a new match, not merge
+						// However, if we have _end_ patterns and haven't hit _end_ yet, we should merge
+						if hasEndPatterns && !currentMatchHasEnd {
+							// With _end_ patterns, if we haven't hit _end_ yet, merge
+							// This allows patterns like "interface" to appear multiple times within the same _start_/_end_ block
+							shouldStartNewMatch = false
+						} else {
+							// No _end_ patterns or we've hit _end_ - same pattern matching again indicates new block
+							shouldStartNewMatch = true
+						}
 					} else if hasEndPatterns && !currentMatchHasEnd {
 						// With _end_ patterns, if we haven't hit _end_ yet, merge even if we've seen this pattern before
 						// This allows patterns like "interface" to appear multiple times within the same _start_/_end_ block
 						shouldStartNewMatch = false
+					} else {
+						// We've seen this pattern before and (no _end_ patterns or we've hit _end_) - start new match
+						shouldStartNewMatch = true
 					}
 					// If count > 0 and we've already hit _end_ (or no _end_ patterns), start new match (new instance)
 				} else {
@@ -1862,10 +1909,20 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					// it's likely a new block. Check if we've seen this pattern before in the current match.
 					// But also check if this pattern is the same as one we've seen before in mergedMatches
 					count := patternMatchCount[match.patternIdx]
+					// Check if this pattern has joinmatches - if so, we should always merge (not start new)
+					// The early merge logic will handle collecting joinmatches values
+					patternHasJoinMatches := false
+					for varName := range match.result {
+						if joinMatchesVars[varName] {
+							patternHasJoinMatches = true
+							break
+						}
+					}
 					// Check if this pattern has matched before in the current match
-					if count > 0 {
+					if count > 0 && !patternHasJoinMatches {
 						// We've seen this pattern before in the current match - it's likely a new block
 						// Start a new match to finalize the previous one
+						// BUT: If it has joinmatches, let the early merge logic handle it instead
 						shouldStartNewMatch = true
 					} else if match.spanStart >= currentStartPos && match.spanStart-currentStartPos < maxGap {
 						// First time seeing this pattern and close enough - merge
@@ -1917,12 +1974,18 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				// and we have a current match, treat it as the same instance
 				// This handles cases like {{ var | _line_ | joinmatches }} where _line_ matches
 				// but we want to preserve fields from earlier patterns
+				// SPECIAL: Also check if this is the same pattern index - if so, it's definitely the same instance
 				if !hasNonJoinMatchesVars && len(currentMatch) > 0 {
+					isSameInstance = true
+				} else if match.patternIdx == currentStartPatternIdx {
+					// Same pattern that started the match - definitely same instance
 					isSameInstance = true
 				}
 
 				if isSameInstance {
 					// Same instance - collect joinmatches values
+					// Track that we've processed this pattern to prevent later merge logic from processing it again
+					patternMatchCount[match.patternIdx]++
 					for k, v := range match.result {
 						if joinMatchesVars[k] {
 							// Collect joinmatches values
@@ -1950,7 +2013,19 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 							}
 						}
 					}
-					continue // Don't start new match
+					continue // Don't start new match - skip initialization and later merge logic
+				} else {
+					// isSameInstance is false - this shouldn't happen for _line_ patterns with only joinmatches
+					// But if it does, we still need to prevent duplicate processing
+					// For joinmatches patterns, if we reach here, it means isSameInstance was false
+					// which shouldn't happen, but if it does, we should still skip later merge logic
+					// to avoid duplicates. Instead, let the normal flow handle it but mark that
+					// we've seen this pattern to prevent duplicate processing in later merge logic
+					if patternHasJoinMatches {
+						// Track that we've seen this pattern (even though isSameInstance was false)
+						// This will help the later merge logic skip processing if it runs
+						patternMatchCount[match.patternIdx]++
+					}
 				}
 			}
 
@@ -1966,7 +2041,11 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				// shouldStartNewMatch is false - merge with current match instead
 				// This happens when all patterns are start patterns and this pattern should merge
 				// Skip the table method check and start pattern logic, go directly to merge
-				shouldMerge = true
+				// BUT: If this pattern has joinmatches and we've already processed it in early merge logic,
+				// don't set shouldMerge to true to avoid duplicate processing
+				if !patternHasJoinMatches || patternMatchCount[match.patternIdx] == 0 {
+					shouldMerge = true
+				}
 				// Skip table and normal start pattern logic, go directly to merge logic
 				// (merge logic is at the end of the isStartPattern block)
 				// Don't execute table method or start pattern logic - go straight to merge
@@ -2036,7 +2115,11 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 								currentMatch[k] = []interface{}{v}
 							}
 						} else {
-							currentMatch[k] = v
+							// IMPORTANT: When the same pattern matches multiple times, keep the FIRST match's values
+							// Don't overwrite existing values with subsequent matches (Python TTP behavior)
+							if _, exists := currentMatch[k]; !exists {
+								currentMatch[k] = v
+							}
 						}
 					}
 				}
@@ -2200,7 +2283,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					currentStartPatternIdx = match.patternIdx // Track which pattern started this match
 					currentMatchHasEnd = false
 					currentParentMatchStartIdx = matchIdx // Track where this parent match started
+					currentStartPos = match.spanStart // Set start position for gap calculation
 					// Copy all variables from start match (even if empty for _start_ only patterns)
+					// Note: This is initializing a NEW match, so we can set all values directly
 					for k, v := range match.result {
 						// For joinmatches, convert to list
 						if joinMatchesVars[k] {
@@ -2210,9 +2295,13 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 								currentMatch[k] = []interface{}{v}
 							}
 						} else {
+							// This is a new match, so safe to set directly
 							currentMatch[k] = v
 						}
 					}
+					// Track that we've initialized this pattern (including joinmatches)
+					// This prevents the merge logic from processing joinmatches again
+					patternMatchCount[match.patternIdx] = 1
 				} else {
 					// We prevented finalization - merge the _start_ pattern into current match instead
 					// Set shouldMerge to true so it goes through merge logic
@@ -2242,102 +2331,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				// This ensures that if shouldMerge was set, the pattern can merge
 			}
 			// Note: shouldMerge may have been set at line 1041 when shouldStartNewMatch is false
-
-			// If shouldMerge is true, execute merge logic (shared with non-start patterns)
-			// This handles both:
-			// 1. When shouldStartNewMatch is false (set at line 1041)
-			// 2. When shouldStartNewMatch is false and we're in the else block (shouldn't happen now)
-			if shouldMerge {
-				// Check if this pattern has joinmatches variables
-				patternHasJoinMatches := false
-				for varName := range match.result {
-					if joinMatchesVars[varName] {
-						patternHasJoinMatches = true
-						break
-					}
-				}
-
-				// Track that we've seen this pattern
-				patternMatchCount[match.patternIdx]++
-
-				// If this pattern has joinmatches, we should always collect values
-				// (even if it's the first match, we need to prepare for potential subsequent matches)
-				if patternHasJoinMatches {
-					// For joinmatches variables, collect values
-					for k, v := range match.result {
-						if joinMatchesVars[k] {
-							// For joinmatches, collect values
-							existing, exists := currentMatch[k]
-							if exists {
-								// We already have a value - append the new value to the collection
-								var list []interface{}
-								if existingList, ok := existing.([]interface{}); ok {
-									if len(existingList) > 0 {
-										if _, isNestedList := existingList[0].([]interface{}); isNestedList {
-											list = existingList
-										} else {
-											list = []interface{}{existingList}
-										}
-									} else {
-										list = existingList
-									}
-								} else {
-									list = []interface{}{existing}
-								}
-
-								// Add new value
-								if vList, ok := v.([]interface{}); ok {
-									// Always spread the list elements to avoid nesting
-									// to_list just marks the variable for list storage but shouldn't create nested lists
-									list = append(list, vList...)
-								} else {
-									list = append(list, v)
-								}
-								currentMatch[k] = list
-							} else {
-								// First value
-								if vList, ok := v.([]interface{}); ok {
-									currentMatch[k] = vList
-								} else {
-									currentMatch[k] = []interface{}{v}
-								}
-							}
-						} else {
-							// Non-joinmatches variable - merge into current match
-							// Always merge, even if already set (to ensure _end_ pattern values are included)
-							currentMatch[k] = v
-						}
-					}
-				} else {
-					// No joinmatches - normal merge behavior
-					// Merge all variables from this pattern into current match
-					// This ensures that _end_ pattern variables are merged before finalizing
-					for k, v := range match.result {
-						// Skip special variables that shouldn't be stored
-						if k == "ignore" || k == "_start_" || k == "_end_" {
-							continue
-						}
-						currentMatch[k] = v
-					}
-				}
-
-				// If this pattern has _end_ indicator, mark the current match as ended (don't finalize yet)
-				// In Python TTP, `end` only marks the group as ended; finalization happens when the next `start` is called
-				// IMPORTANT: According to Python TTP behavior, `_end_` marks the group as ended, but patterns can still
-				// merge into the current match until a new `start` pattern is encountered. The `start` pattern is what
-				// actually finalizes the previous match.
-				// So we should ALWAYS mark as ended when `_end_` matches, but NOT finalize/save the match yet.
-				// Finalization will happen when the next `start` pattern matches.
-				// EXCEPTION: If there are no more matches after this _end_ pattern, or if the next match is a non-start
-				// pattern that should start a new match, we should finalize immediately.
-				if isEndPattern {
-					// Mark that we've hit _end_ for the current match
-					currentMatchHasEnd = true
-					// Don't finalize here - finalization will happen when the next start pattern matches
-					// However, if this is the last match or the next match is a non-start pattern that should
-					// start a new match, we'll finalize in the finalization logic below
-				}
-			}
+			// NOTE: Merge logic has been moved to after the else block (line ~2873) so it runs
+			// for both start and non-start patterns after shouldMerge is determined
 		} else {
 			// Normal pattern - merge into current match if close enough
 			// If currentMatch is nil, we might need to start one (for groups without explicit start)
@@ -2416,6 +2411,24 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					// However, if this pattern is NOT the first pattern, it should only match within
 					// a block started by a start pattern (like TestMatchIndicatorExact where pattern 1
 					// should only match within a block started by pattern 0).
+					// DEBUG: Trace non-start pattern path for issue #13
+					if group.Name == "line_cards" && match.patternIdx == 3 {
+						if majorVal, ok := match.result["major"]; ok {
+							slotVal := "unknown"
+							if currentMatch != nil {
+								if s, ok := currentMatch["slot"]; ok {
+									slotVal = fmt.Sprintf("%v", s)
+								}
+								if existingMajor, ok := currentMatch["major"]; ok {
+									fmt.Printf("[DEBUG non-start path] Match %d: currentMatchHasEnd=true, major=%v, existingMajor=%v, slot=%s\n", matchIdx, majorVal, existingMajor, slotVal)
+								} else {
+									fmt.Printf("[DEBUG non-start path] Match %d: currentMatchHasEnd=true, major=%v, no existingMajor, slot=%s\n", matchIdx, majorVal, slotVal)
+								}
+							} else {
+								fmt.Printf("[DEBUG non-start path] Match %d: currentMatchHasEnd=true, major=%v, currentMatch=nil\n", matchIdx, majorVal)
+							}
+						}
+					}
 					isFirstPattern := match.patternIdx == 0
 					if currentMatch == nil {
 						// We've already finalized - allow patterns to match again
@@ -2497,6 +2510,24 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 						shouldMerge = true
 					}
 				}
+				// DEBUG: Trace shouldMerge decision for issue #13
+				if group.Name == "line_cards" && match.patternIdx == 3 {
+					if majorVal, ok := match.result["major"]; ok {
+						slotVal := "unknown"
+						if currentMatch != nil {
+							if s, ok := currentMatch["slot"]; ok {
+								slotVal = fmt.Sprintf("%v", s)
+							}
+							if existingMajor, ok := currentMatch["major"]; ok {
+								fmt.Printf("[DEBUG shouldMerge final] Match %d: shouldMerge=%v, major=%v, existingMajor=%v, slot=%s, spanStart=%d, currentStartPos=%d\n", matchIdx, shouldMerge, majorVal, existingMajor, slotVal, match.spanStart, currentStartPos)
+							} else {
+								fmt.Printf("[DEBUG shouldMerge final] Match %d: shouldMerge=%v, major=%v, no existingMajor, slot=%s, spanStart=%d, currentStartPos=%d\n", matchIdx, shouldMerge, majorVal, slotVal, match.spanStart, currentStartPos)
+							}
+						} else {
+							fmt.Printf("[DEBUG shouldMerge final] Match %d: shouldMerge=%v, major=%v, currentMatch=nil, spanStart=%d, currentStartPos=%d\n", matchIdx, shouldMerge, majorVal, match.spanStart, currentStartPos)
+						}
+					}
+				}
 			}
 
 			// Handle finalization before merging
@@ -2547,12 +2578,31 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					}
 				}
 
+				// Check if joinmatches were already initialized in the shouldStartNewMatch path
+				// If patternMatchCount[match.patternIdx] == 1 (before incrementing), it means we just
+				// initialized this pattern in the shouldStartNewMatch path, so we should skip processing
+				// joinmatches again to avoid duplicates. For subsequent matches (count > 1), we should
+				// process joinmatches normally.
+				joinMatchesAlreadyInitialized := false
+				if patternHasJoinMatches && patternMatchCount[match.patternIdx] == 1 {
+					// Check if joinmatches exist in currentMatch (indicating they were initialized)
+					for varName := range match.result {
+						if joinMatchesVars[varName] {
+							if _, exists := currentMatch[varName]; exists {
+								joinMatchesAlreadyInitialized = true
+								break
+							}
+						}
+					}
+				}
+
 				// Track that we've seen this pattern
 				patternMatchCount[match.patternIdx]++
 
 				// If this pattern has joinmatches, we should always collect values
 				// (even if it's the first match, we need to prepare for potential subsequent matches)
-				if patternHasJoinMatches {
+				// BUT: Skip if joinmatches were already initialized in shouldStartNewMatch path
+				if patternHasJoinMatches && !joinMatchesAlreadyInitialized {
 					// For joinmatches variables, collect values
 					for k, v := range match.result {
 						if joinMatchesVars[k] {
@@ -2615,13 +2665,20 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 										currentMatch[k] = []interface{}{[]interface{}{v}}
 									}
 								} else {
-									currentMatch[k] = v
+									// IMPORTANT: When the same pattern matches multiple times, keep the FIRST match's values
+									// Don't overwrite existing values with subsequent matches (Python TTP behavior)
+									if _, exists := currentMatch[k]; !exists {
+										currentMatch[k] = v
+									}
 								}
 							}
 						} else {
 							// Non-joinmatches variable - merge into current match
-							// Always merge, even if already set (to ensure _end_ pattern values are included)
-							currentMatch[k] = v
+							// IMPORTANT: When the same pattern matches multiple times, keep the FIRST match's values
+							// Don't overwrite existing values with subsequent matches (Python TTP behavior)
+							if _, exists := currentMatch[k]; !exists {
+								currentMatch[k] = v
+							}
 						}
 					}
 				} else {
@@ -2633,9 +2690,12 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 						if k == "ignore" || k == "_start_" || k == "_end_" || k == "_line_" {
 							continue
 						}
-						// Only overwrite if this variable doesn't have joinmatches
+						// IMPORTANT: When the same pattern matches multiple times, keep the FIRST match's values
+						// Don't overwrite existing values with subsequent matches (Python TTP behavior)
 						if !joinMatchesVars[k] {
-							currentMatch[k] = v
+							if _, exists := currentMatch[k]; !exists {
+								currentMatch[k] = v
+							}
 						}
 					}
 				}
@@ -2696,6 +2756,12 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					shouldStart = true
 				}
 
+				// DEBUG: Trace shouldStart path for issue #13
+				if group.Name == "line_cards" && match.patternIdx == 3 {
+					if majorVal, ok := match.result["major"]; ok {
+						fmt.Printf("[DEBUG shouldStart path] Match %d: shouldStart=%v, major=%v\n", matchIdx, shouldStart, majorVal)
+					}
+				}
 				if shouldStart {
 					patternMatchCount = make(map[int]int)
 					currentMatch = make(map[string]interface{})
@@ -2704,17 +2770,26 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					currentParentMatchStartIdx = matchIdx // Track where this parent match started
 					for k, v := range match.result {
 						if joinMatchesVars[k] {
+							// For joinmatches, initialize as list (will be collected by subsequent matches)
 							if vList, ok := v.([]interface{}); ok {
 								currentMatch[k] = vList
 							} else {
 								currentMatch[k] = []interface{}{v}
 							}
 						} else {
-							currentMatch[k] = v
+							// IMPORTANT: When the same pattern matches multiple times, keep the FIRST match's values
+							// Don't overwrite existing values with subsequent matches (Python TTP behavior)
+							if _, exists := currentMatch[k]; !exists {
+								currentMatch[k] = v
+							}
 						}
 					}
 					currentStartPos = match.spanStart
 					patternMatchCount[match.patternIdx] = 1
+					// When shouldStart is true, we've already processed the match, so skip merge logic
+					// For joinmatches patterns, the early merge logic (line 1947) should handle subsequent matches
+					// So we always skip merge logic when shouldStart is true
+					shouldMerge = false
 				} else {
 					// If we have start patterns but currentMatch is nil and this is not a start pattern, skip this match
 					// This prevents non-start patterns from creating matches when start patterns exist
@@ -2736,6 +2811,153 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 							continue
 						}
 					}
+				}
+			}
+
+			// If shouldMerge is true, execute merge logic (shared for both start and non-start patterns)
+			// This runs after both if and else blocks have determined shouldMerge
+			// DEBUG: Trace merge logic for issue #13
+			if group.Name == "line_cards" && match.patternIdx == 3 {
+				if majorVal, ok := match.result["major"]; ok {
+					slotVal := "unknown"
+					if currentMatch != nil {
+						if s, ok := currentMatch["slot"]; ok {
+							slotVal = fmt.Sprintf("%v", s)
+						}
+						if existingMajor, ok := currentMatch["major"]; ok {
+							fmt.Printf("[DEBUG merge path] Match %d: shouldMerge=%v, major=%v, existingMajor=%v, slot=%s\n", matchIdx, shouldMerge, majorVal, existingMajor, slotVal)
+						} else {
+							fmt.Printf("[DEBUG merge path] Match %d: shouldMerge=%v, major=%v, no existingMajor, slot=%s\n", matchIdx, shouldMerge, majorVal, slotVal)
+						}
+					} else {
+						fmt.Printf("[DEBUG merge path] Match %d: shouldMerge=%v, major=%v, currentMatch=nil\n", matchIdx, shouldMerge, majorVal)
+					}
+				}
+			}
+			if shouldMerge {
+				// Check if this pattern has joinmatches variables
+				patternHasJoinMatches := false
+				for varName := range match.result {
+					if joinMatchesVars[varName] {
+						patternHasJoinMatches = true
+						break
+					}
+				}
+
+				// Check if joinmatches were already processed by the early merge logic
+				// The early merge logic increments patternMatchCount before processing, so if
+				// patternMatchCount[match.patternIdx] > 0, it means the early merge logic already processed it
+				// Also check if joinmatches were already initialized in the shouldStartNewMatch path
+				// If patternMatchCount[match.patternIdx] == 1 (before incrementing), it means we just
+				// initialized this pattern in the shouldStartNewMatch path, so we should skip processing
+				// joinmatches again to avoid duplicates.
+				joinMatchesAlreadyProcessed := false
+				currentCount := patternMatchCount[match.patternIdx]
+				if patternHasJoinMatches {
+					// Check if joinmatches exist in currentMatch (indicating they were initialized or processed)
+					for varName := range match.result {
+						if joinMatchesVars[varName] {
+							if _, exists := currentMatch[varName]; exists {
+								// If count == 1, it was initialized in shouldStartNewMatch path
+								// If count > 1, it was processed by early merge logic
+								// In both cases, skip processing to avoid duplicates
+								if currentCount >= 1 {
+									joinMatchesAlreadyProcessed = true
+									break
+								}
+							}
+						}
+					}
+				}
+
+				// Track that we've seen this pattern
+				patternMatchCount[match.patternIdx]++
+
+				// If this pattern has joinmatches, we should always collect values
+				// (even if it's the first match, we need to prepare for potential subsequent matches)
+				// BUT: Skip if joinmatches were already processed by early merge logic or initialized in shouldStartNewMatch path
+				if patternHasJoinMatches && !joinMatchesAlreadyProcessed {
+					// For joinmatches variables, collect values
+					for k, v := range match.result {
+						if joinMatchesVars[k] {
+							// For joinmatches, collect values
+							existing, exists := currentMatch[k]
+							if exists {
+								// We already have a value - append the new value to the collection
+								var list []interface{}
+								if existingList, ok := existing.([]interface{}); ok {
+									if len(existingList) > 0 {
+										if _, isNestedList := existingList[0].([]interface{}); isNestedList {
+											list = existingList
+										} else {
+											list = []interface{}{existingList}
+										}
+									} else {
+										list = existingList
+									}
+								} else {
+									list = []interface{}{existing}
+								}
+
+								// Add new value
+								if vList, ok := v.([]interface{}); ok {
+									// Always spread the list elements to avoid nesting
+									// to_list just marks the variable for list storage but shouldn't create nested lists
+									list = append(list, vList...)
+								} else {
+									list = append(list, v)
+								}
+								currentMatch[k] = list
+							} else {
+								// First value
+								if vList, ok := v.([]interface{}); ok {
+									currentMatch[k] = vList
+								} else {
+									currentMatch[k] = []interface{}{v}
+								}
+							}
+						} else {
+							// Non-joinmatches variable - merge into current match
+							// IMPORTANT: When the same pattern matches multiple times, keep the FIRST match's values
+							// Don't overwrite existing values with subsequent matches (Python TTP behavior)
+							if _, exists := currentMatch[k]; !exists {
+								currentMatch[k] = v
+							}
+						}
+					}
+				} else {
+					// No joinmatches - normal merge behavior
+					// Merge all variables from this pattern into current match
+					// This ensures that _end_ pattern variables are merged before finalizing
+					// IMPORTANT: When the same pattern matches multiple times, keep the FIRST match's values
+					// Don't overwrite existing values with subsequent matches (Python TTP behavior)
+					for k, v := range match.result {
+						// Skip special variables that shouldn't be stored
+						if k == "ignore" || k == "_start_" || k == "_end_" {
+							continue
+						}
+						// Only set if key doesn't already exist (preserve first match)
+						if _, exists := currentMatch[k]; !exists {
+							currentMatch[k] = v
+						}
+					}
+				}
+
+				// If this pattern has _end_ indicator, mark the current match as ended (don't finalize yet)
+				// In Python TTP, `end` only marks the group as ended; finalization happens when the next `start` is called
+				// IMPORTANT: According to Python TTP behavior, `_end_` marks the group as ended, but patterns can still
+				// merge into the current match until a new `start` pattern is encountered. The `start` pattern is what
+				// actually finalizes the previous match.
+				// So we should ALWAYS mark as ended when `_end_` matches, but NOT finalize/save the match yet.
+				// Finalization will happen when the next `start` pattern matches.
+				// EXCEPTION: If there are no more matches after this _end_ pattern, or if the next match is a non-start
+				// pattern that should start a new match, we should finalize immediately.
+				if isEndPattern {
+					// Mark that we've hit _end_ for the current match
+					currentMatchHasEnd = true
+					// Don't finalize here - finalization will happen when the next start pattern matches
+					// However, if this is the last match or the next match is a non-start pattern that should
+					// start a new match, we'll finalize in the finalization logic below
 				}
 			}
 		}
@@ -2975,7 +3197,17 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		// But we need to associate nested matches with parent matches based on position
 		// This is a simplified approach - a full implementation would track input ranges per parent match
 
+		// Check if parent group uses record attribute - if so, preserve those variables
+		recordVar := ""
+		if recordAttr, ok := group.Attributes["record"]; ok && recordAttr != "" {
+			recordVar = strings.TrimSpace(recordAttr)
+		}
+		
 		for _, nestedGroup := range group.Groups {
+			// DEBUG: Trace nested group processing for issue #13
+			if nestedGroup.Name == "io" {
+				fmt.Printf("[DEBUG nested io] Processing nested group 'io' for %d parent matches\n", len(mergedMatches))
+			}
 			// Parse nested group for each parent match within its input range
 			// This ensures nested matches are associated with the correct parent
 			for i, parentMatch := range mergedMatches {
@@ -2992,8 +3224,21 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					nestedVars[k] = v
 				}
 				// Then add parent match vars (override template vars)
+				// IMPORTANT: Deep copy to avoid sharing references with parentMatch
 				for k, v := range parentMatch {
-					nestedVars[k] = v
+					if vMap, ok := v.(map[string]interface{}); ok {
+						copiedMap := make(map[string]interface{})
+						for k2, v2 := range vMap {
+							copiedMap[k2] = v2
+						}
+						nestedVars[k] = copiedMap
+					} else if vSlice, ok := v.([]interface{}); ok {
+						copiedSlice := make([]interface{}, len(vSlice))
+						copy(copiedSlice, vSlice)
+						nestedVars[k] = copiedSlice
+					} else {
+						nestedVars[k] = v
+					}
 				}
 				// Also add recorded vars (override parent match vars)
 				if r.recordedVars != nil {
@@ -3001,9 +3246,21 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 						nestedVars[k] = v
 					}
 				}
+				// DEBUG: Check parentMatch before parsing nested group
+				if nestedGroup.Name == "io" {
+					slotVal := parentMatch["slot"]
+					majorVal := parentMatch["major"]
+					fmt.Printf("[DEBUG nested io] Before parseGroup: parent slot=%v, parent major=%v\n", slotVal, majorVal)
+				}
 				nestedResults, err := r.parseGroup(nestedGroup, parentInputData, nestedVars)
 				if err != nil {
 					return nil, err
+				}
+				// DEBUG: Check parentMatch after parsing nested group
+				if nestedGroup.Name == "io" {
+					slotVal := parentMatch["slot"]
+					majorVal := parentMatch["major"]
+					fmt.Printf("[DEBUG nested io] After parseGroup: parent slot=%v, parent major=%v\n", slotVal, majorVal)
 				}
 
 				// YANG validation for nested group (before merging into parent)
@@ -3081,6 +3338,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 							// Named nested group - resolve path and store using storeAtPath
 							// This handles dynamic paths and path formatters (*, **) correctly
 							// For nested groups, we need to resolve the path per match and store accordingly
+							// Track all variables that were stored in nested groups to remove from parent
+							allNestedVars := make(map[string]bool)
 							switch v := nestedResults.(type) {
 							case []map[string]interface{}:
 								// Multiple nested matches - resolve path for each and group by resolved path
@@ -3096,9 +3355,22 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 								for _, nestedMatch := range v {
 									// Resolve dynamic path using nested match values and parent match context
 									// Merge parent match vars with nested match for path resolution
+									// IMPORTANT: Deep copy parentMatch vars to avoid sharing references
 									resolutionVars := make(map[string]interface{})
 									for k, val := range parentMatch {
-										resolutionVars[k] = val
+										if vMap, ok := val.(map[string]interface{}); ok {
+											copiedMap := make(map[string]interface{})
+											for k2, v2 := range vMap {
+												copiedMap[k2] = v2
+											}
+											resolutionVars[k] = copiedMap
+										} else if vSlice, ok := val.([]interface{}); ok {
+											copiedSlice := make([]interface{}, len(vSlice))
+											copy(copiedSlice, vSlice)
+											resolutionVars[k] = copiedSlice
+										} else {
+											resolutionVars[k] = val
+										}
 									}
 									for k, val := range nestedMatch {
 										resolutionVars[k] = val
@@ -3118,7 +3390,6 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 											continue
 										}
 									}
-
 									// Build a key for grouping (convert parts to string for map key)
 									// Use a special delimiter that won't appear in resolved values
 									pathKeyParts := make([]string, len(resolvedParts))
@@ -3187,13 +3458,74 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 									}
 									// Store at the path
 									r.storeAtPathSegments(parentMatch, resolvedParts, valueToStore)
+									
+									// Track variables that were stored in nested groups to remove from parent
+									if valueMap, ok := valueToStore.(map[string]interface{}); ok {
+										for k := range valueMap {
+											allNestedVars[k] = true
+										}
+									} else if valueList, ok := valueToStore.([]interface{}); ok {
+										for _, item := range valueList {
+											if itemMap, ok := item.(map[string]interface{}); ok {
+												for k := range itemMap {
+													allNestedVars[k] = true
+												}
+											}
+										}
+									}
+								}
+								// IMPORTANT: Python TTP removes variables from parent match that are also in nested groups
+								// BUT only if they have the same value (to avoid removing variables that are different)
+								// AND only if they're not used by group attributes like record (which need them for grouping)
+								// This prevents duplication - if a variable is matched by nested group with the same value,
+								// it should only exist in the nested group, not in the parent
+								// Note: For multiple nested matches, we check each match individually
+								for k := range allNestedVars {
+									// Don't remove if this variable is used by record attribute (needed for grouping)
+									if recordVar != "" && k == recordVar {
+										continue
+									}
+									// Check if this variable exists in parent and has the same value in any nested match
+									if parentVal, exists := parentMatch[k]; exists {
+										// Check all nested matches to see if any have the same value
+										shouldRemove := false
+										for _, pathMatches := range groupedNestedResults {
+											for _, pm := range pathMatches {
+												if nestedVal, ok := pm.match[k]; ok {
+													if reflect.DeepEqual(parentVal, nestedVal) {
+														shouldRemove = true
+														break
+													}
+												}
+											}
+											if shouldRemove {
+												break
+											}
+										}
+										if shouldRemove {
+											delete(parentMatch, k)
+										}
+									}
 								}
 							case map[string]interface{}:
 								// Single nested match - resolve path and store
 								// Merge parent match vars with nested match for path resolution
+								// IMPORTANT: Deep copy to avoid sharing references
 								resolutionVars := make(map[string]interface{})
 								for k, val := range parentMatch {
-									resolutionVars[k] = val
+									if vMap, ok := val.(map[string]interface{}); ok {
+										copiedMap := make(map[string]interface{})
+										for k2, v2 := range vMap {
+											copiedMap[k2] = v2
+										}
+										resolutionVars[k] = copiedMap
+									} else if vSlice, ok := val.([]interface{}); ok {
+										copiedSlice := make([]interface{}, len(vSlice))
+										copy(copiedSlice, vSlice)
+										resolutionVars[k] = copiedSlice
+									} else {
+										resolutionVars[k] = val
+									}
 								}
 								for k, val := range v {
 									resolutionVars[k] = val
@@ -3229,6 +3561,24 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 								// single match = map, multiple matches = list
 								// Store as map (single match) - matches Python TTP behavior
 								r.storeAtPathSegments(parentMatch, resolvedParts, cleanedNestedMatch)
+								
+								// IMPORTANT: Python TTP removes variables from parent match that are also in nested group
+								// BUT only if they have the same value (to avoid removing variables that are different)
+								// AND only if they're not used by group attributes like record (which need them for grouping)
+								// This prevents duplication - if a variable is matched by nested group with the same value,
+								// it should only exist in the nested group, not in the parent
+								for k, nestedVal := range cleanedNestedMatch {
+									if parentVal, exists := parentMatch[k]; exists {
+										// Don't remove if this variable is used by record attribute (needed for grouping)
+										if recordVar != "" && k == recordVar {
+											continue
+										}
+										// Only remove if values are the same (Python TTP behavior)
+										if reflect.DeepEqual(parentVal, nestedVal) {
+											delete(parentMatch, k)
+										}
+									}
+								}
 							}
 						}
 					}
@@ -5353,8 +5703,16 @@ func (r *Runtime) storeAtPathSegments(results map[string]interface{}, parts []st
 		return
 	}
 
-	// DEBUG PRINT
-	// fmt.Printf("storeAtPathSegments: key=%s, valueType=%T, value=%v\n", parts[len(parts)-1].key, value, value)
+	// DEBUG: Trace storeAtPathSegments for issue #13
+	if len(parts) == 1 && parts[0].key == "io" {
+		pathStr := parts[0].key
+		if valueMap, ok := value.(map[string]interface{}); ok {
+			majorVal := valueMap["major"]
+			parentMajor := results["major"]
+			fmt.Printf("[DEBUG storeAtPathSegments] Storing at path: %s\n", pathStr)
+			fmt.Printf("[DEBUG storeAtPathSegments]   value major=%v, parent major=%v\n", majorVal, parentMajor)
+		}
+	}
 
 	// Navigate/create the nested structure
 	current := results
