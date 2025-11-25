@@ -552,13 +552,64 @@ function buildSourceMapNavigationData(sourceMap, inputName = 'Default_Input') {
     sourceMapNavigationData.lineToMatchOrder = null;
     
     if (!sourceMap || !sourceMap.Inputs || !sourceMap.Inputs[inputName]) {
+        console.log('[DEBUG] buildSourceMapNavigationData: No source map or input');
         return;
     }
     
     const inputSourceMap = sourceMap.Inputs[inputName];
     if (!inputSourceMap || !inputSourceMap.Lines) {
+        console.log('[DEBUG] buildSourceMapNavigationData: No input source map or lines');
         return;
     }
+    
+    // Debug: count matches by group name and show details
+    const groupMatchCounts = {};
+    const groupMatchDetails = {};
+    const allGroupNames = new Set();
+    inputSourceMap.Lines.forEach((lineMapping, lineIndex) => {
+        if (lineMapping.Matches && lineMapping.Matches.length > 0) {
+            lineMapping.Matches.forEach((match) => {
+                const groupName = match.GroupName || '';
+                const resultPath = match.ResultPath || '';
+                // Log each match to see what we're getting
+                if (lineIndex < 10) {
+                    console.log(`[DEBUG] Match on line ${lineIndex}: GroupName="${groupName}", ResultPath="${resultPath}"`);
+                }
+                allGroupNames.add(groupName);
+                groupMatchCounts[groupName] = (groupMatchCounts[groupName] || 0) + 1;
+                if (!groupMatchDetails[groupName]) {
+                    groupMatchDetails[groupName] = [];
+                }
+                groupMatchDetails[groupName].push({
+                    line: lineIndex,
+                    resultPath: resultPath,
+                    patternIndex: match.PatternIndex || -1,
+                    startCol: match.StartCol || 0,
+                    endCol: match.EndCol || 0
+                });
+            });
+        }
+    });
+    console.log('[DEBUG] buildSourceMapNavigationData: All group names found:', Array.from(allGroupNames));
+    console.log('[DEBUG] buildSourceMapNavigationData: Match counts by group:', groupMatchCounts);
+    console.log('[DEBUG] buildSourceMapNavigationData: Match details by group:', groupMatchDetails);
+    
+    // Also log all matches to see what we have
+    let totalMatches = 0;
+    let linesWithMatches = 0;
+    inputSourceMap.Lines.forEach((lineMapping, lineIndex) => {
+        if (lineMapping.Matches && lineMapping.Matches.length > 0) {
+            totalMatches += lineMapping.Matches.length;
+            linesWithMatches++;
+            // Log first few lines with matches to see what's there
+            if (linesWithMatches <= 10) {
+                console.log(`[DEBUG] Line ${lineIndex} has ${lineMapping.Matches.length} matches:`, 
+                    lineMapping.Matches.map(m => ({ group: m.GroupName, resultPath: m.ResultPath || '' })));
+            }
+        }
+    });
+    console.log('[DEBUG] buildSourceMapNavigationData: Total matches across all lines:', totalMatches);
+    console.log('[DEBUG] buildSourceMapNavigationData: Lines with matches:', linesWithMatches);
     
     // Build mapping from result paths to input positions
     // Track match order per result path to map to specific array items
@@ -1033,14 +1084,39 @@ function navigateResultToInput(resultPath, outputPosition = null) {
     // Try exact match first
     let matches = sourceMapNavigationData.resultPathToMatches[resultPath];
     
-    // If no exact match, try group name fallback
+    // If no exact match, try to find nested paths
+    // For nested paths like "parent.nested", try to match the full path or parts
     if (!matches || matches.length === 0) {
-        // Try to find by group name
-        const groupName = resultPath.split('.')[0]; // Get first part of path
+        // Try to find paths that end with this path (for nested groups)
+        // e.g., if resultPath is "nested", look for "parent.nested"
+        for (const [key, value] of Object.entries(sourceMapNavigationData.resultPathToMatches)) {
+            if (key.endsWith('.' + resultPath) || key === resultPath) {
+                matches = value;
+                break;
+            }
+        }
+    }
+    
+    // If still no match, try to find paths that start with this path
+    // e.g., if resultPath is "parent", look for "parent.nested"
+    if (!matches || matches.length === 0) {
+        for (const [key, value] of Object.entries(sourceMapNavigationData.resultPathToMatches)) {
+            if (key.startsWith(resultPath + '.') || key === resultPath) {
+                matches = value;
+                break;
+            }
+        }
+    }
+    
+    // If still no match, try group name fallback (last resort)
+    if (!matches || matches.length === 0) {
+        // Try to find by group name (last part of path)
+        const pathParts = resultPath.split('.');
+        const groupName = pathParts[pathParts.length - 1]; // Get last part of path
         matches = sourceMapNavigationData.resultPathToMatches[groupName];
     }
     
-    // If still no match, try all keys that contain this path
+    // If still no match, try all keys that contain this path (very last resort)
     if (!matches || matches.length === 0) {
         for (const [key, value] of Object.entries(sourceMapNavigationData.resultPathToMatches)) {
             if (key.includes(resultPath) || resultPath.includes(key)) {

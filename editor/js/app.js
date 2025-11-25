@@ -307,6 +307,46 @@ class GottpEditor {
             
             this.state.lastResult = parseResult.data;
             this.state.lastSourceMap = parseResult.sourceMap;
+            
+            // Debug: log source map structure and inspect for nested groups
+            if (parseResult.sourceMap) {
+                const inputSourceMap = parseResult.sourceMap.Inputs && parseResult.sourceMap.Inputs['Default_Input'];
+                if (inputSourceMap && inputSourceMap.Lines) {
+                    // Check all lines for any group names that might be nested
+                    const allGroupNamesInSourceMap = new Set();
+                    inputSourceMap.Lines.forEach((lineMapping, lineIndex) => {
+                        if (lineMapping.Matches && lineMapping.Matches.length > 0) {
+                            lineMapping.Matches.forEach((match) => {
+                                if (match.GroupName) {
+                                    allGroupNamesInSourceMap.add(match.GroupName);
+                                }
+                            });
+                        }
+                    });
+                    console.log('[DEBUG] Source map received:', {
+                        hasInputs: !!parseResult.sourceMap.Inputs,
+                        inputNames: parseResult.sourceMap.Inputs ? Object.keys(parseResult.sourceMap.Inputs) : [],
+                        defaultInput: {
+                            hasLines: !!inputSourceMap.Lines,
+                            numLines: inputSourceMap.Lines ? inputSourceMap.Lines.length : 0,
+                            allGroupNames: Array.from(allGroupNamesInSourceMap)
+                        }
+                    });
+                    
+                    // Also check a few sample lines to see what's there
+                    console.log('[DEBUG] Sample lines from source map:');
+                    for (let i = 0; i < Math.min(20, inputSourceMap.Lines.length); i++) {
+                        const lineMapping = inputSourceMap.Lines[i];
+                        if (lineMapping.Matches && lineMapping.Matches.length > 0) {
+                            console.log(`  Line ${i}:`, lineMapping.Matches.map(m => ({
+                                group: m.GroupName,
+                                resultPath: m.ResultPath || '',
+                                patternIndex: m.PatternIndex
+                            })));
+                        }
+                    }
+                }
+            }
             this.displayOutput(parseResult.data);
             this.updateOutputStats(compileTime, executionTime);
             
