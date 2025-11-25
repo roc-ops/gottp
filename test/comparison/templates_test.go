@@ -1,6 +1,7 @@
 package comparison
 
 import (
+	"os"
 	"testing"
 )
 
@@ -231,5 +232,28 @@ interface Vlan100
 `
 
 	RunComparison(t, "template_line_indicator", template, data, nil, nil)
+}
+
+// TestIssue13 tests issue #13: Inconsistent output compared to Python TTP
+// This test loads a gottp-config.json file exported from the editor
+// To add a test case, place the gottp-config.json file in test/comparison/fixtures/issue_13/
+func TestIssue13(t *testing.T) {
+	if !pythonTTPAvailable() {
+		t.Skip("Python TTP not available")
+	}
+
+	// Try to find config file in fixtures
+	configPath, err := fixturePath("issue_13", "gottp-config.json")
+	if err != nil {
+		t.Fatalf("Failed to get fixture path: %v", err)
+	}
+
+	// Check if config file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		t.Skipf("Config file not found at %s - skipping test. To add a test case, export your editor configuration and place it at this path.", configPath)
+	}
+
+	// Run comparison with config file
+	RunComparisonWithConfig(t, "issue_13", configPath)
 }
 

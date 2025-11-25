@@ -99,6 +99,21 @@ go get github.com/roc-ops/gottp
 - [Python Macros](docs/PYTHON_MACROS.md) - Python macro setup and usage
 - [API Documentation](https://pkg.go.dev/github.com/roc-ops/gottp) - Go package documentation
 
+## Online Editor
+
+Try GoTTP in your browser! The editor is live at:
+
+**🌐 [https://roc-ops.github.io/gottp/index.html](https://roc-ops.github.io/gottp/index.html)**
+
+The online editor features:
+- Real-time template processing
+- Monaco Editor with syntax highlighting and auto-completion
+- Multiple output formats (JSON, YAML, Table, CSV)
+- Global variables and lookup tables
+- Source map visualization for debugging
+- Export/import configurations
+- Built-in examples
+
 ## License
 
 MIT License - see LICENSE file for details.

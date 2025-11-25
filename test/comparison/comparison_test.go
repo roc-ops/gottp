@@ -427,3 +427,48 @@ func fixturePath(parts ...string) (string, error) {
 	allParts := append([]string{root, "test", "comparison", "fixtures"}, parts...)
 	return filepath.Join(allParts...), nil
 }
+
+// gottpConfig represents the structure of a gottp-config.json file exported from the editor
+type gottpConfig struct {
+	Template      string                            `json:"template"`
+	Inputs        map[string]string                 `json:"inputs"`
+	Variables     map[string]interface{}            `json:"variables"`
+	Lookups       map[string]map[string]interface{} `json:"lookups"`
+	YANGModules   map[string]string                 `json:"yangModules,omitempty"`
+	SourceMaps    bool                              `json:"sourceMapsEnabled,omitempty"`
+	SourceMapColors map[string]interface{}          `json:"sourceMapColors,omitempty"`
+	WordWrap      map[string]bool                   `json:"wordWrap,omitempty"`
+	Version       string                            `json:"version,omitempty"`
+}
+
+// RunComparisonWithConfig loads a gottp-config.json file and runs a comparison test
+func RunComparisonWithConfig(t *testing.T, testName, configFile string) {
+	// Read config file
+	configBytes, err := os.ReadFile(configFile)
+	if err != nil {
+		t.Fatalf("Failed to read config file: %v", err)
+	}
+
+	// Parse config
+	var config gottpConfig
+	if err := json.Unmarshal(configBytes, &config); err != nil {
+		t.Fatalf("Failed to parse config file: %v", err)
+	}
+
+	// Extract data from inputs (use Default_Input if available, otherwise use first input)
+	var data string
+	if config.Inputs != nil {
+		if defaultInput, ok := config.Inputs["Default_Input"]; ok {
+			data = defaultInput
+		} else {
+			// Use first input if Default_Input not found
+			for _, inputData := range config.Inputs {
+				data = inputData
+				break
+			}
+		}
+	}
+
+	// Run comparison with extracted values
+	RunComparison(t, testName, config.Template, data, config.Variables, config.Lookups)
+}
