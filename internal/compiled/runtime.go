@@ -2411,24 +2411,6 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					// However, if this pattern is NOT the first pattern, it should only match within
 					// a block started by a start pattern (like TestMatchIndicatorExact where pattern 1
 					// should only match within a block started by pattern 0).
-					// DEBUG: Trace non-start pattern path for issue #13
-					if group.Name == "line_cards" && match.patternIdx == 3 {
-						if majorVal, ok := match.result["major"]; ok {
-							slotVal := "unknown"
-							if currentMatch != nil {
-								if s, ok := currentMatch["slot"]; ok {
-									slotVal = fmt.Sprintf("%v", s)
-								}
-								if existingMajor, ok := currentMatch["major"]; ok {
-									fmt.Printf("[DEBUG non-start path] Match %d: currentMatchHasEnd=true, major=%v, existingMajor=%v, slot=%s\n", matchIdx, majorVal, existingMajor, slotVal)
-								} else {
-									fmt.Printf("[DEBUG non-start path] Match %d: currentMatchHasEnd=true, major=%v, no existingMajor, slot=%s\n", matchIdx, majorVal, slotVal)
-								}
-							} else {
-								fmt.Printf("[DEBUG non-start path] Match %d: currentMatchHasEnd=true, major=%v, currentMatch=nil\n", matchIdx, majorVal)
-							}
-						}
-					}
 					isFirstPattern := match.patternIdx == 0
 					if currentMatch == nil {
 						// We've already finalized - allow patterns to match again
@@ -2510,25 +2492,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 						shouldMerge = true
 					}
 				}
-				// DEBUG: Trace shouldMerge decision for issue #13
-				if group.Name == "line_cards" && match.patternIdx == 3 {
-					if majorVal, ok := match.result["major"]; ok {
-						slotVal := "unknown"
-						if currentMatch != nil {
-							if s, ok := currentMatch["slot"]; ok {
-								slotVal = fmt.Sprintf("%v", s)
-							}
-							if existingMajor, ok := currentMatch["major"]; ok {
-								fmt.Printf("[DEBUG shouldMerge final] Match %d: shouldMerge=%v, major=%v, existingMajor=%v, slot=%s, spanStart=%d, currentStartPos=%d\n", matchIdx, shouldMerge, majorVal, existingMajor, slotVal, match.spanStart, currentStartPos)
-							} else {
-								fmt.Printf("[DEBUG shouldMerge final] Match %d: shouldMerge=%v, major=%v, no existingMajor, slot=%s, spanStart=%d, currentStartPos=%d\n", matchIdx, shouldMerge, majorVal, slotVal, match.spanStart, currentStartPos)
-							}
-						} else {
-							fmt.Printf("[DEBUG shouldMerge final] Match %d: shouldMerge=%v, major=%v, currentMatch=nil, spanStart=%d, currentStartPos=%d\n", matchIdx, shouldMerge, majorVal, match.spanStart, currentStartPos)
-						}
-					}
-				}
-			}
+		}
 
 			// Handle finalization before merging
 			if shouldFinalizeAndStartNew {
@@ -2756,13 +2720,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					shouldStart = true
 				}
 
-				// DEBUG: Trace shouldStart path for issue #13
-				if group.Name == "line_cards" && match.patternIdx == 3 {
-					if majorVal, ok := match.result["major"]; ok {
-						fmt.Printf("[DEBUG shouldStart path] Match %d: shouldStart=%v, major=%v\n", matchIdx, shouldStart, majorVal)
-					}
-				}
-				if shouldStart {
+			if shouldStart {
 					patternMatchCount = make(map[int]int)
 					currentMatch = make(map[string]interface{})
 					currentStartPatternIdx = match.patternIdx // Track which pattern started this match
@@ -2814,27 +2772,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				}
 			}
 
-			// If shouldMerge is true, execute merge logic (shared for both start and non-start patterns)
-			// This runs after both if and else blocks have determined shouldMerge
-			// DEBUG: Trace merge logic for issue #13
-			if group.Name == "line_cards" && match.patternIdx == 3 {
-				if majorVal, ok := match.result["major"]; ok {
-					slotVal := "unknown"
-					if currentMatch != nil {
-						if s, ok := currentMatch["slot"]; ok {
-							slotVal = fmt.Sprintf("%v", s)
-						}
-						if existingMajor, ok := currentMatch["major"]; ok {
-							fmt.Printf("[DEBUG merge path] Match %d: shouldMerge=%v, major=%v, existingMajor=%v, slot=%s\n", matchIdx, shouldMerge, majorVal, existingMajor, slotVal)
-						} else {
-							fmt.Printf("[DEBUG merge path] Match %d: shouldMerge=%v, major=%v, no existingMajor, slot=%s\n", matchIdx, shouldMerge, majorVal, slotVal)
-						}
-					} else {
-						fmt.Printf("[DEBUG merge path] Match %d: shouldMerge=%v, major=%v, currentMatch=nil\n", matchIdx, shouldMerge, majorVal)
-					}
-				}
-			}
-			if shouldMerge {
+		// If shouldMerge is true, execute merge logic (shared for both start and non-start patterns)
+		// This runs after both if and else blocks have determined shouldMerge
+		if shouldMerge {
 				// Check if this pattern has joinmatches variables
 				patternHasJoinMatches := false
 				for varName := range match.result {
@@ -3206,7 +3146,6 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		for _, nestedGroup := range group.Groups {
 			// DEBUG: Trace nested group processing for issue #13
 			if nestedGroup.Name == "io" {
-				fmt.Printf("[DEBUG nested io] Processing nested group 'io' for %d parent matches\n", len(mergedMatches))
 			}
 			// Parse nested group for each parent match within its input range
 			// This ensures nested matches are associated with the correct parent
@@ -3245,25 +3184,13 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					for k, v := range r.recordedVars {
 						nestedVars[k] = v
 					}
-				}
-				// DEBUG: Check parentMatch before parsing nested group
-				if nestedGroup.Name == "io" {
-					slotVal := parentMatch["slot"]
-					majorVal := parentMatch["major"]
-					fmt.Printf("[DEBUG nested io] Before parseGroup: parent slot=%v, parent major=%v\n", slotVal, majorVal)
-				}
-				nestedResults, err := r.parseGroup(nestedGroup, parentInputData, nestedVars)
-				if err != nil {
-					return nil, err
-				}
-				// DEBUG: Check parentMatch after parsing nested group
-				if nestedGroup.Name == "io" {
-					slotVal := parentMatch["slot"]
-					majorVal := parentMatch["major"]
-					fmt.Printf("[DEBUG nested io] After parseGroup: parent slot=%v, parent major=%v\n", slotVal, majorVal)
-				}
+			}
+			nestedResults, err := r.parseGroup(nestedGroup, parentInputData, nestedVars)
+			if err != nil {
+				return nil, err
+			}
 
-				// YANG validation for nested group (before merging into parent)
+			// YANG validation for nested group (before merging into parent)
 				if r.yangValidator != nil && nestedResults != nil {
 					if yangPath, ok := nestedGroup.Attributes["yang"]; ok && yangPath != "" {
 						validationResult := r.yangValidator.Validate(nestedResults, yangPath, nestedGroup.Name)
@@ -4473,7 +4400,738 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 		}
 	}
 
+	// Process nested groups with source map support
+	// Nested groups are already processed by parseGroup, but we need to:
+	// 1. Record their matches in the source map (they weren't recorded because parseGroup doesn't have source map)
+	// 2. Update their ResultPath to reflect the full path (e.g., "parent.nested" instead of just "nested")
+	if len(group.Groups) > 0 && result != nil {
+		// Determine parent result path
+		var parentResultPath string
+		if group.Name != "" {
+			parentResultPath = group.Name
+			if resultsMap != nil {
+				if _, exists := resultsMap[group.Name]; exists {
+					parentResultPath = group.Name
+				} else {
+					// Try to find resolved path
+					for key := range resultsMap {
+						if strings.HasPrefix(key, group.Name) || group.Name == "" {
+							parentResultPath = key
+							break
+						}
+					}
+				}
+			}
+		} else {
+			parentResultPath = "_anonymous_"
+		}
+
+		// Reconstruct parent match ranges from allMatches
+		// Group matches by parent match instance (pattern index 0 typically starts a new parent match)
+		type parentRange struct {
+			startLine int
+			endLine   int
+			startPos  int
+			endPos    int
+		}
+		parentRanges := make([]parentRange, 0)
+		
+		// Get merged matches from result to determine how many parent matches we have
+		var mergedMatches []map[string]interface{}
+		if resultList, ok := result.([]map[string]interface{}); ok {
+			mergedMatches = resultList
+		} else if resultSingle, ok := result.(map[string]interface{}); ok {
+			mergedMatches = []map[string]interface{}{resultSingle}
+		}
+		
+		// Reconstruct parent match ranges by grouping matches
+		// IMPORTANT: Parent ranges must extend to include nested group content, not just parent patterns
+		// Nested groups are parsed on content AFTER the parent's direct pattern matches
+		if len(allMatches) > 0 && len(mergedMatches) > 0 {
+			// First, find where each parent match starts (pattern index 0)
+			parentStarts := make([]int, 0)
+			for i, match := range allMatches {
+				if match.patternIdx == 0 {
+					parentStarts = append(parentStarts, i)
+				}
+			}
+			
+			// Build ranges where each parent extends to the start of the next parent (or end of input)
+			for pi, startIdx := range parentStarts {
+				firstMatch := allMatches[startIdx]
+				
+				// Determine where this parent's range ends
+				var endPos int
+				var endLine int
+				
+				if pi+1 < len(parentStarts) {
+					// There's another parent after this one - extend to just before it
+					nextStartIdx := parentStarts[pi+1]
+					nextMatch := allMatches[nextStartIdx]
+					endPos = nextMatch.spanStart
+					endLine = nextMatch.lineIdx
+					if endLine > 0 {
+						endLine-- // Include up to the line before the next parent starts
+					}
+				} else {
+					// This is the last parent - extend to end of input
+					endPos = len(inputData)
+					endLine = len(lines) - 1
+				}
+				
+				parentRanges = append(parentRanges, parentRange{
+					startLine: firstMatch.lineIdx,
+					endLine:   endLine,
+					startPos:  firstMatch.spanStart,
+					endPos:    endPos,
+				})
+			}
+			
+			// Ensure we have enough ranges for all merged matches
+			for len(parentRanges) < len(mergedMatches) {
+				if len(parentRanges) == 0 {
+					parentRanges = append(parentRanges, parentRange{
+						startLine: 0,
+						endLine:   len(lines) - 1,
+						startPos:  0,
+						endPos:    len(inputData),
+					})
+				} else {
+					// Duplicate last range
+					lastRange := parentRanges[len(parentRanges)-1]
+					parentRanges = append(parentRanges, lastRange)
+				}
+			}
+		}
+
+		// First pass: Find where each nested group's pattern 0 matches within each parent range
+		// This lets us determine the actual range for each nested group
+		type nestedGroupRange struct {
+			groupName  string
+			startLine  int
+			endLine    int  // exclusive
+			parentIdx  int
+		}
+		nestedRanges := make([]nestedGroupRange, 0)
+		
+		
+		for _, nestedGroup := range group.Groups {
+			if nestedGroup.Name == "" || nestedGroup.Name == "_" {
+				continue
+			}
+			if len(nestedGroup.Patterns) == 0 {
+				continue
+			}
+			
+			for parentIdx, parentRange := range parentRanges {
+				if parentIdx >= len(mergedMatches) {
+					break
+				}
+				
+				parentMatch := mergedMatches[parentIdx]
+				existsInResult := r.nestedGroupExistsInResult(parentMatch, nestedGroup.Name)
+				if parentMatch == nil || !existsInResult {
+					continue
+				}
+				
+				if parentRange.endPos <= parentRange.startPos || parentRange.endPos > len(inputData) {
+					continue
+				}
+				
+				parentInputData := inputData[parentRange.startPos:parentRange.endPos]
+				rangeStartLine := parentRange.startLine
+				parentLines := strings.Split(parentInputData, "\n")
+				
+				
+				firstPattern := nestedGroup.Patterns[0]
+				hasAnchorsFirst := strings.Contains(firstPattern.Regex.String(), "^") ||
+					strings.Contains(firstPattern.Regex.String(), "$")
+				
+				
+				// Find ALL instances where pattern 0 matches (not just the first one)
+				// Each match represents a new instance of the nested group
+				instanceStartLines := make([]int, 0)
+				
+			if hasAnchorsFirst {
+				for localLineIdx, line := range parentLines {
+					line = strings.TrimRight(line, "\r \t")
+					if strings.TrimSpace(line) == "" {
+						continue
+					}
+					matches := firstPattern.Regex.MatchString(line)
+					if matches {
+							absoluteLine := rangeStartLine + localLineIdx
+							instanceStartLines = append(instanceStartLines, absoluteLine)
+						}
+					}
+				} else {
+					// For non-anchored patterns, find all matches
+					allMatchIndices := firstPattern.Regex.FindAllStringIndex(parentInputData, -1)
+					
+					parentLineOffsets := make([]int, 0)
+					offset := 0
+					for _, line := range parentLines {
+						parentLineOffsets = append(parentLineOffsets, offset)
+						offset += len(line) + 1
+					}
+					parentLineOffsets = append(parentLineOffsets, offset)
+					
+					for _, indices := range allMatchIndices {
+						if len(indices) >= 2 {
+							// Find which line this match is on
+							localLineIdx := 0
+							for i, off := range parentLineOffsets {
+								if indices[0] < off {
+									localLineIdx = i - 1
+									break
+								}
+							}
+							if localLineIdx >= 0 {
+								absoluteLine := rangeStartLine + localLineIdx
+								instanceStartLines = append(instanceStartLines, absoluteLine)
+							}
+						}
+					}
+				}
+				
+				// Create a nestedRange entry for each instance
+				for _, startLine := range instanceStartLines {
+					nestedRanges = append(nestedRanges, nestedGroupRange{
+						groupName: nestedGroup.Name,
+						startLine: startLine,
+						endLine:   parentRange.endLine + 1, // Will be adjusted below
+						parentIdx: parentIdx,
+					})
+				}
+			}
+		}
+		
+		// Sort nested ranges by startLine within each parent
+		// Then adjust endLine to be the start of the next instance (could be same group or different group)
+		for i := range nestedRanges {
+			for j := range nestedRanges {
+				// Check if range j starts after range i within the same parent
+				if i != j && nestedRanges[i].parentIdx == nestedRanges[j].parentIdx {
+					if nestedRanges[j].startLine > nestedRanges[i].startLine {
+						// Range j starts after range i - use j's start as i's end
+						if nestedRanges[j].startLine < nestedRanges[i].endLine {
+							nestedRanges[i].endLine = nestedRanges[j].startLine
+						}
+					}
+				}
+			}
+	}
+	
+	// Second pass: Process each nested group range and record matches
+		// Now we iterate over ALL ranges (not just one per nested group)
+		for rangeIdx, nr := range nestedRanges {
+			// Find the corresponding nestedGroup for this range
+			var nestedGroup *compiler.CompiledGroup
+			for i := range group.Groups {
+				if group.Groups[i].Name == nr.groupName {
+					nestedGroup = group.Groups[i]
+					break
+				}
+			}
+			if nestedGroup == nil {
+				continue
+			}
+			if len(nestedGroup.Patterns) == 0 {
+				continue
+			}
+			
+			parentIdx := nr.parentIdx
+			if parentIdx >= len(parentRanges) || parentIdx >= len(mergedMatches) {
+				continue
+			}
+			parentRange := parentRanges[parentIdx]
+			
+			nestedGroupStartLine := nr.startLine
+			nestedGroupEndLine := nr.endLine
+			
+
+			// Extract input data for this parent match range
+			if parentRange.endPos > parentRange.startPos && parentRange.endPos <= len(inputData) {
+				parentInputData := inputData[parentRange.startPos:parentRange.endPos]
+				rangeStartLine := parentRange.startLine
+
+				// Process nested group patterns on this parent's input range
+				// But only record matches within the nested group's specific range
+				parentLines := strings.Split(parentInputData, "\n")
+				
+				for patternIdx, compiledPattern := range nestedGroup.Patterns {
+					hasAnchors := strings.Contains(compiledPattern.Regex.String(), "^") ||
+						strings.Contains(compiledPattern.Regex.String(), "$")
+
+					if hasAnchors {
+						// Match line by line within parent range
+						for localLineIdx, line := range parentLines {
+							absoluteLineIdx := rangeStartLine + localLineIdx
+							if absoluteLineIdx < nestedGroupStartLine || absoluteLineIdx >= nestedGroupEndLine {
+								continue
+							}
+							if absoluteLineIdx < 0 || absoluteLineIdx >= len(inputSourceMap.Lines) {
+								continue
+							}
+							line = strings.TrimRight(line, "\r \t")
+							if strings.TrimSpace(line) == "" {
+								continue
+							}
+							match := compiledPattern.Regex.FindStringSubmatch(line)
+							if match != nil {
+								matchIndices := compiledPattern.Regex.FindStringSubmatchIndex(line)
+								if matchIndices == nil || len(matchIndices) < 2 {
+									continue
+								}
+								lineMapping := inputSourceMap.Lines[absoluteLineIdx]
+								lineMapping.Matched = true
+								startCol := matchIndices[0]
+								endCol := matchIndices[1]
+								adjustedVarRanges := make(map[string]*VarRange)
+								varIndex := 1
+								for _, varName := range compiledPattern.VariableOrder {
+									if _, ok := compiledPattern.Variables[varName]; !ok {
+										continue
+									}
+									if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+										varIndex++
+										continue
+									}
+									if varIndex*2 < len(matchIndices) {
+										varStart := matchIndices[varIndex*2]
+										varEnd := matchIndices[varIndex*2+1]
+										if varStart >= 0 && varEnd >= 0 {
+											adjustedVarRanges[varName] = &VarRange{StartCol: varStart, EndCol: varEnd}
+										}
+									}
+									varIndex++
+								}
+								matchMapping := &MatchMapping{
+									StartCol: startCol, EndCol: endCol,
+									GroupName: nestedGroup.Name, PatternIndex: patternIdx,
+									Variables: adjustedVarRanges, ResultPath: "",
+								}
+								lineMapping.Matches = append(lineMapping.Matches, matchMapping)
+							}
+						}
+					} else {
+						// Match against parent input range (non-anchored)
+						allIndices := compiledPattern.Regex.FindAllStringSubmatchIndex(parentInputData, -1)
+						parentLineOffsets := make([]int, 0)
+						offset := 0
+						for _, line := range parentLines {
+							parentLineOffsets = append(parentLineOffsets, offset)
+							offset += len(line) + 1
+						}
+						parentLineOffsets = append(parentLineOffsets, offset)
+
+						for _, indices := range allIndices {
+							if len(indices) < 2 {
+								continue
+							}
+							localLineIdx := 0
+							for i, off := range parentLineOffsets {
+								if indices[0] < off {
+									localLineIdx = i - 1
+									break
+								}
+							}
+							if localLineIdx < 0 {
+								localLineIdx = 0
+							}
+							if localLineIdx >= len(parentLines) {
+								localLineIdx = len(parentLines) - 1
+							}
+							absoluteLineIdx := rangeStartLine + localLineIdx
+							if absoluteLineIdx < nestedGroupStartLine || absoluteLineIdx >= nestedGroupEndLine {
+								continue
+							}
+							if absoluteLineIdx < 0 || absoluteLineIdx >= len(inputSourceMap.Lines) {
+								continue
+							}
+							lineMapping := inputSourceMap.Lines[absoluteLineIdx]
+							lineMapping.Matched = true
+							lineStart := parentLineOffsets[localLineIdx]
+							startCol := indices[0] - lineStart
+							endCol := indices[1] - lineStart
+							adjustedVarRanges := make(map[string]*VarRange)
+							varIndex := 1
+							for _, varName := range compiledPattern.VariableOrder {
+								if _, ok := compiledPattern.Variables[varName]; !ok {
+									continue
+								}
+								if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+									varIndex++
+									continue
+								}
+								if varIndex*2 < len(indices) {
+									varStartAbs := indices[varIndex*2]
+									varEndAbs := indices[varIndex*2+1]
+									if varStartAbs >= 0 && varEndAbs >= 0 {
+										varStart := varStartAbs - lineStart
+										varEnd := varEndAbs - lineStart
+										if varStart >= 0 && varEnd >= 0 {
+											adjustedVarRanges[varName] = &VarRange{StartCol: varStart, EndCol: varEnd}
+										}
+									}
+								}
+								varIndex++
+							}
+							matchMapping := &MatchMapping{
+								StartCol: startCol, EndCol: endCol,
+								GroupName: nestedGroup.Name, PatternIndex: patternIdx,
+								Variables: adjustedVarRanges, ResultPath: "",
+							}
+							lineMapping.Matches = append(lineMapping.Matches, matchMapping)
+						}
+					}
+				}
+			}
+
+			// Find where this nested group is stored in the result and update ResultPath
+			// for matches within this specific range
+			
+			// Get the base path for the nested group (without array suffix)
+			baseNestedPath := ""
+			nestedNameWithoutStar := strings.TrimSuffix(strings.TrimSuffix(nestedGroup.Name, "**"), "*")
+			if parentResultPath != "" && parentResultPath != "_anonymous_" {
+				baseNestedPath = parentResultPath + "." + nestedNameWithoutStar
+			} else {
+				baseNestedPath = nestedNameWithoutStar
+			}
+			
+			// Determine the array index for this specific range
+			// Count how many ranges of the same nested group within the same parent appear before this one
+			instanceIdx := 0
+			for i := 0; i < rangeIdx; i++ {
+				if nestedRanges[i].groupName == nr.groupName && nestedRanges[i].parentIdx == nr.parentIdx {
+					instanceIdx++
+				}
+			}
+			
+			// Build the instance path (e.g., "show_system_detail.smms[0]")
+			instancePath := baseNestedPath
+			if strings.HasSuffix(nestedGroup.Name, "*") || strings.HasSuffix(nestedGroup.Name, "**") {
+				instancePath = fmt.Sprintf("%s[%d]", baseNestedPath, instanceIdx)
+			}
+			
+			
+		// Update ResultPath for matches within this nested group's range
+		for lineIdx := nr.startLine; lineIdx < nr.endLine && lineIdx < len(inputSourceMap.Lines); lineIdx++ {
+			lineMapping := inputSourceMap.Lines[lineIdx]
+			for _, matchMapping := range lineMapping.Matches {
+				if matchMapping.GroupName == nestedGroup.Name && matchMapping.ResultPath == "" {
+					matchMapping.ResultPath = instancePath
+				}
+			}
+		}
+		
+		// Process deeply nested groups (children of this nested group)
+		// For example, if nestedGroup is "smms*" and it has a child "io", process "io" within this SMM's range
+		if len(nestedGroup.Groups) > 0 {
+			// Get the result data for this specific nested group instance
+			nestedResultData := mergedMatches[parentIdx]
+			nestedNameWithoutStars := strings.TrimSuffix(strings.TrimSuffix(nestedGroup.Name, "**"), "*")
+			
+			// Find this nested group's result in the parent
+			var nestedInstanceResults []map[string]interface{}
+			if nestedValue, exists := nestedResultData[nestedNameWithoutStars]; exists {
+				if nestedList, ok := nestedValue.([]interface{}); ok {
+					for _, item := range nestedList {
+						if itemMap, ok := item.(map[string]interface{}); ok {
+							nestedInstanceResults = append(nestedInstanceResults, itemMap)
+						}
+					}
+				} else if nestedMap, ok := nestedValue.(map[string]interface{}); ok {
+					nestedInstanceResults = []map[string]interface{}{nestedMap}
+				}
+			}
+			
+			// If we have results for this nested group instance, process its children
+			if instanceIdx < len(nestedInstanceResults) {
+				nestedInstanceData := nestedInstanceResults[instanceIdx]
+				
+				for _, childGroup := range nestedGroup.Groups {
+					if childGroup.Name == "" || childGroup.Name == "_" {
+						continue
+					}
+					if len(childGroup.Patterns) == 0 {
+						continue
+					}
+					
+					// Check if this child group exists in the nested instance's result
+					childNameWithoutStars := strings.TrimSuffix(strings.TrimSuffix(childGroup.Name, "**"), "*")
+					if _, childExists := nestedInstanceData[childNameWithoutStars]; !childExists {
+						continue
+					}
+					
+					
+					// Process child group patterns within this nested group's range
+					for patternIdx, compiledPattern := range childGroup.Patterns {
+						hasAnchors := strings.Contains(compiledPattern.Regex.String(), "^") ||
+							strings.Contains(compiledPattern.Regex.String(), "$")
+						
+						if hasAnchors {
+							// Match line by line within nested group range
+							for lineIdx := nr.startLine; lineIdx < nr.endLine && lineIdx < len(inputSourceMap.Lines); lineIdx++ {
+								if lineIdx < 0 || lineIdx >= len(lines) {
+									continue
+								}
+								
+								// Skip lines that already have a match from the parent group
+								// This prevents child group patterns from overriding parent matches
+								lineMapping := inputSourceMap.Lines[lineIdx]
+								hasParentMatch := false
+								for _, existingMatch := range lineMapping.Matches {
+									if existingMatch.GroupName == nestedGroup.Name {
+										hasParentMatch = true
+										break
+									}
+								}
+								if hasParentMatch {
+									continue
+								}
+								
+								line := strings.TrimRight(lines[lineIdx], "\r \t")
+								if strings.TrimSpace(line) == "" {
+									continue
+								}
+								match := compiledPattern.Regex.FindStringSubmatch(line)
+								if match != nil {
+									matchIndices := compiledPattern.Regex.FindStringSubmatchIndex(line)
+									if matchIndices == nil || len(matchIndices) < 2 {
+										continue
+									}
+									lineMapping.Matched = true
+									startCol := matchIndices[0]
+									endCol := matchIndices[1]
+									adjustedVarRanges := make(map[string]*VarRange)
+									varIndex := 1
+									for _, varName := range compiledPattern.VariableOrder {
+										if _, ok := compiledPattern.Variables[varName]; !ok {
+											continue
+										}
+										if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+											varIndex++
+											continue
+										}
+										if varIndex*2 < len(matchIndices) {
+											varStart := matchIndices[varIndex*2]
+											varEnd := matchIndices[varIndex*2+1]
+											if varStart >= 0 && varEnd >= 0 {
+												adjustedVarRanges[varName] = &VarRange{StartCol: varStart, EndCol: varEnd}
+											}
+										}
+										varIndex++
+									}
+									
+									// Build result path for this deeply nested group
+									childResultPath := instancePath + "." + childNameWithoutStars
+									
+									matchMapping := &MatchMapping{
+										StartCol: startCol, EndCol: endCol,
+										GroupName: childGroup.Name, PatternIndex: patternIdx,
+										Variables: adjustedVarRanges, ResultPath: childResultPath,
+									}
+									lineMapping.Matches = append(lineMapping.Matches, matchMapping)
+								}
+							}
+						} else {
+							// For non-anchored patterns, match within the nested group's range
+							rangeText := ""
+							lineOffsets := make([]int, 0)
+							offset := 0
+							for lineIdx := nr.startLine; lineIdx < nr.endLine && lineIdx < len(lines); lineIdx++ {
+								lineOffsets = append(lineOffsets, offset)
+								rangeText += lines[lineIdx] + "\n"
+								offset += len(lines[lineIdx]) + 1
+							}
+							
+							allIndices := compiledPattern.Regex.FindAllStringSubmatchIndex(rangeText, -1)
+							for _, indices := range allIndices {
+								if len(indices) < 2 {
+									continue
+								}
+								// Find which line this match is on
+								localLineIdx := 0
+								for i, off := range lineOffsets {
+									if indices[0] < off {
+										localLineIdx = i - 1
+										break
+									}
+									localLineIdx = i
+								}
+								if localLineIdx < 0 {
+									localLineIdx = 0
+								}
+								absoluteLineIdx := nr.startLine + localLineIdx
+								if absoluteLineIdx < 0 || absoluteLineIdx >= len(inputSourceMap.Lines) {
+									continue
+								}
+								
+								// Skip lines that already have a match from the parent group
+								lineMapping := inputSourceMap.Lines[absoluteLineIdx]
+								hasParentMatch := false
+								for _, existingMatch := range lineMapping.Matches {
+									if existingMatch.GroupName == nestedGroup.Name {
+										hasParentMatch = true
+										break
+									}
+								}
+								if hasParentMatch {
+									continue
+								}
+								
+								lineMapping.Matched = true
+								lineStart := lineOffsets[localLineIdx]
+								startCol := indices[0] - lineStart
+								endCol := indices[1] - lineStart
+								
+								adjustedVarRanges := make(map[string]*VarRange)
+								varIndex := 1
+								for _, varName := range compiledPattern.VariableOrder {
+									if _, ok := compiledPattern.Variables[varName]; !ok {
+										continue
+									}
+									if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+										varIndex++
+										continue
+									}
+									if varIndex*2 < len(indices) {
+										varStartAbs := indices[varIndex*2]
+										varEndAbs := indices[varIndex*2+1]
+										if varStartAbs >= 0 && varEndAbs >= 0 {
+											varStart := varStartAbs - lineStart
+											varEnd := varEndAbs - lineStart
+											if varStart >= 0 && varEnd >= 0 {
+												adjustedVarRanges[varName] = &VarRange{StartCol: varStart, EndCol: varEnd}
+											}
+										}
+									}
+									varIndex++
+								}
+								
+								// Build result path for this deeply nested group
+								childResultPath := instancePath + "." + childNameWithoutStars
+								
+								matchMapping := &MatchMapping{
+									StartCol: startCol, EndCol: endCol,
+									GroupName: childGroup.Name, PatternIndex: patternIdx,
+									Variables: adjustedVarRanges, ResultPath: childResultPath,
+								}
+								lineMapping.Matches = append(lineMapping.Matches, matchMapping)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 	return result, nil
+}
+
+// nestedGroupExistsInResult checks if a nested group exists in a parent match result
+func (r *Runtime) nestedGroupExistsInResult(parentMatch map[string]interface{}, nestedGroupName string) bool {
+	if parentMatch == nil {
+		return false
+	}
+	
+	// Check if nested group name exists directly in parent match
+	if _, exists := parentMatch[nestedGroupName]; exists {
+		return true
+	}
+	
+	// Check if nested group exists as a nested path (e.g., "smms*" might be stored as "smms[0]", "smms[1]", etc.)
+	// Or it might be stored with a resolved path
+	for key := range parentMatch {
+		// Check if key starts with nested group name (handles dynamic paths and formatters)
+		keyWithoutFormatters := strings.TrimSuffix(key, "*")
+		keyWithoutFormatters = strings.TrimSuffix(keyWithoutFormatters, "**")
+		nestedNameWithoutFormatters := strings.TrimSuffix(nestedGroupName, "*")
+		nestedNameWithoutFormatters = strings.TrimSuffix(nestedNameWithoutFormatters, "**")
+		
+		if keyWithoutFormatters == nestedNameWithoutFormatters || 
+		   strings.HasPrefix(keyWithoutFormatters, nestedNameWithoutFormatters+"[") ||
+		   strings.HasPrefix(key, nestedGroupName) {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// findNestedGroupPath searches for a nested group in the result map and returns its full path
+func (r *Runtime) findNestedGroupPath(resultMap map[string]interface{}, nestedGroupName string, parentPath string) string {
+	// First, try direct lookup: parentPath.nestedGroupName
+	if parentPath != "" && parentPath != "_anonymous_" {
+		directPath := parentPath + "." + nestedGroupName
+		if r.pathExistsInMap(resultMap, directPath) {
+			return directPath
+		}
+	}
+
+	// Search recursively in the result map for the nested group
+	// This handles cases where the path might be resolved differently
+	return r.searchNestedGroupInMap(resultMap, nestedGroupName, parentPath, "")
+}
+
+// pathExistsInMap checks if a dot-separated path exists in the map
+func (r *Runtime) pathExistsInMap(m map[string]interface{}, path string) bool {
+	parts := strings.Split(path, ".")
+	current := m
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			// Last part - check if key exists
+			_, exists := current[part]
+			return exists
+		}
+		// Navigate deeper
+		if next, ok := current[part].(map[string]interface{}); ok {
+			current = next
+		} else {
+			return false
+		}
+	}
+	return false
+}
+
+// searchNestedGroupInMap recursively searches for a nested group in the map
+func (r *Runtime) searchNestedGroupInMap(m map[string]interface{}, nestedGroupName string, parentPath string, currentPath string) string {
+	for key, value := range m {
+		var fullPath string
+		if currentPath == "" {
+			fullPath = key
+		} else {
+			fullPath = currentPath + "." + key
+		}
+
+		// Check if this key matches the nested group name
+		if key == nestedGroupName {
+			// Check if this path starts with the parent path (for nested groups)
+			if parentPath == "" || parentPath == "_anonymous_" || strings.HasPrefix(fullPath, parentPath+".") {
+				return fullPath
+			}
+		}
+
+		// Recursively search in nested maps
+		if nestedMap, ok := value.(map[string]interface{}); ok {
+			if found := r.searchNestedGroupInMap(nestedMap, nestedGroupName, parentPath, fullPath); found != "" {
+				return found
+			}
+		} else if nestedList, ok := value.([]interface{}); ok {
+			// Check first element if it's a map (for arrays of objects)
+			if len(nestedList) > 0 {
+				if firstMap, ok := nestedList[0].(map[string]interface{}); ok {
+					if found := r.searchNestedGroupInMap(firstMap, nestedGroupName, parentPath, fullPath); found != "" {
+						return found
+					}
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // processFunctions applies function pipeline to a value
@@ -5704,16 +6362,6 @@ func (r *Runtime) storeAtPathSegments(results map[string]interface{}, parts []st
 	}
 
 	// DEBUG: Trace storeAtPathSegments for issue #13
-	if len(parts) == 1 && parts[0].key == "io" {
-		pathStr := parts[0].key
-		if valueMap, ok := value.(map[string]interface{}); ok {
-			majorVal := valueMap["major"]
-			parentMajor := results["major"]
-			fmt.Printf("[DEBUG storeAtPathSegments] Storing at path: %s\n", pathStr)
-			fmt.Printf("[DEBUG storeAtPathSegments]   value major=%v, parent major=%v\n", majorVal, parentMajor)
-		}
-	}
-
 	// Navigate/create the nested structure
 	current := results
 	for _, part := range parts[:len(parts)-1] {
