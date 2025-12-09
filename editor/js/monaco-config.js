@@ -2109,6 +2109,7 @@ function applySourceMapOutputDecorations(sourceMap, resultData) {
     
     // Get all keys that might have matches (extract unique last parts from result paths)
     const resultPaths = Object.keys(sourceMapNavigationData.resultPathToMatches);
+    
     const keysToSearch = new Set();
     resultPaths.forEach(resultPath => {
         const pathWithoutFormatters = resultPath.replace(/\*+$/, '');
