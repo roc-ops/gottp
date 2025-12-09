@@ -595,10 +595,6 @@ function buildSourceMapNavigationData(sourceMap, inputName = 'Default_Input') {
         if (lineMapping.Matches && lineMapping.Matches.length > 0) {
             totalMatches += lineMapping.Matches.length;
             linesWithMatches++;
-            // Log first few lines with matches to see what's there
-            if (linesWithMatches <= 10) {
-                    lineMapping.Matches.map(m => ({ group: m.GroupName, resultPath: m.ResultPath || '' })));
-            }
         }
     });
     
