@@ -4542,40 +4542,85 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 				rangeStartLine := parentRange.startLine
 				parentLines := strings.Split(parentInputData, "\n")
 				
-				
-				firstPattern := nestedGroup.Patterns[0]
-				hasAnchorsFirst := strings.Contains(firstPattern.Regex.String(), "^") ||
-					strings.Contains(firstPattern.Regex.String(), "$")
-				
-				
-				// Find ALL instances where pattern 0 matches (not just the first one)
-				// Each match represents a new instance of the nested group
-				instanceStartLines := make([]int, 0)
-				
-			if hasAnchorsFirst {
-				for localLineIdx, line := range parentLines {
-					line = strings.TrimRight(line, "\r \t")
-					if strings.TrimSpace(line) == "" {
-						continue
-					}
-					matches := firstPattern.Regex.MatchString(line)
-					if matches {
-							absoluteLine := rangeStartLine + localLineIdx
-							instanceStartLines = append(instanceStartLines, absoluteLine)
+			
+			// Find ALL start patterns (pattern 0 + any patterns with _start_ attribute)
+			// Multiple start patterns allow different formats to begin a new group instance
+			startPatternIdxs := make([]int, 0)
+			for i := range nestedGroup.Patterns {
+				if i == 0 {
+					startPatternIdxs = append(startPatternIdxs, i)
+				} else {
+					// Check if this pattern has _start_ indicator
+					// It can be a variable named _start_ or a function called _start_
+					patternHasStart := false
+					for _, variable := range nestedGroup.Patterns[i].Variables {
+						if variable.Name == "_start_" {
+							patternHasStart = true
+							break
+						}
+						// Also check if _start_ is in functions (e.g., {{ name | _start_ }})
+						for _, funcStr := range variable.Functions {
+							if funcStr == "_start_" {
+								patternHasStart = true
+								break
+							}
+						}
+						if patternHasStart {
+							break
 						}
 					}
-				} else {
-					// For non-anchored patterns, find all matches
-					allMatchIndices := firstPattern.Regex.FindAllStringIndex(parentInputData, -1)
-					
-					parentLineOffsets := make([]int, 0)
-					offset := 0
-					for _, line := range parentLines {
-						parentLineOffsets = append(parentLineOffsets, offset)
-						offset += len(line) + 1
+					if patternHasStart {
+						startPatternIdxs = append(startPatternIdxs, i)
 					}
+				}
+			}
+			
+			// Find ALL instances where ANY start pattern matches
+			// Each match represents a new instance of the nested group
+			instanceStartLines := make([]int, 0)
+			
+			// Check if any start pattern uses anchors (most do)
+			hasAnchoredStart := false
+			for _, spIdx := range startPatternIdxs {
+				spRegex := nestedGroup.Patterns[spIdx].Regex.String()
+				if strings.Contains(spRegex, "^") || strings.Contains(spRegex, "$") {
+					hasAnchoredStart = true
+					break
+				}
+			}
+			
+		if hasAnchoredStart {
+			for localLineIdx, line := range parentLines {
+				line = strings.TrimRight(line, "\r \t")
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
+				// Check ALL start patterns
+				matchedAnyStart := false
+				for _, spIdx := range startPatternIdxs {
+					if nestedGroup.Patterns[spIdx].Regex.MatchString(line) {
+						matchedAnyStart = true
+						break
+					}
+				}
+				if matchedAnyStart {
+						absoluteLine := rangeStartLine + localLineIdx
+						instanceStartLines = append(instanceStartLines, absoluteLine)
+					}
+				}
+		} else {
+				// For non-anchored patterns, find all matches from ALL start patterns
+				parentLineOffsets := make([]int, 0)
+				offset := 0
+				for _, line := range parentLines {
 					parentLineOffsets = append(parentLineOffsets, offset)
-					
+					offset += len(line) + 1
+				}
+				parentLineOffsets = append(parentLineOffsets, offset)
+				
+				// Check all start patterns for non-anchored matches
+				for _, spIdx := range startPatternIdxs {
+					allMatchIndices := nestedGroup.Patterns[spIdx].Regex.FindAllStringIndex(parentInputData, -1)
 					for _, indices := range allMatchIndices {
 						if len(indices) >= 2 {
 							// Find which line this match is on
@@ -4588,23 +4633,34 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 							}
 							if localLineIdx >= 0 {
 								absoluteLine := rangeStartLine + localLineIdx
-								instanceStartLines = append(instanceStartLines, absoluteLine)
+								// Avoid duplicates
+								alreadyHave := false
+								for _, existing := range instanceStartLines {
+									if existing == absoluteLine {
+										alreadyHave = true
+										break
+									}
+								}
+								if !alreadyHave {
+									instanceStartLines = append(instanceStartLines, absoluteLine)
+								}
 							}
 						}
 					}
 				}
-				
-				// Create a nestedRange entry for each instance
-				for _, startLine := range instanceStartLines {
-					nestedRanges = append(nestedRanges, nestedGroupRange{
-						groupName: nestedGroup.Name,
-						startLine: startLine,
-						endLine:   parentRange.endLine + 1, // Will be adjusted below
-						parentIdx: parentIdx,
-					})
-				}
+			}
+			
+			// Create a nestedRange entry for each instance
+			for _, startLine := range instanceStartLines {
+				nestedRanges = append(nestedRanges, nestedGroupRange{
+					groupName: nestedGroup.Name,
+					startLine: startLine,
+					endLine:   parentRange.endLine + 1, // Will be adjusted below
+					parentIdx: parentIdx,
+				})
 			}
 		}
+	}
 		
 		// Sort nested ranges by startLine within each parent
 		// Then adjust endLine to be the start of the next instance (could be same group or different group)
