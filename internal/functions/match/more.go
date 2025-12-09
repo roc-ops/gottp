@@ -507,9 +507,10 @@ func sformat(value interface{}, args []string, kwargs map[string]interface{}) (i
 }
 
 // resub performs regex substitution
-// By default (count=1), replaces only the FIRST occurrence (like Python re.sub with count=1)
+// resub performs regex substitution (like Python re.sub)
+// By default, replaces only the FIRST occurrence (matching TTP's behavior)
 // If count > 1, replaces first N occurrences
-// If count=0 or negative, replaces all (like Python re.sub with count=0)
+// If count = 0 or -1, replaces ALL occurrences
 func resub(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
 	str := fmt.Sprintf("%v", value)
 	if len(args) < 2 {
@@ -518,7 +519,7 @@ func resub(value interface{}, args []string, kwargs map[string]interface{}) (int
 
 	pattern := args[0]
 	replacement := args[1]
-	count := 1 // Default: replace only first occurrence
+	count := 1 // Default: replace only first occurrence (TTP behavior)
 	if len(args) > 2 {
 		if c, err := strconv.Atoi(args[2]); err == nil {
 			count = c
