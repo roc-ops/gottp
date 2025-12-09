@@ -210,10 +210,10 @@ vrf VRF-A
 func TestStartEndIndicatorTogether(t *testing.T) {
 	template := `
 <group name="ptp_peers">
-Link connected to: another Router (point-to-point) {{ _start_ }}
+Link connected to: another Router (point-to-point){{ _start_ }}
  (Link ID) Neighboring Router ID: {{ link_id }}
  (Link Data) Router Interface address: {{ link_data }}
-  TOS 0 Metrics: {{ metric }}
+   TOS 0 Metrics: {{ metric }}
 {{ _end_ }}
 </group>
 `

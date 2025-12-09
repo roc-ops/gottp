@@ -382,10 +382,10 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 			// Check if line only has _end_ variable (possibly with whitespace)
 			// Can be either "{{ _end_ }}" or just "_end_"
 			if trimmedLine == "{{ _end_ }}" || trimmedLine == "{{_end_}}" || trimmedLine == "_end_" {
-				// _end_ on its own line should match any line (including empty lines)
-				// It serves as a marker to end the group, matching the last line of the block
-				// Use .* to match any line (including empty lines)
-				return "^.*$", nil
+				// _end_ on its own line should match EMPTY lines only
+				// It serves as a marker to end the group, typically matching the blank line
+				// between data blocks. Using ^.*$ was wrong as it matched every line.
+				return "^$", nil
 			}
 		}
 		if variables[0].Name == "_line_" {
@@ -443,8 +443,18 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 
 		// Variable pattern
 		if i < len(variables) {
-			// Skip _exact_ and _exact_space_ variables - they are indicators, not capture groups
-			if variables[i].Name != "_exact_" && variables[i].Name != "_exact_space_" {
+			// Skip indicator variables - they are markers, not capture groups
+			// _exact_, _exact_space_: exact matching indicators
+			// _start_, _end_: match block boundary indicators (when not on their own line)
+			varName := variables[i].Name
+			if varName == "_exact_" || varName == "_exact_space_" {
+				// These are pure indicators, skip entirely
+			} else if varName == "_start_" || varName == "_end_" {
+				// _start_ and _end_ are indicators when embedded in a pattern
+				// They should NOT add any regex pattern (they just mark the line)
+				// Only add pattern if this is the ONLY variable (handled earlier in GenerateRegex)
+				// When embedded, just skip - the line content before them is what matters
+			} else {
 				regexParts = append(regexParts, "("+variables[i].Pattern+")")
 			}
 		}

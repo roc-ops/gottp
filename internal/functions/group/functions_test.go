@@ -14,28 +14,46 @@ func TestSet(t *testing.T) {
 	}
 	
 	tests := []struct {
-		name    string
-		data    map[string]interface{}
-		args    []string
-		wantErr bool
+		name       string
+		data       map[string]interface{}
+		args       []string
+		kwargs     map[string]interface{}
+		wantErr    bool
+		wantField  string
+		wantValue  interface{}
 	}{
 		{
-			name:    "set field",
-			data:    map[string]interface{}{"existing": "value"},
-			args:    []string{"new_field", "new_value"},
-			wantErr: false,
+			name:      "set from kwargs variable",
+			data:      map[string]interface{}{"existing": "value"},
+			args:      []string{"my_var", "target_field"},
+			kwargs:    map[string]interface{}{"my_var": "var_value"},
+			wantErr:   false,
+			wantField: "target_field",
+			wantValue: "var_value",
+		},
+		{
+			name:      "set literal value (source not in kwargs/data)",
+			data:      map[string]interface{}{},
+			args:      []string{"literal_value", "target_field"},
+			kwargs:    nil,
+			wantErr:   false,
+			wantField: "target_field",
+			wantValue: "literal_value",
+		},
+		{
+			name:      "single arg - uses source as both source and target",
+			data:      map[string]interface{}{},
+			args:      []string{"field_name"},
+			kwargs:    nil,
+			wantErr:   false,
+			wantField: "field_name",
+			wantValue: "field_name", // literal since not found in kwargs/data
 		},
 		{
 			name:    "no args",
 			data:    map[string]interface{}{},
 			args:    nil,
-			wantErr: true, // set requires key and value arguments
-		},
-		{
-			name:    "single arg",
-			data:    map[string]interface{}{},
-			args:    []string{"field"},
-			wantErr: true, // set requires key and value arguments
+			wantErr: true, // set requires at least one argument
 		},
 	}
 	
@@ -47,20 +65,20 @@ func TestSet(t *testing.T) {
 				dataCopy[k] = v
 			}
 			
-			result, valid, err := fn(dataCopy, tt.args, nil)
+			result, valid, err := fn(dataCopy, tt.args, tt.kwargs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("set() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if err == nil {
-				if len(tt.args) >= 2 {
-					// Check if field was set
-					if val, ok := result[tt.args[0]]; ok {
-						if val != tt.args[1] {
-							t.Errorf("set() field value = %v, want %v", val, tt.args[1])
+				if tt.wantField != "" {
+					// Check if field was set correctly
+					if val, ok := result[tt.wantField]; ok {
+						if val != tt.wantValue {
+							t.Errorf("set() field %s = %v, want %v", tt.wantField, val, tt.wantValue)
 						}
 					} else {
-						t.Errorf("set() field %s not found in result", tt.args[0])
+						t.Errorf("set() field %s not found in result", tt.wantField)
 					}
 				}
 				if !valid {

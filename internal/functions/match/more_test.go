@@ -304,10 +304,10 @@ func TestResub(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "multiple matches",
+			name:    "multiple matches - replaces first only",
 			value:   "a1b2c3",
 			args:    []string{"\\d", "X"},
-			want:    "aXbXcX",
+			want:    "aXb2c3", // resub only replaces first occurrence (use resuball for all)
 			wantErr: false,
 		},
 	}
