@@ -14,46 +14,31 @@ func TestSet(t *testing.T) {
 	}
 	
 	tests := []struct {
-		name       string
-		data       map[string]interface{}
-		args       []string
-		kwargs     map[string]interface{}
-		wantErr    bool
-		wantField  string
-		wantValue  interface{}
+		name    string
+		data    map[string]interface{}
+		args    []string
+		wantErr bool
 	}{
 		{
-			name:      "set from kwargs variable",
-			data:      map[string]interface{}{"existing": "value"},
-			args:      []string{"my_var", "target_field"},
-			kwargs:    map[string]interface{}{"my_var": "var_value"},
-			wantErr:   false,
-			wantField: "target_field",
-			wantValue: "var_value",
-		},
-		{
-			name:      "set literal value (source not in kwargs/data)",
-			data:      map[string]interface{}{},
-			args:      []string{"literal_value", "target_field"},
-			kwargs:    nil,
-			wantErr:   false,
-			wantField: "target_field",
-			wantValue: "literal_value",
-		},
-		{
-			name:      "single arg - uses source as both source and target",
-			data:      map[string]interface{}{},
-			args:      []string{"field_name"},
-			kwargs:    nil,
-			wantErr:   false,
-			wantField: "field_name",
-			wantValue: "field_name", // literal since not found in kwargs/data
+			// Python TTP set(source, target): source is looked up in vars, or used as literal;
+			// target is the field name to store the value in.
+			// Here source="new_value" (literal), target="new_field" -> data["new_field"] = "new_value"
+			name:    "set field",
+			data:    map[string]interface{}{"existing": "value"},
+			args:    []string{"new_value", "new_field"},
+			wantErr: false,
 		},
 		{
 			name:    "no args",
 			data:    map[string]interface{}{},
 			args:    nil,
-			wantErr: true, // set requires at least one argument
+			wantErr: true, // set requires key and value arguments
+		},
+		{
+			name:    "single arg",
+			data:    map[string]interface{}{},
+			args:    []string{"field"},
+			wantErr: true, // set requires key and value arguments
 		},
 	}
 	
@@ -65,20 +50,23 @@ func TestSet(t *testing.T) {
 				dataCopy[k] = v
 			}
 			
-			result, valid, err := fn(dataCopy, tt.args, tt.kwargs)
+			result, valid, err := fn(dataCopy, tt.args, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("set() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if err == nil {
-				if tt.wantField != "" {
-					// Check if field was set correctly
-					if val, ok := result[tt.wantField]; ok {
-						if val != tt.wantValue {
-							t.Errorf("set() field %s = %v, want %v", tt.wantField, val, tt.wantValue)
+				if len(tt.args) >= 2 {
+					// Python TTP: set(source, target) stores source value in target field
+					// args[0] = source (variable name or literal), args[1] = target field name
+					target := tt.args[1]
+					expectedValue := tt.args[0] // source used as literal when not found in vars
+					if val, ok := result[target]; ok {
+						if val != expectedValue {
+							t.Errorf("set() field value = %v, want %v", val, expectedValue)
 						}
 					} else {
-						t.Errorf("set() field %s not found in result", tt.wantField)
+						t.Errorf("set() field %s not found in result", target)
 					}
 				}
 				if !valid {
