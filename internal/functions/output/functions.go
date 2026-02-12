@@ -262,7 +262,15 @@ func convertDictToList(data interface{}, keyName string) interface{} {
 	switch v := data.(type) {
 	case map[string]interface{}:
 		result := make([]interface{}, 0, len(v))
-		for k, val := range v {
+		// Sort map keys for deterministic output order
+		// (Go maps have random iteration order; Python 3.7+ dicts preserve insertion order)
+		sortedKeys := make([]string, 0, len(v))
+		for k := range v {
+			sortedKeys = append(sortedKeys, k)
+		}
+		sort.Strings(sortedKeys)
+		for _, k := range sortedKeys {
+			val := v[k]
 			if valMap, ok := val.(map[string]interface{}); ok {
 				// Create new map with key added
 				newMap := make(map[string]interface{})
@@ -673,7 +681,15 @@ func formatTable(data interface{}, args []string, kwargs map[string]interface{})
 		// The key becomes a column with name specified by key parameter
 		// The value (if it's a dict) becomes the other columns
 		if key != "" {
-			for k, val := range v {
+			// Sort map keys for deterministic output order
+			// (Go maps have random iteration order; Python 3.7+ dicts preserve insertion order)
+			sortedKeys := make([]string, 0, len(v))
+			for k := range v {
+				sortedKeys = append(sortedKeys, k)
+			}
+			sort.Strings(sortedKeys)
+			for _, k := range sortedKeys {
+				val := v[k]
 				if valMap, ok := val.(map[string]interface{}); ok {
 					// Value is a dict - merge key into it
 					newMap := make(map[string]interface{})
@@ -705,11 +721,14 @@ func formatTable(data interface{}, args []string, kwargs map[string]interface{})
 			}
 			if allMaps {
 				// Map of maps - convert each key-value pair to a row
-				// Use the key as a column (but we don't have a key name, so use a default)
-				// Actually, Python TTP doesn't add a key column if key is not specified
-				// It just uses the nested dict values as columns
-				for _, val := range v {
-					if valMap, ok := val.(map[string]interface{}); ok {
+				// Sort keys for deterministic output order
+				sortedKeys := make([]string, 0, len(v))
+				for k := range v {
+					sortedKeys = append(sortedKeys, k)
+				}
+				sort.Strings(sortedKeys)
+				for _, k := range sortedKeys {
+					if valMap, ok := v[k].(map[string]interface{}); ok {
 						dataToTable = append(dataToTable, valMap)
 					}
 				}
