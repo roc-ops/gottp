@@ -347,12 +347,40 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 	}
 
 	// Compile child templates
+	// Python TTP behavior: when a document has multiple <template> sections,
+	// each is processed independently against the same inputs, and their results
+	// are merged. We flatten child template groups into the root template so
+	// the runtime processes them all together. This matches the behavior for
+	// the common case where all templates share the same input data.
 	for _, childTmpl := range tmpl.Templates {
 		compiledChild, err := c.CompileTemplate(childTmpl)
 		if err != nil {
 			return nil, err
 		}
 		compiled.Templates = append(compiled.Templates, compiledChild)
+
+		// Hoist child template groups into root template for unified processing
+		for _, childGroup := range compiledChild.Groups {
+			// Mark as not nested (these are top-level groups from child templates)
+			childGroup.IsNested = false
+			compiled.Groups = append(compiled.Groups, childGroup)
+		}
+
+		// Hoist child template inputs, outputs, lookups, macros, and vars
+		compiled.Inputs = append(compiled.Inputs, compiledChild.Inputs...)
+		compiled.Outputs = append(compiled.Outputs, compiledChild.Outputs...)
+		compiled.Lookups = append(compiled.Lookups, compiledChild.Lookups...)
+		compiled.Macros = append(compiled.Macros, compiledChild.Macros...)
+
+		// Merge child template vars (child vars don't override root vars)
+		for k, v := range compiledChild.Vars {
+			if _, exists := compiled.Vars[k]; !exists {
+				compiled.Vars[k] = v
+			}
+		}
+
+		// Merge child template VarsWithName
+		compiled.VarsWithName = append(compiled.VarsWithName, compiledChild.VarsWithName...)
 	}
 
 	return compiled, nil

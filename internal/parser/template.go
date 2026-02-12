@@ -111,30 +111,108 @@ func ParseTemplate(templateText string) (*Template, error) {
 		templateText = "<template>\n" + templateText + "\n</template>"
 	}
 
-	// Parse XML
-	decoder := xml.NewDecoder(strings.NewReader(templateText))
+	// Parse XML - collect all top-level elements to handle multiple <template> sections.
+	// Multiple sibling <template> elements are not valid XML (no single root), so we
+	// wrap them in a synthetic root element before parsing.
+	wrappedText := "<_root_>" + templateText + "</_root_>"
+	decoder := xml.NewDecoder(strings.NewReader(wrappedText))
 	decoder.Strict = false
 
-	var root xmlElement
+	var topLevelElements []xmlElement
 	for {
 		tok, err := decoder.Token()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			// Try wrapping in template tag
-			templateText = "<template>\n" + templateText + "\n</template>"
-			decoder = xml.NewDecoder(strings.NewReader(templateText))
-			tok, err = decoder.Token()
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse template XML: %w", err)
+			// Fallback: try the original unwrapped approach for backward compatibility
+			topLevelElements = nil
+			decoder2 := xml.NewDecoder(strings.NewReader(templateText))
+			decoder2.Strict = false
+			for {
+				tok2, err2 := decoder2.Token()
+				if err2 == io.EOF {
+					break
+				}
+				if err2 != nil {
+					// Try wrapping in template tag
+					templateText = "<template>\n" + templateText + "\n</template>"
+					decoder2 = xml.NewDecoder(strings.NewReader(templateText))
+					tok2, err2 = decoder2.Token()
+					if err2 != nil {
+						return nil, fmt.Errorf("failed to parse template XML: %w", err2)
+					}
+				}
+				switch t := tok2.(type) {
+				case xml.StartElement:
+					topLevelElements = append(topLevelElements, parseXMLElement(t, decoder2))
+				}
 			}
+			break
 		}
 
 		switch t := tok.(type) {
 		case xml.StartElement:
-			root = parseXMLElement(t, decoder)
+			if t.Name.Local == "_root_" {
+				// Parse children of synthetic root
+				for {
+					innerTok, innerErr := decoder.Token()
+					if innerErr == io.EOF {
+						break
+					}
+					if innerErr != nil {
+						break
+					}
+					switch it := innerTok.(type) {
+					case xml.StartElement:
+						topLevelElements = append(topLevelElements, parseXMLElement(it, decoder))
+					case xml.EndElement:
+						if it.Name.Local == "_root_" {
+							goto doneParsingRoot
+						}
+					}
+				}
+			} else {
+				topLevelElements = append(topLevelElements, parseXMLElement(t, decoder))
+			}
 		}
+	}
+doneParsingRoot:
+
+	// Handle the case where we found multiple top-level <template> elements.
+	// Python TTP behavior: multiple <template> tags create independent template sections,
+	// each processed separately, with results merged.
+	var root xmlElement
+	templateElements := []xmlElement{}
+	nonTemplateElements := []xmlElement{}
+
+	for _, elem := range topLevelElements {
+		if strings.ToLower(elem.XMLName.Local) == "template" {
+			templateElements = append(templateElements, elem)
+		} else {
+			nonTemplateElements = append(nonTemplateElements, elem)
+		}
+	}
+
+	if len(templateElements) > 1 {
+		// Multiple <template> sections: create a synthetic root template that
+		// contains them as child templates. This matches Python TTP's behavior
+		// where each <template> section is processed independently.
+		root = xmlElement{
+			XMLName:  xml.Name{Local: "template"},
+			Attrs:    make(map[string]string),
+			Children: append(nonTemplateElements, templateElements...),
+		}
+	} else if len(templateElements) == 1 {
+		// Single <template> section - use it as the root
+		root = templateElements[0]
+		// If there are non-template elements, add them as children
+		if len(nonTemplateElements) > 0 {
+			root.Children = append(nonTemplateElements, root.Children...)
+		}
+	} else if len(topLevelElements) > 0 {
+		// No <template> elements found - use first element as root
+		root = topLevelElements[0]
 	}
 
 	// Ensure root is template tag
@@ -544,25 +622,54 @@ func (t *Template) parseVars(elem xmlElement) error {
 
 // parseChildTemplate parses a child template element
 func parseChildTemplate(elem xmlElement) (*Template, error) {
-	// Convert element back to XML string for parsing
-	// This is a simplified approach - in production we'd want to be more efficient
-	var buf strings.Builder
-	buf.WriteString("<template")
+	// Instead of re-serializing to XML and re-parsing (which loses child elements),
+	// directly build the Template struct from the already-parsed xmlElement.
+	childTmpl := &Template{
+		Name:          "_root_template_",
+		ResultsMethod: "per_input",
+		PathChar:      ".",
+		Vars:          make(map[string]interface{}),
+		Groups:        []*Group{},
+		Inputs:        []*Input{},
+		Outputs:       []*Output{},
+		Lookups:       []*Lookup{},
+		Macros:        []*Macro{},
+		Templates:     []*Template{},
+		Extends:       []*Extend{},
+	}
+
+	// Extract template attributes
 	for key, value := range elem.Attrs {
-		buf.WriteString(fmt.Sprintf(` %s="%s"`, key, value))
+		switch key {
+		case "name":
+			childTmpl.Name = value
+		case "base_path":
+			childTmpl.BasePath = value
+		case "results":
+			childTmpl.ResultsMethod = value
+		case "pathchar":
+			childTmpl.PathChar = value
+		}
 	}
-	buf.WriteString(">")
-	buf.WriteString(elem.Content)
 
-	// Recursively process children
-	for _, child := range elem.Children {
-		// TODO: properly serialize child elements
-		_ = child
+	// Parse child elements (groups, vars, inputs, outputs, etc.)
+	if err := childTmpl.parseElements(elem.Children); err != nil {
+		return nil, err
 	}
 
-	buf.WriteString("</template>")
+	// If no groups were parsed but there is content, create an implicit anonymous group
+	if len(childTmpl.Groups) == 0 && strings.TrimSpace(elem.Content) != "" {
+		content := strings.TrimSpace(elem.Content)
+		implicitGroup := &Group{
+			Name:       "",
+			Pattern:    content,
+			Groups:     []*Group{},
+			Attributes: make(map[string]string),
+		}
+		childTmpl.Groups = append(childTmpl.Groups, implicitGroup)
+	}
 
-	return ParseTemplate(buf.String())
+	return childTmpl, nil
 }
 
 // xmlElement represents an XML element for parsing
