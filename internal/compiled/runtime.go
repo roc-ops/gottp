@@ -1558,12 +1558,12 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					}
 					// Check if this pattern only has _start_ (on its own line)
 					if len(compiledPattern.Variables) == 1 && variable.Name == "_start_" {
-						// Check if pattern regex is ^.*$ (matches any line, used when _start_ is on its own line)
-						// The regex string might be exactly "^.*$" or might have anchors
+						// Check if pattern regex matches empty/whitespace-only lines
+						// (used when _start_ is on its own line)
+						// The regex string might be "^[\t ]*$" (current) or "^.*$" (legacy)
 						if compiledPattern.Regex != nil {
 							regexStr := compiledPattern.Regex.String()
-							// Check if it's a pattern that matches any line (^.*$ or ^$)
-							if regexStr == "^.*$" || regexStr == "(?m)^.*$" || regexStr == "^$" || regexStr == "(?m)^$" {
+							if regexStr == "^.*$" || regexStr == "(?m)^.*$" || regexStr == "^$" || regexStr == "(?m)^$" || regexStr == `^[\t ]*$` || regexStr == `(?m)^[\t ]*$` {
 								hasEmptyStartPattern = true
 							}
 						}

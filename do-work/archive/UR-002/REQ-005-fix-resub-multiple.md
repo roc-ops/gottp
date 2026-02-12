@@ -42,14 +42,15 @@ Rationale: Simple default value bug. Python's `re.sub()` uses `count=0` (replace
 
 ## Implementation Summary
 
-- Fixed `internal/functions/match/more.go` line 521: changed default `count` from `1` to `0` to match Python's `re.sub(count=0)` behavior (replace all occurrences)
-- The existing `count <= 0` branch already called `re.ReplaceAllString()`, so only the default needed fixing
+- **Correction:** Python TTP comparison test confirmed `resub` replaces first match only (count=1) by default — `resuball` replaces all. The unit test expectation was wrong.
+- Reverted `internal/functions/match/more.go` default count back to `1` (matching Python TTP's resub behavior)
+- Fixed unit test to expect `"aXb2c3"` (first match only) instead of `"aXbXcX"` (all matches)
 
-*Completed by work action (Route A)*
+*Completed by work action (Route A) — corrected after Python TTP comparison test*
 
 ## Testing
 
-**Tests run:** `go test ./internal/functions/match/ -run "TestResub" -v`
-**Result:** All 5 TestResub and 12 TestResuball subtests passing
+**Tests run:** `go test ./... `
+**Result:** All tests passing including comparison tests
 
 *Verified by work action*
