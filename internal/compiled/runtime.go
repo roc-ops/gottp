@@ -1021,6 +1021,17 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 // parseGroup parses input data against a compiled group
 func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, vars map[string]interface{}) (interface{}, error) {
 	if len(group.Patterns) == 0 {
+		// If the group has no direct patterns but has unnamed nested groups,
+		// parse the nested groups and return their results directly.
+		// This matches Python TTP behavior where unnamed inner groups are
+		// transparent wrappers that merge into their parent.
+		if len(group.Groups) > 0 {
+			for _, nestedGroup := range group.Groups {
+				if nestedGroup.Name == "" || nestedGroup.Name == "_" {
+					return r.parseGroup(nestedGroup, inputData, vars)
+				}
+			}
+		}
 		return nil, nil
 	}
 
@@ -3246,7 +3257,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 					if !nestedHasVoid {
 						// If nested group name is "_", merge into parent match
-						if nestedGroup.Name == "_" {
+						if nestedGroup.Name == "_" || nestedGroup.Name == "" {
 							switch v := nestedResults.(type) {
 							case []map[string]interface{}:
 								// Merge all nested matches into parent match
@@ -4053,6 +4064,17 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 // parseGroupWithSourceMap parses input data against a compiled group and collects source map data
 func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputData string, vars map[string]interface{}, inputName string, sourceMap *SourceMap, resultsMap map[string]interface{}) (interface{}, error) {
 	if len(group.Patterns) == 0 {
+		// If the group has no direct patterns but has unnamed nested groups,
+		// parse the nested groups and return their results directly.
+		// This matches Python TTP behavior where unnamed inner groups are
+		// transparent wrappers that merge into their parent.
+		if len(group.Groups) > 0 {
+			for _, nestedGroup := range group.Groups {
+				if nestedGroup.Name == "" || nestedGroup.Name == "_" {
+					return r.parseGroupWithSourceMap(nestedGroup, inputData, vars, inputName, sourceMap, resultsMap)
+				}
+			}
+		}
 		return nil, nil
 	}
 
