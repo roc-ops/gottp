@@ -257,3 +257,56 @@ interface Vlan100
 	RunComparison(t, "group_attribute_functions", template, data, nil, nil)
 }
 
+// TestGroupAttributeMethodTableWithStart tests that method="table" + _start_
+// without an inner group produces separate records for each pattern match,
+// matching Python TTP behavior where method="table" overrides _start_.
+func TestGroupAttributeMethodTableWithStart(t *testing.T) {
+	if !pythonTTPAvailable() {
+		t.Skip("Python TTP not available")
+	}
+
+	template := `<group name="entries*" method="table">
+ID: {{ id | _start_ }}
+Name: {{ name }}
+Value: {{ value }}
+</group>`
+
+	data := `ID: 1
+Name: Alice
+Value: 100
+ID: 2
+Name: Bob
+Value: 200
+`
+
+	RunComparison(t, "group_attribute_method_table_with_start", template, data, nil, nil)
+}
+
+// TestGroupAttributeMethodTableWithStartInnerGroup tests that method="table"
+// on the outer group with _start_ in an unnamed inner group produces merged
+// records, matching Python TTP behavior where the inner group uses default
+// method="group" and _start_ works normally.
+func TestGroupAttributeMethodTableWithStartInnerGroup(t *testing.T) {
+	if !pythonTTPAvailable() {
+		t.Skip("Python TTP not available")
+	}
+
+	template := `<group name="entries*" method="table">
+<group>
+ifIndex: {{ ifIndex | _start_ }}
+ifDescr: {{ ifDescr | ORPHRASE }}
+ifMtu: {{ ifMtu }}
+</group>
+</group>`
+
+	data := `ifIndex: 1
+ifDescr: eth 6/0
+ifMtu: 1500
+ifIndex: 2
+ifDescr: XGige 6/0
+ifMtu: 9000
+`
+
+	RunComparison(t, "group_attribute_method_table_with_start_inner_group", template, data, nil, nil)
+}
+
