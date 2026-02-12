@@ -1,7 +1,10 @@
 ---
 id: REQ-007
 title: Fix container group early return
-status: pending
+status: completed
+claimed_at: 2026-02-12T18:46:00Z
+completed_at: 2026-02-12T18:46:00Z
+route: A
 created_at: 2026-02-12T17:35:29Z
 user_request: UR-003
 related: [REQ-002, REQ-008, REQ-009]
@@ -29,3 +32,35 @@ batch: app-reported-defects
 
 ---
 *Source: "Container group early return — parseGroup() skipped nested subgroups when outer group had no direct patterns"*
+
+---
+
+## Triage
+
+**Route: A** - Simple
+
+**Reasoning:** Already resolved by REQ-002. The fix added delegation to unnamed nested groups when outer group has no patterns, which is exactly this issue.
+
+**Planning:** Not required
+
+## Plan
+
+**Planning not required** - Route A: Direct implementation
+
+Rationale: Resolved by REQ-002's fix (commit d1759cf). Verified by TestUnnamedInnerGroupSimple test.
+
+*Skipped by work action*
+
+## Implementation Summary
+
+- Already fixed in REQ-002 (commit d1759cf): added delegation to unnamed nested groups in parseGroup early return path
+- TestUnnamedInnerGroupSimple confirms container groups correctly process nested children
+
+*Completed by work action (Route A) — resolved by REQ-002*
+
+## Testing
+
+**Tests run:** `go test ./test/ -run "TestUnnamedInnerGroupSimple" -v`
+**Result:** PASS — container group correctly delegates to nested subgroups
+
+*Verified by work action*
