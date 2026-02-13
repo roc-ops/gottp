@@ -59,6 +59,62 @@ func CompileTemplate(templateText string) (*CompiledTemplate, error) {
 	return &CompiledTemplate{compiled: compiled}, nil
 }
 
+// CompileOptions contains options for template compilation.
+// Functions registered here are baked into the compiled template and available
+// for all subsequent Parse() calls without needing to pass them in ParseOptions.
+//
+// Precedence: built-in functions < CompileOptions functions < ParseOptions functions
+type CompileOptions struct {
+	// Functions provides custom functions baked into the compiled template,
+	// organized by scope. These functions are available for all Parse() calls
+	// and can be overridden per-parse via ParseOptions.Functions.
+	Functions *Functions
+}
+
+// CompileTemplateWithOptions compiles a TTP template text with compile-time options.
+//
+// Functions provided in CompileOptions are baked into the compiled template
+// and available for all subsequent Parse() calls. They can be overridden
+// per-parse via ParseOptions.Functions.
+//
+// Precedence for function resolution:
+//   - built-in functions (lowest)
+//   - CompileOptions.Functions (middle)
+//   - ParseOptions.Functions (highest, per-parse)
+//
+// Example:
+//
+//	compiled, err := gottp.CompileTemplateWithOptions(template, &gottp.CompileOptions{
+//		Functions: &gottp.Functions{
+//			Match: map[string]gottp.MatchFunc{
+//				"custom_transform": myTransformFunc,
+//			},
+//		},
+//	})
+func CompileTemplateWithOptions(templateText string, options *CompileOptions) (*CompiledTemplate, error) {
+	// Parse template
+	tmpl, err := parser.ParseTemplate(templateText)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	// Compile template
+	comp := compiler.NewCompiler()
+	ct, err := comp.CompileTemplate(tmpl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile template: %w", err)
+	}
+
+	result := &CompiledTemplate{compiled: ct}
+
+	// Convert and store compile-time functions
+	if options != nil && options.Functions != nil {
+		result.compileFunctions = convertFunctions(options.Functions)
+	}
+
+	return result, nil
+}
+
 // CompiledTemplate is a stateless, immutable compiled template.
 //
 // Once compiled, a template can be used to parse multiple inputs without
@@ -69,7 +125,8 @@ func CompileTemplate(templateText string) (*CompiledTemplate, error) {
 // Compiled templates can be serialized and saved for later use, or embedded
 // in Go code using the gottp-gen code generation tool.
 type CompiledTemplate struct {
-	compiled *compiler.CompiledTemplate
+	compiled         *compiler.CompiledTemplate
+	compileFunctions *compiled.RuntimeFunctions // compile-time custom function overrides from CompileOptions
 }
 
 // GetWarnings returns compilation warnings (non-fatal issues like Python-specific syntax in Starlark macros)
@@ -154,7 +211,7 @@ func (ct *CompiledTemplate) Parse(inputs Inputs, vars Vars, options *ParseOption
 
 // ParseWithValidation parses and returns both data and validation results
 func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOptions) (*ParseResult, error) {
-	runtime := compiled.NewRuntime(ct.compiled)
+	runtime := compiled.NewRuntimeWithFunctions(ct.compiled, ct.compileFunctions)
 
 	// Convert Inputs to map[string]string
 	inputMap := make(map[string]string)
@@ -357,10 +414,15 @@ type MacroRegistry struct {
 	registry *macro.MacroRegistry
 }
 
-// RegisterGoMacro registers a native Go macro function
-// This allows high-performance macro execution without conversion overhead
+// RegisterGoMacro registers a native Go macro function.
+// This allows high-performance macro execution without conversion overhead.
 // The function signature matches group functions:
-//   func(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error)
+//
+//	func(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error)
+//
+// Deprecated: Use CompileTemplateWithOptions with CompileOptions.Functions.Macro instead,
+// which provides a cleaner API and proper precedence handling. RegisterGoMacro continues
+// to work for backward compatibility.
 func (mr *MacroRegistry) RegisterGoMacro(name string, fn func(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error)) {
 	mr.registry.RegisterGoMacro(name, macro.GoMacroFunc(fn))
 }
@@ -440,11 +502,16 @@ func (r *Runtime) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOp
 	}, nil
 }
 
-// NewRuntime creates a reusable Runtime instance for a compiled template
-// This allows you to register Go macros and reuse the runtime for multiple parses
+// NewRuntime creates a reusable Runtime instance for a compiled template.
+// This allows you to register Go macros and reuse the runtime for multiple parses.
+//
+// Deprecated: For registering custom macros, use CompileTemplateWithOptions with
+// CompileOptions.Functions.Macro instead, which provides a cleaner API and proper
+// precedence handling. The RegisterGoMacro API continues to work for backward
+// compatibility.
 func (ct *CompiledTemplate) NewRuntime() *Runtime {
 	return &Runtime{
-		runtime: compiled.NewRuntime(ct.compiled),
+		runtime: compiled.NewRuntimeWithFunctions(ct.compiled, ct.compileFunctions),
 	}
 }
 

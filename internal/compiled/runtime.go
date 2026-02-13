@@ -34,10 +34,19 @@ type Runtime struct {
 	recordedVars      map[string]interface{}            // global recorded variables (from record() function)
 	runtimeLookups    map[string]map[string]interface{} // per-parse runtime lookup tables from ParseOptions
 	runtimeFunctions  *RuntimeFunctions                 // per-parse custom function overrides from ParseOptions
+	compileFunctions  *RuntimeFunctions                 // compile-time custom function overrides from CompileOptions
 }
 
 // NewRuntime creates a new runtime for a compiled template
 func NewRuntime(compiled *compiler.CompiledTemplate) *Runtime {
+	return NewRuntimeWithFunctions(compiled, nil)
+}
+
+// NewRuntimeWithFunctions creates a new runtime for a compiled template with compile-time functions.
+// Compile-time functions sit between built-in functions and per-parse (runtime) functions in precedence:
+//
+//	built-ins < compileFunctions < runtimeFunctions (ParseOptions)
+func NewRuntimeWithFunctions(compiled *compiler.CompiledTemplate, compileFns *RuntimeFunctions) *Runtime {
 	rt := &Runtime{
 		compiled:          compiled,
 		matchRegistry:     match.NewRegistry(),
@@ -48,6 +57,7 @@ func NewRuntime(compiled *compiler.CompiledTemplate) *Runtime {
 		pathResolver:      NewPathResolver(),
 		matchCollector:    NewMatchCollector(),
 		validationResults: make(map[string]*yang.ValidationResult),
+		compileFunctions:  compileFns,
 	}
 
 	// Register macros from compiled template
@@ -60,6 +70,13 @@ func NewRuntime(compiled *compiler.CompiledTemplate) *Runtime {
 			// The macro simply won't be available if registration fails
 			// TODO: Consider adding a logger here for debugging
 			_ = err
+		}
+	}
+
+	// Register compile-time macro functions
+	if compileFns != nil && compileFns.Macro != nil {
+		for name, fn := range compileFns.Macro {
+			rt.macroRegistry.RegisterGoMacro(name, fn)
 		}
 	}
 
@@ -85,40 +102,64 @@ func (r *Runtime) GetMacroRegistry() *macro.MacroRegistry {
 	return r.macroRegistry
 }
 
-// getMatchFunc checks runtime overrides first, then falls back to registry.
+// getMatchFunc checks runtime overrides first, then compile-time overrides, then falls back to registry.
+// Precedence: runtimeFunctions (ParseOptions) > compileFunctions (CompileOptions) > registry (built-ins)
 func (r *Runtime) getMatchFunc(name string) (match.Function, bool) {
 	if r.runtimeFunctions != nil && r.runtimeFunctions.Match != nil {
 		if fn, ok := r.runtimeFunctions.Match[name]; ok {
 			return fn, true
 		}
 	}
+	if r.compileFunctions != nil && r.compileFunctions.Match != nil {
+		if fn, ok := r.compileFunctions.Match[name]; ok {
+			return fn, true
+		}
+	}
 	return r.matchRegistry.Get(name)
 }
 
-// getGroupFunc checks runtime overrides first, then falls back to registry.
+// getGroupFunc checks runtime overrides first, then compile-time overrides, then falls back to registry.
+// Precedence: runtimeFunctions (ParseOptions) > compileFunctions (CompileOptions) > registry (built-ins)
 func (r *Runtime) getGroupFunc(name string) (group.Function, bool) {
 	if r.runtimeFunctions != nil && r.runtimeFunctions.Group != nil {
 		if fn, ok := r.runtimeFunctions.Group[name]; ok {
 			return fn, true
 		}
 	}
+	if r.compileFunctions != nil && r.compileFunctions.Group != nil {
+		if fn, ok := r.compileFunctions.Group[name]; ok {
+			return fn, true
+		}
+	}
 	return r.groupRegistry.Get(name)
 }
 
-// getOutputFunc checks runtime overrides first, then falls back to registry.
+// getOutputFunc checks runtime overrides first, then compile-time overrides, then falls back to registry.
+// Precedence: runtimeFunctions (ParseOptions) > compileFunctions (CompileOptions) > registry (built-ins)
 func (r *Runtime) getOutputFunc(name string) (output.Function, bool) {
 	if r.runtimeFunctions != nil && r.runtimeFunctions.Output != nil {
 		if fn, ok := r.runtimeFunctions.Output[name]; ok {
 			return fn, true
 		}
 	}
+	if r.compileFunctions != nil && r.compileFunctions.Output != nil {
+		if fn, ok := r.compileFunctions.Output[name]; ok {
+			return fn, true
+		}
+	}
 	return r.outputRegistry.Get(name)
 }
 
-// getInputFunc checks runtime overrides first, then falls back to registry.
+// getInputFunc checks runtime overrides first, then compile-time overrides, then falls back to registry.
+// Precedence: runtimeFunctions (ParseOptions) > compileFunctions (CompileOptions) > registry (built-ins)
 func (r *Runtime) getInputFunc(name string) (input.Function, bool) {
 	if r.runtimeFunctions != nil && r.runtimeFunctions.Input != nil {
 		if fn, ok := r.runtimeFunctions.Input[name]; ok {
+			return fn, true
+		}
+	}
+	if r.compileFunctions != nil && r.compileFunctions.Input != nil {
+		if fn, ok := r.compileFunctions.Input[name]; ok {
 			return fn, true
 		}
 	}
@@ -177,7 +218,14 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 		r.runtimeFunctions = options.Functions
 	}
 
-	// Register runtime macro overrides
+	// Re-register compile-time macro functions (restore baseline after previous Parse)
+	if r.compileFunctions != nil && r.compileFunctions.Macro != nil {
+		for name, fn := range r.compileFunctions.Macro {
+			r.macroRegistry.RegisterGoMacro(name, fn)
+		}
+	}
+
+	// Register runtime macro overrides (highest precedence)
 	if r.runtimeFunctions != nil && r.runtimeFunctions.Macro != nil {
 		for name, fn := range r.runtimeFunctions.Macro {
 			r.macroRegistry.RegisterGoMacro(name, fn)
@@ -714,7 +762,14 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 		r.runtimeFunctions = options.Functions
 	}
 
-	// Register runtime macro overrides
+	// Re-register compile-time macro functions (restore baseline after previous Parse)
+	if r.compileFunctions != nil && r.compileFunctions.Macro != nil {
+		for name, fn := range r.compileFunctions.Macro {
+			r.macroRegistry.RegisterGoMacro(name, fn)
+		}
+	}
+
+	// Register runtime macro overrides (highest precedence)
 	if r.runtimeFunctions != nil && r.runtimeFunctions.Macro != nil {
 		for name, fn := range r.runtimeFunctions.Macro {
 			r.macroRegistry.RegisterGoMacro(name, fn)
@@ -3911,9 +3966,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		}
 	}
 
-	// Process custom runtime group functions specified as group attributes
-	// These are not in the hardcoded list above, so we check the runtime overrides
-	if r.runtimeFunctions != nil && r.runtimeFunctions.Group != nil && group.Attributes != nil {
+	// Process custom group functions specified as group attributes
+	// These are not in the hardcoded list above, so we check runtime and compile-time overrides
+	if group.Attributes != nil && (r.runtimeFunctions != nil && r.runtimeFunctions.Group != nil || r.compileFunctions != nil && r.compileFunctions.Group != nil) {
 		for attrName, attrValue := range group.Attributes {
 			// Skip attributes already handled by the hardcoded list above
 			alreadyHandled := false
@@ -3932,8 +3987,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				attrName == "record" {
 				continue
 			}
-			// Check if this attribute name matches a runtime group function
-			fn, ok := r.runtimeFunctions.Group[attrName]
+			// Check if this attribute name matches a custom group function
+			// Uses getGroupFunc for proper precedence: runtime > compile-time > built-in
+			fn, ok := r.getGroupFunc(attrName)
 			if !ok {
 				continue
 			}
