@@ -169,8 +169,10 @@ func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, option
 	if options != nil {
 		opts = &compiled.ParseOptions{
 			EnableSourceMap: options.EnableSourceMap,
+			Lookups:         options.Lookups,
+			Vars:            options.Vars,
 		}
-		
+
 		// Load YANG modules if provided
 		if options.YANGModules != nil {
 			moduleSet, err := loadYANGModules(options.YANGModules)
@@ -296,6 +298,14 @@ type YANGModules struct {
 type ParseOptions struct {
 	YANGModules     *YANGModules // YANG modules for validation
 	EnableSourceMap bool          // Enable source map collection (zero overhead when false)
+
+	// Lookups provides runtime lookup tables merged with compiled lookups at parse time.
+	// Runtime lookups override compiled lookups with the same name.
+	Lookups map[string]map[string]interface{}
+
+	// Vars provides runtime variables merged with compiled template vars and Parse() vars.
+	// Precedence: compiled vars < Parse() vars < ParseOptions.Vars.
+	Vars map[string]interface{}
 }
 
 // Runtime provides access to the underlying runtime for advanced operations
@@ -353,6 +363,8 @@ func (r *Runtime) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOp
 	if options != nil {
 		opts = &compiled.ParseOptions{
 			EnableSourceMap: options.EnableSourceMap,
+			Lookups:         options.Lookups,
+			Vars:            options.Vars,
 		}
 
 		// Load YANG modules if provided

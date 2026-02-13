@@ -32,6 +32,7 @@ type Runtime struct {
 	yangValidator     *yang.Validator
 	validationResults map[string]*yang.ValidationResult // group name -> validation result
 	recordedVars      map[string]interface{}            // global recorded variables (from record() function)
+	runtimeLookups    map[string]map[string]interface{} // per-parse runtime lookup tables from ParseOptions
 }
 
 // NewRuntime creates a new runtime for a compiled template
@@ -85,8 +86,10 @@ func (r *Runtime) GetMacroRegistry() *macro.MacroRegistry {
 
 // ParseOptions contains options for parsing
 type ParseOptions struct {
-	YANGModuleSet   *yang.ModuleSet // YANG modules for validation
-	EnableSourceMap bool             // Enable source map collection
+	YANGModuleSet   *yang.ModuleSet                  // YANG modules for validation
+	EnableSourceMap bool                              // Enable source map collection
+	Lookups         map[string]map[string]interface{} // Runtime lookup tables
+	Vars            map[string]interface{}            // Runtime variables
 }
 
 // Parse executes the compiled template with given inputs and variables.
@@ -102,9 +105,17 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 	// Clear recorded vars (from record() function)
 	r.recordedVars = make(map[string]interface{})
 
+	// Clear runtime lookups
+	r.runtimeLookups = nil
+
 	// Set YANG module set if provided
 	if options != nil && options.YANGModuleSet != nil {
 		r.SetYANGModuleSet(options.YANGModuleSet)
+	}
+
+	// Set runtime lookups if provided
+	if options != nil && options.Lookups != nil {
+		r.runtimeLookups = options.Lookups
 	}
 
 	// Merge template vars (from <vars> tag) with passed vars
@@ -122,6 +133,16 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 			mergedVars[k] = v
 		}
 		vars = mergedVars
+	}
+
+	// Merge ParseOptions.Vars (highest precedence)
+	if options != nil && options.Vars != nil {
+		if vars == nil {
+			vars = make(map[string]interface{})
+		}
+		for k, v := range options.Vars {
+			vars[k] = v
+		}
 	}
 
 	// Track all input names for per_input results method
@@ -606,9 +627,17 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 	// Clear recorded vars (from record() function)
 	r.recordedVars = make(map[string]interface{})
 
+	// Clear runtime lookups
+	r.runtimeLookups = nil
+
 	// Set YANG module set if provided
 	if options != nil && options.YANGModuleSet != nil {
 		r.SetYANGModuleSet(options.YANGModuleSet)
+	}
+
+	// Set runtime lookups if provided
+	if options != nil && options.Lookups != nil {
+		r.runtimeLookups = options.Lookups
 	}
 
 	// Merge template vars (from <vars> tag) with passed vars
@@ -626,6 +655,16 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 			mergedVars[k] = v
 		}
 		vars = mergedVars
+	}
+
+	// Merge ParseOptions.Vars (highest precedence)
+	if options != nil && options.Vars != nil {
+		if vars == nil {
+			vars = make(map[string]interface{})
+		}
+		for k, v := range options.Vars {
+			vars[k] = v
+		}
 	}
 
 	// Track all input names for per_input results method
@@ -5339,6 +5378,12 @@ func (r *Runtime) processFunctions(value interface{}, functions []string, vars m
 								lookupTables[lookup.Name] = dataMap
 							}
 						}
+					}
+				}
+				// Merge runtime lookups (from ParseOptions) - these override compiled lookups
+				if r.runtimeLookups != nil {
+					for name, data := range r.runtimeLookups {
+						lookupTables[name] = data
 					}
 				}
 				kwargs["_lookup_tables"] = lookupTables
