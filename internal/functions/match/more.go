@@ -1735,7 +1735,19 @@ func chainFunc(value interface{}, args []string, kwargs map[string]interface{}) 
 			chainKwargs[k] = v
 		}
 
-		// Try to use the registry if available, otherwise use inline implementation
+		// Try resolver first (supports custom function overrides)
+		if resolver, ok := chainKwargs["_match_func_resolver"].(func(string) (Function, bool)); ok {
+			if fn, ok := resolver(funcName); ok {
+				newResult, err := fn(result, funcArgs, chainKwargs)
+				if err != nil {
+					return nil, fmt.Errorf("chain function %s failed: %w", funcName, err)
+				}
+				result = newResult
+				continue
+			}
+		}
+
+		// Fall back to registry (backward compat)
 		if registry != nil {
 			if fn, ok := registry.Get(funcName); ok {
 				// Use the actual function from registry

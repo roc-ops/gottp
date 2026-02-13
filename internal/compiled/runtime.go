@@ -33,6 +33,7 @@ type Runtime struct {
 	validationResults map[string]*yang.ValidationResult // group name -> validation result
 	recordedVars      map[string]interface{}            // global recorded variables (from record() function)
 	runtimeLookups    map[string]map[string]interface{} // per-parse runtime lookup tables from ParseOptions
+	runtimeFunctions  *RuntimeFunctions                 // per-parse custom function overrides from ParseOptions
 }
 
 // NewRuntime creates a new runtime for a compiled template
@@ -84,12 +85,62 @@ func (r *Runtime) GetMacroRegistry() *macro.MacroRegistry {
 	return r.macroRegistry
 }
 
+// getMatchFunc checks runtime overrides first, then falls back to registry.
+func (r *Runtime) getMatchFunc(name string) (match.Function, bool) {
+	if r.runtimeFunctions != nil && r.runtimeFunctions.Match != nil {
+		if fn, ok := r.runtimeFunctions.Match[name]; ok {
+			return fn, true
+		}
+	}
+	return r.matchRegistry.Get(name)
+}
+
+// getGroupFunc checks runtime overrides first, then falls back to registry.
+func (r *Runtime) getGroupFunc(name string) (group.Function, bool) {
+	if r.runtimeFunctions != nil && r.runtimeFunctions.Group != nil {
+		if fn, ok := r.runtimeFunctions.Group[name]; ok {
+			return fn, true
+		}
+	}
+	return r.groupRegistry.Get(name)
+}
+
+// getOutputFunc checks runtime overrides first, then falls back to registry.
+func (r *Runtime) getOutputFunc(name string) (output.Function, bool) {
+	if r.runtimeFunctions != nil && r.runtimeFunctions.Output != nil {
+		if fn, ok := r.runtimeFunctions.Output[name]; ok {
+			return fn, true
+		}
+	}
+	return r.outputRegistry.Get(name)
+}
+
+// getInputFunc checks runtime overrides first, then falls back to registry.
+func (r *Runtime) getInputFunc(name string) (input.Function, bool) {
+	if r.runtimeFunctions != nil && r.runtimeFunctions.Input != nil {
+		if fn, ok := r.runtimeFunctions.Input[name]; ok {
+			return fn, true
+		}
+	}
+	return r.inputRegistry.Get(name)
+}
+
+// RuntimeFunctions holds per-parse custom function overrides from ParseOptions.
+type RuntimeFunctions struct {
+	Match  map[string]match.Function
+	Group  map[string]group.Function
+	Output map[string]output.Function
+	Input  map[string]input.Function
+	Macro  map[string]macro.GoMacroFunc
+}
+
 // ParseOptions contains options for parsing
 type ParseOptions struct {
 	YANGModuleSet   *yang.ModuleSet                  // YANG modules for validation
 	EnableSourceMap bool                              // Enable source map collection
 	Lookups         map[string]map[string]interface{} // Runtime lookup tables
 	Vars            map[string]interface{}            // Runtime variables
+	Functions       *RuntimeFunctions                 // Custom function overrides
 }
 
 // Parse executes the compiled template with given inputs and variables.
@@ -108,6 +159,9 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 	// Clear runtime lookups
 	r.runtimeLookups = nil
 
+	// Clear runtime functions
+	r.runtimeFunctions = nil
+
 	// Set YANG module set if provided
 	if options != nil && options.YANGModuleSet != nil {
 		r.SetYANGModuleSet(options.YANGModuleSet)
@@ -116,6 +170,18 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 	// Set runtime lookups if provided
 	if options != nil && options.Lookups != nil {
 		r.runtimeLookups = options.Lookups
+	}
+
+	// Set runtime functions if provided
+	if options != nil && options.Functions != nil {
+		r.runtimeFunctions = options.Functions
+	}
+
+	// Register runtime macro overrides
+	if r.runtimeFunctions != nil && r.runtimeFunctions.Macro != nil {
+		for name, fn := range r.runtimeFunctions.Macro {
+			r.macroRegistry.RegisterGoMacro(name, fn)
+		}
 	}
 
 	// Merge template vars (from <vars> tag) with passed vars
@@ -630,6 +696,9 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 	// Clear runtime lookups
 	r.runtimeLookups = nil
 
+	// Clear runtime functions
+	r.runtimeFunctions = nil
+
 	// Set YANG module set if provided
 	if options != nil && options.YANGModuleSet != nil {
 		r.SetYANGModuleSet(options.YANGModuleSet)
@@ -638,6 +707,18 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 	// Set runtime lookups if provided
 	if options != nil && options.Lookups != nil {
 		r.runtimeLookups = options.Lookups
+	}
+
+	// Set runtime functions if provided
+	if options != nil && options.Functions != nil {
+		r.runtimeFunctions = options.Functions
+	}
+
+	// Register runtime macro overrides
+	if r.runtimeFunctions != nil && r.runtimeFunctions.Macro != nil {
+		for name, fn := range r.runtimeFunctions.Macro {
+			r.macroRegistry.RegisterGoMacro(name, fn)
+		}
 	}
 
 	// Merge template vars (from <vars> tag) with passed vars
@@ -3631,8 +3712,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				// If empty string, expand all dot-separated keys
 				// Otherwise, expand only specified keys
 				// Always process expand if the attribute exists
-				// Get the function from registry
-				fn, ok := r.groupRegistry.Get(attrName)
+				// Get the function from registry (checks runtime overrides first)
+				fn, ok := r.getGroupFunc(attrName)
 				if !ok {
 					continue
 				}
@@ -3746,8 +3827,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				}
 			}
 
-			// Get the function from registry
-			fn, ok := r.groupRegistry.Get(attrName)
+			// Get the function from registry (checks runtime overrides first)
+			fn, ok := r.getGroupFunc(attrName)
 			if !ok {
 				continue // Function not found, skip
 			}
@@ -3822,6 +3903,70 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				}
 
 				// If function returns true, keep this match
+				if keep {
+					filteredMatches = append(filteredMatches, newData)
+				}
+			}
+			mergedMatches = filteredMatches
+		}
+	}
+
+	// Process custom runtime group functions specified as group attributes
+	// These are not in the hardcoded list above, so we check the runtime overrides
+	if r.runtimeFunctions != nil && r.runtimeFunctions.Group != nil && group.Attributes != nil {
+		for attrName, attrValue := range group.Attributes {
+			// Skip attributes already handled by the hardcoded list above
+			alreadyHandled := false
+			for _, builtinAttr := range groupFunctionAttrs {
+				if attrName == builtinAttr {
+					alreadyHandled = true
+					break
+				}
+			}
+			if alreadyHandled {
+				continue
+			}
+			// Skip known non-function attributes
+			if attrName == "name" || attrName == "input" || attrName == "method" || attrName == "output" ||
+				attrName == "default" || attrName == "chain" || attrName == "functions" || attrName == "macro" ||
+				attrName == "record" {
+				continue
+			}
+			// Check if this attribute name matches a runtime group function
+			fn, ok := r.runtimeFunctions.Group[attrName]
+			if !ok {
+				continue
+			}
+			// Parse args from the attribute value
+			var args []string
+			if attrValue != "" {
+				args = strings.Split(attrValue, ",")
+				for i := range args {
+					args[i] = strings.TrimSpace(args[i])
+					args[i] = strings.Trim(args[i], `"'`)
+				}
+			}
+			// Prepare kwargs
+			kwargs := make(map[string]interface{})
+			for k, v := range vars {
+				kwargs[k] = v
+			}
+			if r.recordedVars != nil {
+				for k, v := range r.recordedVars {
+					kwargs[k] = v
+				}
+			}
+			// Apply function to each match
+			var filteredMatches []map[string]interface{}
+			for _, matchData := range mergedMatches {
+				dataCopy := make(map[string]interface{})
+				for k, v := range matchData {
+					dataCopy[k] = v
+				}
+				newData, keep, err := fn(dataCopy, args, kwargs)
+				if err != nil {
+					return nil, fmt.Errorf("custom group function %s failed: %w", attrName, err)
+				}
 				if keep {
 					filteredMatches = append(filteredMatches, newData)
 				}
@@ -5298,8 +5443,8 @@ func (r *Runtime) processFunctions(value interface{}, functions []string, vars m
 			args = positionalArgs
 		}
 
-		// Get function from registry
-		fn, ok := r.matchRegistry.Get(funcName)
+		// Get function from registry (checks runtime overrides first)
+		fn, ok := r.getMatchFunc(funcName)
 		if !ok {
 			// Function not found, skip it (could be a macro handled by the function itself)
 			continue
@@ -5334,6 +5479,10 @@ func (r *Runtime) processFunctions(value interface{}, functions []string, vars m
 			// Pass function registry to chain function so it can call other functions
 			if funcName == "chain" {
 				kwargs["_match_registry"] = r.matchRegistry
+				// Pass resolver that checks runtime overrides first
+				kwargs["_match_func_resolver"] = func(name string) (match.Function, bool) {
+					return r.getMatchFunc(name)
+				}
 			}
 
 			if funcName == "macro" {
@@ -5925,8 +6074,8 @@ func (r *Runtime) applyGroupFunctions(matches []map[string]interface{}, funcStrs
 				return nil, fmt.Errorf("failed to parse group function %s: %w", funcStr, err)
 			}
 
-			// Get function from registry
-			fn, ok := r.groupRegistry.Get(funcName)
+			// Get function from registry (checks runtime overrides first)
+			fn, ok := r.getGroupFunc(funcName)
 			if !ok {
 				// Function not found - skip it (could be a macro or custom function)
 				continue
@@ -6145,7 +6294,7 @@ func (r *Runtime) processInputFunctions(inputName string, data string, vars map[
 
 	// Process extract_commands if specified
 	if len(inputConfig.ExtractCommands) > 0 {
-		fn, ok := r.inputRegistry.Get("extract_commands")
+		fn, ok := r.getInputFunc("extract_commands")
 		if ok {
 			processed, shouldContinue, err := fn(result, inputConfig.ExtractCommands, nil)
 			if err != nil {
@@ -6173,8 +6322,8 @@ func (r *Runtime) processInputFunctions(inputName string, data string, vars map[
 				return "", fmt.Errorf("failed to parse input function %s: %w", funcStr, err)
 			}
 
-			// Get function from registry
-			fn, ok := r.inputRegistry.Get(funcName)
+			// Get function from registry (checks runtime overrides first)
+			fn, ok := r.getInputFunc(funcName)
 			if !ok {
 				// Function not found, skip it
 				continue
@@ -6260,8 +6409,8 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 					return nil, fmt.Errorf("failed to parse output function %s: %w", funcStr, err)
 				}
 
-				// Get function from registry
-				fn, ok := r.outputRegistry.Get(funcName)
+				// Get function from registry (checks runtime overrides first)
+				fn, ok := r.getOutputFunc(funcName)
 				if !ok {
 					// Function not found, skip it (could be a macro)
 					continue
@@ -6286,8 +6435,8 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 
 		// Apply format conversion if format is specified
 		if outputConfig.Format != "" && outputConfig.Format != "raw" {
-			// Get format function from registry
-			formatFn, ok := r.outputRegistry.Get(outputConfig.Format)
+			// Get format function from registry (checks runtime overrides first)
+			formatFn, ok := r.getOutputFunc(outputConfig.Format)
 			if !ok {
 				return nil, fmt.Errorf("unknown output format: %s", outputConfig.Format)
 			}

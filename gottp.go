@@ -6,6 +6,10 @@ import (
 	"github.com/roc-ops/gottp/api/python"
 	"github.com/roc-ops/gottp/internal/compiled"
 	"github.com/roc-ops/gottp/internal/compiler"
+	"github.com/roc-ops/gottp/internal/functions/group"
+	"github.com/roc-ops/gottp/internal/functions/input"
+	"github.com/roc-ops/gottp/internal/functions/match"
+	"github.com/roc-ops/gottp/internal/functions/output"
 	"github.com/roc-ops/gottp/internal/macro"
 	"github.com/roc-ops/gottp/internal/parser"
 	"github.com/roc-ops/gottp/internal/validator"
@@ -171,6 +175,7 @@ func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, option
 			EnableSourceMap: options.EnableSourceMap,
 			Lookups:         options.Lookups,
 			Vars:            options.Vars,
+			Functions:       convertFunctions(options.Functions),
 		}
 
 		// Load YANG modules if provided
@@ -294,6 +299,35 @@ type YANGModules struct {
 	URLs    []string          // URLs to fetch
 }
 
+// MatchFunc is the signature for custom match functions.
+// Matches internal/functions/match.Function.
+type MatchFunc func(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error)
+
+// GroupFunc is the signature for custom group functions.
+// Matches internal/functions/group.Function.
+type GroupFunc func(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error)
+
+// OutputFunc is the signature for custom output functions.
+// Matches internal/functions/output.Function.
+type OutputFunc func(data interface{}, args []string, kwargs map[string]interface{}) (interface{}, error)
+
+// InputFunc is the signature for custom input functions.
+// Matches internal/functions/input.Function.
+type InputFunc func(data string, args []string, kwargs map[string]interface{}) (string, bool, error)
+
+// MacroFunc is the signature for custom Go macro functions.
+// Matches internal/macro.GoMacroFunc.
+type MacroFunc func(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error)
+
+// Functions contains custom functions organized by scope.
+type Functions struct {
+	Match  map[string]MatchFunc
+	Group  map[string]GroupFunc
+	Output map[string]OutputFunc
+	Input  map[string]InputFunc
+	Macro  map[string]MacroFunc
+}
+
 // ParseOptions represents options for parsing
 type ParseOptions struct {
 	YANGModules     *YANGModules // YANG modules for validation
@@ -306,6 +340,10 @@ type ParseOptions struct {
 	// Vars provides runtime variables merged with compiled template vars and Parse() vars.
 	// Precedence: compiled vars < Parse() vars < ParseOptions.Vars.
 	Vars map[string]interface{}
+
+	// Functions provides custom functions injected at parse time, organized by scope.
+	// Custom functions override built-in functions with the same name.
+	Functions *Functions
 }
 
 // Runtime provides access to the underlying runtime for advanced operations
@@ -365,6 +403,7 @@ func (r *Runtime) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOp
 			EnableSourceMap: options.EnableSourceMap,
 			Lookups:         options.Lookups,
 			Vars:            options.Vars,
+			Functions:       convertFunctions(options.Functions),
 		}
 
 		// Load YANG modules if provided
@@ -514,6 +553,45 @@ func LoadCompiledTemplateFromBytes(data []byte, format SerializationFormat) (*Co
 		return nil, err
 	}
 	return &CompiledTemplate{compiled: compiled}, nil
+}
+
+// convertFunctions converts public Functions to internal RuntimeFunctions.
+func convertFunctions(fns *Functions) *compiled.RuntimeFunctions {
+	if fns == nil {
+		return nil
+	}
+	rf := &compiled.RuntimeFunctions{}
+	if fns.Match != nil {
+		rf.Match = make(map[string]match.Function, len(fns.Match))
+		for name, fn := range fns.Match {
+			rf.Match[name] = match.Function(fn)
+		}
+	}
+	if fns.Group != nil {
+		rf.Group = make(map[string]group.Function, len(fns.Group))
+		for name, fn := range fns.Group {
+			rf.Group[name] = group.Function(fn)
+		}
+	}
+	if fns.Output != nil {
+		rf.Output = make(map[string]output.Function, len(fns.Output))
+		for name, fn := range fns.Output {
+			rf.Output[name] = output.Function(fn)
+		}
+	}
+	if fns.Input != nil {
+		rf.Input = make(map[string]input.Function, len(fns.Input))
+		for name, fn := range fns.Input {
+			rf.Input[name] = input.Function(fn)
+		}
+	}
+	if fns.Macro != nil {
+		rf.Macro = make(map[string]macro.GoMacroFunc, len(fns.Macro))
+		for name, fn := range fns.Macro {
+			rf.Macro[name] = macro.GoMacroFunc(fn)
+		}
+	}
+	return rf
 }
 
 // convertSourceMap converts internal source map to public source map
