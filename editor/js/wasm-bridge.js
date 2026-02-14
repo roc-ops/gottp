@@ -141,6 +141,74 @@ class GottpWasmBridge {
     }
 
     /**
+     * Compile a TTP template with compile-time options
+     * Supports pre-registered function sets via options.functionSet name
+     * @param {string} templateText - The TTP template text
+     * @param {object|null} options - Compile options (optional). Supports { functionSet: "name" }
+     * @returns {Promise<{compiledJSON: string, cacheKey: string, warnings: Array}>}
+     */
+    async compileTemplateWithOptions(templateText, options = null) {
+        if (!this.initialized) {
+            await this.init();
+        }
+
+        try {
+            const optionsJSON = options ? JSON.stringify(options) : 'null';
+            const result = this.gottp.compileTemplateWithOptions(templateText, optionsJSON);
+            const resultObj = this.jsValueToObject(result);
+
+            if (resultObj.error) {
+                throw new Error(resultObj.error);
+            }
+
+            // Parse warnings
+            let warnings = [];
+            if (resultObj.warnings) {
+                if (Array.isArray(resultObj.warnings)) {
+                    warnings = resultObj.warnings;
+                } else if (typeof resultObj.warnings === 'string') {
+                    try {
+                        warnings = JSON.parse(resultObj.warnings);
+                    } catch (e) {
+                        // If parsing fails, ignore warnings
+                    }
+                }
+            }
+
+            return {
+                compiledJSON: resultObj.result,
+                cacheKey: resultObj.cacheKey || templateText,
+                warnings: warnings
+            };
+        } catch (error) {
+            throw new Error(`Template compilation with options failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * List all registered function set names
+     * @returns {Promise<Array<string>>} Array of registered function set names
+     */
+    async listFunctionSets() {
+        if (!this.initialized) {
+            await this.init();
+        }
+
+        try {
+            const result = this.gottp.listFunctionSets();
+            const resultObj = this.jsValueToObject(result);
+
+            if (resultObj.error) {
+                throw new Error(resultObj.error);
+            }
+
+            return JSON.parse(resultObj.result);
+        } catch (error) {
+            throw new Error(`Listing function sets failed: ${error.message}`);
+        }
+    }
+
+    /**
      * Parse input data using a compiled template
      * @param {string|object} compiledTemplate - Compiled template JSON string or object with {compiledJSON, cacheKey}
      * @param {string} inputsJSON - Inputs JSON
@@ -148,9 +216,10 @@ class GottpWasmBridge {
      * @param {string|null} yangModulesJSON - YANG modules JSON (optional)
      * @param {string|null} cacheKey - Cache key for faster lookup (optional)
      * @param {boolean} enableSourceMap - Enable source map collection (optional)
+     * @param {string|null} lookupsJSON - Lookups JSON (optional, map of named lookup tables)
      * @returns {Promise<{data: *, validationResults: *, sourceMap: *}>}
      */
-    async parseTemplate(compiledTemplate, inputsJSON, varsJSON = null, yangModulesJSON = null, cacheKey = null, enableSourceMap = false) {
+    async parseTemplate(compiledTemplate, inputsJSON, varsJSON = null, yangModulesJSON = null, cacheKey = null, enableSourceMap = false, lookupsJSON = null) {
         if (!this.initialized) {
             await this.init();
         }
@@ -174,13 +243,16 @@ class GottpWasmBridge {
             const cacheKeyStr = templateCacheKey || 'null';
             const enableSourceMapStr = enableSourceMap ? 'true' : 'null';
             
+            const lookupsJSONStr = lookupsJSON || 'null';
+
             const result = this.gottp.parseTemplate(
                 compiledTemplateJSON,
                 inputsJSON,
                 varsJSONStr,
                 yangModulesJSONStr,
                 cacheKeyStr,
-                enableSourceMapStr
+                enableSourceMapStr,
+                lookupsJSONStr
             );
             const resultObj = this.jsValueToObject(result);
             
@@ -228,6 +300,106 @@ class GottpWasmBridge {
             return resultObj.result;
         } catch (error) {
             throw new Error(`YANG module loading failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Load a named lookup table from JSON data
+     * @param {string} name - Name for the lookup table
+     * @param {string} jsonData - JSON string of the lookup table (object of objects)
+     * @returns {Promise<string>} JSON string of the lookup map (name -> table)
+     */
+    async loadLookupFromJSON(name, jsonData) {
+        if (!this.initialized) {
+            await this.init();
+        }
+
+        try {
+            const result = this.gottp.loadLookupFromJSON(name, jsonData);
+            const resultObj = this.jsValueToObject(result);
+
+            if (resultObj.error) {
+                throw new Error(resultObj.error);
+            }
+
+            return resultObj.result;
+        } catch (error) {
+            throw new Error(`Lookup loading from JSON failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Load a named lookup table from YAML data
+     * @param {string} name - Name for the lookup table
+     * @param {string} yamlData - YAML string of the lookup table
+     * @returns {Promise<string>} JSON string of the lookup map (name -> table)
+     */
+    async loadLookupFromYAML(name, yamlData) {
+        if (!this.initialized) {
+            await this.init();
+        }
+
+        try {
+            const result = this.gottp.loadLookupFromYAML(name, yamlData);
+            const resultObj = this.jsValueToObject(result);
+
+            if (resultObj.error) {
+                throw new Error(resultObj.error);
+            }
+
+            return resultObj.result;
+        } catch (error) {
+            throw new Error(`Lookup loading from YAML failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Load a named lookup table from CSV data
+     * @param {string} name - Name for the lookup table
+     * @param {string} csvData - CSV string of the lookup table
+     * @param {string} keyColumn - Column to use as lookup key (optional, defaults to first column)
+     * @returns {Promise<string>} JSON string of the lookup map (name -> table)
+     */
+    async loadLookupFromCSV(name, csvData, keyColumn = '') {
+        if (!this.initialized) {
+            await this.init();
+        }
+
+        try {
+            const result = this.gottp.loadLookupFromCSV(name, csvData, keyColumn);
+            const resultObj = this.jsValueToObject(result);
+
+            if (resultObj.error) {
+                throw new Error(resultObj.error);
+            }
+
+            return resultObj.result;
+        } catch (error) {
+            throw new Error(`Lookup loading from CSV failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Load multiple named lookup tables from JSON data
+     * @param {string} jsonData - JSON string containing multiple lookup tables (nested object)
+     * @returns {Promise<string>} JSON string of the lookups map
+     */
+    async loadLookupsFromJSON(jsonData) {
+        if (!this.initialized) {
+            await this.init();
+        }
+
+        try {
+            const result = this.gottp.loadLookupsFromJSON(jsonData);
+            const resultObj = this.jsValueToObject(result);
+
+            if (resultObj.error) {
+                throw new Error(resultObj.error);
+            }
+
+            return resultObj.result;
+        } catch (error) {
+            throw new Error(`Lookups loading from JSON failed: ${error.message}`);
         }
     }
 

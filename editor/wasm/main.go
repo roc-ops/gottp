@@ -16,6 +16,14 @@ var (
 	cacheMutex            sync.RWMutex
 )
 
+// functionRegistry holds pre-registered function sets that can be referenced by name.
+// Go closures cannot be created from JavaScript via WASM, so this registry pattern
+// allows Go-side function sets to be used in CompileTemplateWithOptions calls.
+var (
+	functionRegistry     = make(map[string]*gottp.Functions)
+	functionRegistryMux  sync.RWMutex
+)
+
 // compileTemplate compiles a TTP template and returns a cache key or error
 func compileTemplate(this js.Value, args []js.Value) interface{} {
 	if len(args) < 1 {
@@ -140,6 +148,17 @@ func parseTemplate(this js.Value, args []js.Value) interface{} {
 		enableSourceMap = enableSourceMapStr == "true" || enableSourceMapStr == "True" || enableSourceMapStr == "TRUE"
 	}
 
+	// Optional 7th argument: lookupsJSON
+	var lookups map[string]map[string]interface{}
+	if len(args) >= 7 && args[6].String() != "" && args[6].String() != "null" {
+		lookupsJSON := args[6].String()
+		if err := json.Unmarshal([]byte(lookupsJSON), &lookups); err != nil {
+			return map[string]interface{}{
+				"error": fmt.Sprintf("failed to parse lookups: %v", err),
+			}
+		}
+	}
+
 	// Parse inputs
 	var inputs gottp.Inputs
 	if err := json.Unmarshal([]byte(inputsJSON), &inputs); err != nil {
@@ -158,12 +177,13 @@ func parseTemplate(this js.Value, args []js.Value) interface{} {
 		}
 	}
 
-	// Create parse options with YANG modules and source map
+	// Create parse options with YANG modules, source map, and lookups
 	var options *gottp.ParseOptions
-	if yangModules != nil || enableSourceMap {
+	if yangModules != nil || enableSourceMap || lookups != nil {
 		options = &gottp.ParseOptions{
 			YANGModules:     yangModules,
 			EnableSourceMap: enableSourceMap,
+			Lookups:         lookups,
 		}
 	}
 
@@ -388,16 +408,259 @@ func loadYANGModule(this js.Value, args []js.Value) interface{} {
 	}
 }
 
+// compileTemplateWithOptions compiles a TTP template with compile-time options
+func compileTemplateWithOptions(this js.Value, args []js.Value) interface{} {
+	if len(args) < 1 {
+		return map[string]interface{}{
+			"error": "missing template argument",
+		}
+	}
+
+	templateText := args[0].String()
+
+	// Optional 2nd argument: optionsJSON
+	var compileOpts *gottp.CompileOptions
+	if len(args) >= 2 && args[1].String() != "" && args[1].String() != "null" {
+		optionsJSON := args[1].String()
+
+		// Parse the options JSON to extract functionSet name
+		var optionsMap map[string]interface{}
+		if err := json.Unmarshal([]byte(optionsJSON), &optionsMap); err != nil {
+			return map[string]interface{}{
+				"error": fmt.Sprintf("failed to parse options: %v", err),
+			}
+		}
+
+		// Look up function set by name if specified
+		if functionSetName, ok := optionsMap["functionSet"].(string); ok && functionSetName != "" {
+			functionRegistryMux.RLock()
+			funcs, found := functionRegistry[functionSetName]
+			functionRegistryMux.RUnlock()
+
+			if !found {
+				return map[string]interface{}{
+					"error": fmt.Sprintf("function set %q not found in registry", functionSetName),
+				}
+			}
+
+			compileOpts = &gottp.CompileOptions{
+				Functions: funcs,
+			}
+		}
+	}
+
+	// Compile template with options
+	compiled, err := gottp.CompileTemplateWithOptions(templateText, compileOpts)
+	if err != nil {
+		return map[string]interface{}{
+			"error": err.Error(),
+		}
+	}
+
+	// Store in cache
+	cacheKey := templateText
+
+	cacheMutex.Lock()
+	compiledTemplateCache[cacheKey] = compiled
+	cacheMutex.Unlock()
+
+	// Serialize to JSON for backward compatibility
+	compiledJSON, err := gottp.SaveCompiledTemplate(compiled, "json")
+	if err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("failed to serialize template: %v", err),
+		}
+	}
+
+	// Get compilation warnings
+	warnings := compiled.GetWarnings()
+	warningsJSON, marshalErr := json.Marshal(warnings)
+	if marshalErr != nil {
+		warningsJSON = []byte("[]")
+	}
+
+	resultError := ""
+	if err != nil {
+		resultError = err.Error()
+	}
+
+	result := make(map[string]interface{})
+	result["result"] = string(compiledJSON)
+	result["cacheKey"] = cacheKey
+	result["warnings"] = string(warningsJSON)
+	result["error"] = resultError
+
+	return result
+}
+
+// listFunctionSets returns the names of all registered function sets
+func listFunctionSets(this js.Value, args []js.Value) interface{} {
+	functionRegistryMux.RLock()
+	defer functionRegistryMux.RUnlock()
+
+	names := make([]string, 0, len(functionRegistry))
+	for name := range functionRegistry {
+		names = append(names, name)
+	}
+
+	namesJSON, err := json.Marshal(names)
+	if err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("failed to serialize function set names: %v", err),
+		}
+	}
+
+	return map[string]interface{}{
+		"result": string(namesJSON),
+		"error":  nil,
+	}
+}
+
+// loadLookupFromJSON loads a named lookup table from JSON data
+func loadLookupFromJSON(this js.Value, args []js.Value) interface{} {
+	if len(args) < 2 {
+		return map[string]interface{}{
+			"error": "missing arguments: need name, jsonData",
+		}
+	}
+
+	name := args[0].String()
+	jsonData := args[1].String()
+
+	lookup, err := gottp.LoadLookupFromJSON(name, []byte(jsonData))
+	if err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("failed to load lookup from JSON: %v", err),
+		}
+	}
+
+	resultJSON, err := json.Marshal(lookup)
+	if err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("failed to serialize lookup: %v", err),
+		}
+	}
+
+	return map[string]interface{}{
+		"result": string(resultJSON),
+		"error":  nil,
+	}
+}
+
+// loadLookupFromYAML loads a named lookup table from YAML data
+func loadLookupFromYAML(this js.Value, args []js.Value) interface{} {
+	if len(args) < 2 {
+		return map[string]interface{}{
+			"error": "missing arguments: need name, yamlData",
+		}
+	}
+
+	name := args[0].String()
+	yamlData := args[1].String()
+
+	lookup, err := gottp.LoadLookupFromYAML(name, []byte(yamlData))
+	if err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("failed to load lookup from YAML: %v", err),
+		}
+	}
+
+	resultJSON, err := json.Marshal(lookup)
+	if err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("failed to serialize lookup: %v", err),
+		}
+	}
+
+	return map[string]interface{}{
+		"result": string(resultJSON),
+		"error":  nil,
+	}
+}
+
+// loadLookupFromCSV loads a named lookup table from CSV data
+func loadLookupFromCSV(this js.Value, args []js.Value) interface{} {
+	if len(args) < 2 {
+		return map[string]interface{}{
+			"error": "missing arguments: need name, csvData",
+		}
+	}
+
+	name := args[0].String()
+	csvData := args[1].String()
+
+	// Optional 3rd argument: keyColumn
+	keyColumn := ""
+	if len(args) >= 3 && args[2].String() != "" && args[2].String() != "null" {
+		keyColumn = args[2].String()
+	}
+
+	lookup, err := gottp.LoadLookupFromCSV(name, []byte(csvData), keyColumn)
+	if err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("failed to load lookup from CSV: %v", err),
+		}
+	}
+
+	resultJSON, err := json.Marshal(lookup)
+	if err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("failed to serialize lookup: %v", err),
+		}
+	}
+
+	return map[string]interface{}{
+		"result": string(resultJSON),
+		"error":  nil,
+	}
+}
+
+// loadLookupsFromJSON loads multiple named lookup tables from JSON data
+func loadLookupsFromJSON(this js.Value, args []js.Value) interface{} {
+	if len(args) < 1 {
+		return map[string]interface{}{
+			"error": "missing argument: need jsonData",
+		}
+	}
+
+	jsonData := args[0].String()
+
+	lookups, err := gottp.LoadLookupsFromJSON([]byte(jsonData))
+	if err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("failed to load lookups from JSON: %v", err),
+		}
+	}
+
+	resultJSON, err := json.Marshal(lookups)
+	if err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("failed to serialize lookups: %v", err),
+		}
+	}
+
+	return map[string]interface{}{
+		"result": string(resultJSON),
+		"error":  nil,
+	}
+}
+
 func main() {
 	// Export functions to JavaScript global scope
 	js.Global().Set("gottp", js.ValueOf(map[string]interface{}{
-		"compileTemplate": js.FuncOf(compileTemplate),
-		"parseTemplate":   js.FuncOf(parseTemplate),
-		"loadYANGModule":  js.FuncOf(loadYANGModule),
-		"formatJSON":      js.FuncOf(formatJSON),
-		"formatYAML":      js.FuncOf(formatYAML),
-		"formatTable":     js.FuncOf(formatTable),
-		"formatCSV":       js.FuncOf(formatCSV),
+		"compileTemplate":            js.FuncOf(compileTemplate),
+		"compileTemplateWithOptions": js.FuncOf(compileTemplateWithOptions),
+		"parseTemplate":              js.FuncOf(parseTemplate),
+		"loadYANGModule":             js.FuncOf(loadYANGModule),
+		"loadLookupFromJSON":         js.FuncOf(loadLookupFromJSON),
+		"loadLookupFromYAML":         js.FuncOf(loadLookupFromYAML),
+		"loadLookupFromCSV":          js.FuncOf(loadLookupFromCSV),
+		"loadLookupsFromJSON":        js.FuncOf(loadLookupsFromJSON),
+		"listFunctionSets":           js.FuncOf(listFunctionSets),
+		"formatJSON":                 js.FuncOf(formatJSON),
+		"formatYAML":                 js.FuncOf(formatYAML),
+		"formatTable":                js.FuncOf(formatTable),
+		"formatCSV":                  js.FuncOf(formatCSV),
 	}))
 
 	// Keep the program running
