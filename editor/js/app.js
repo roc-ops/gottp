@@ -124,6 +124,9 @@ class GottpEditor {
         
         // YANG module handlers
         this.setupYANGModuleHandlers();
+
+        // Lookup table handlers
+        this.setupLookupHandlers();
         
         // File menu items
         document.getElementById('export-btn').addEventListener('click', () => this.exportConfig());
@@ -284,7 +287,7 @@ class GottpEditor {
             // Prepare inputs
             const inputsJSON = JSON.stringify(this.state.inputs);
             const varsJSON = this.state.variables ? JSON.stringify(this.state.variables) : null;
-            
+
             // Prepare YANG modules JSON
             let yangModulesJSON = null;
             if (Object.keys(this.state.yangModules).length > 0) {
@@ -292,7 +295,13 @@ class GottpEditor {
                     Modules: this.state.yangModules
                 });
             }
-            
+
+            // Prepare lookups JSON
+            let lookupsJSON = null;
+            if (this.state.lookups && Object.keys(this.state.lookups).length > 0) {
+                lookupsJSON = JSON.stringify(this.state.lookups);
+            }
+
             // Parse (pass cache key for faster execution, enable source map if enabled in options)
             const parseStart = performance.now();
             const parseResult = await wasmBridge.parseTemplate(
@@ -301,7 +310,8 @@ class GottpEditor {
                 varsJSON,
                 yangModulesJSON,
                 this.state.templateCacheKey || this.state.template,
-                this.state.sourceMapsEnabled // Use state setting
+                this.state.sourceMapsEnabled, // Use state setting
+                lookupsJSON
             );
             executionTime = performance.now() - parseStart;
             
@@ -739,9 +749,175 @@ class GottpEditor {
     
     // Lookups Management
     showLookupsModal() {
-        this.showNotification('Lookup tables feature coming soon', 'info');
+        this.updateLookupsList();
+        this.showModal('lookups-modal');
     }
-    
+
+    setupLookupHandlers() {
+        // File input - support multiple files
+        document.getElementById('lookup-file-input').addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            files.forEach((file) => {
+                this.loadLookupFromFile(file);
+            });
+
+            // Reset file input so same files can be selected again
+            e.target.value = '';
+        });
+
+        // Load from file button
+        document.getElementById('lookup-load-file-btn').addEventListener('click', () => {
+            document.getElementById('lookup-file-input').click();
+        });
+
+        // Paste button toggle
+        document.getElementById('lookup-paste-btn').addEventListener('click', () => {
+            const container = document.getElementById('lookup-paste-container');
+            container.style.display = container.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // Format select - show/hide CSV key column field
+        document.getElementById('lookup-paste-format').addEventListener('change', (e) => {
+            const csvKeyCol = document.getElementById('lookup-csv-key-column');
+            csvKeyCol.style.display = e.target.value === 'csv' ? 'block' : 'none';
+        });
+
+        // Paste load button
+        document.getElementById('lookup-paste-load-btn').addEventListener('click', () => {
+            this.loadLookupFromPaste();
+        });
+    }
+
+    async loadLookupFromFile(file) {
+        try {
+            const content = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+                reader.readAsText(file);
+            });
+
+            const ext = file.name.split('.').pop().toLowerCase();
+            const baseName = file.name.replace(/\.[^/.]+$/, '');
+            let resultJSON;
+
+            if (ext === 'json') {
+                // Try multi-table first (loadLookupsFromJSON), fall back to single-table
+                try {
+                    resultJSON = await wasmBridge.loadLookupsFromJSON(content);
+                } catch (multiErr) {
+                    resultJSON = await wasmBridge.loadLookupFromJSON(baseName, content);
+                }
+            } else if (ext === 'yaml' || ext === 'yml') {
+                resultJSON = await wasmBridge.loadLookupFromYAML(baseName, content);
+            } else if (ext === 'csv') {
+                resultJSON = await wasmBridge.loadLookupFromCSV(baseName, content, '');
+            } else {
+                this.showNotification(`Unsupported file format: .${ext}`, 'error');
+                return;
+            }
+
+            const lookupData = JSON.parse(resultJSON);
+            Object.assign(this.state.lookups, lookupData);
+            this.updateLookupsList();
+            this.saveStateToStorage();
+            this.showNotification(`Lookup table loaded from ${file.name}`, 'success');
+        } catch (error) {
+            this.showNotification(`Failed to load lookup from ${file.name}: ${error.message}`, 'error');
+        }
+    }
+
+    async loadLookupFromPaste() {
+        const name = document.getElementById('lookup-paste-name').value.trim();
+        const format = document.getElementById('lookup-paste-format').value;
+        const content = document.getElementById('lookup-paste-content').value.trim();
+        const keyColumn = document.getElementById('lookup-csv-key-column').value.trim();
+
+        if (!name) {
+            this.showNotification('Please enter a lookup table name', 'warning');
+            return;
+        }
+
+        if (!content) {
+            this.showNotification('Please paste lookup table content', 'warning');
+            return;
+        }
+
+        try {
+            let resultJSON;
+
+            if (format === 'json') {
+                // Try multi-table first, fall back to single-table
+                try {
+                    resultJSON = await wasmBridge.loadLookupsFromJSON(content);
+                } catch (multiErr) {
+                    resultJSON = await wasmBridge.loadLookupFromJSON(name, content);
+                }
+            } else if (format === 'yaml') {
+                resultJSON = await wasmBridge.loadLookupFromYAML(name, content);
+            } else if (format === 'csv') {
+                resultJSON = await wasmBridge.loadLookupFromCSV(name, content, keyColumn);
+            }
+
+            const lookupData = JSON.parse(resultJSON);
+            Object.assign(this.state.lookups, lookupData);
+            this.updateLookupsList();
+            this.saveStateToStorage();
+
+            // Clear form
+            document.getElementById('lookup-paste-name').value = '';
+            document.getElementById('lookup-paste-content').value = '';
+            document.getElementById('lookup-csv-key-column').value = '';
+            document.getElementById('lookup-paste-container').style.display = 'none';
+
+            this.showNotification(`Lookup table '${name}' loaded successfully`, 'success');
+        } catch (error) {
+            this.showNotification(`Failed to load lookup table: ${error.message}`, 'error');
+        }
+    }
+
+    updateLookupsList() {
+        const list = document.getElementById('lookups-list');
+        const tableNames = Object.keys(this.state.lookups);
+
+        if (tableNames.length === 0) {
+            list.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">No lookup tables loaded</div>';
+            return;
+        }
+
+        list.innerHTML = tableNames.map(name => {
+            const table = this.state.lookups[name];
+            const entryCount = table && typeof table === 'object' ? Object.keys(table).length : 0;
+            return `
+            <div class="lookup-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color);">
+                <div class="lookup-item-header">
+                    <strong class="lookup-item-name">${this.escapeHtml(name)}</strong>
+                    <div style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;">
+                        ${entryCount} ${entryCount === 1 ? 'entry' : 'entries'}
+                    </div>
+                </div>
+                <div class="lookup-item-actions">
+                    <button class="button-secondary" onclick="app.removeLookup('${this.escapeHtml(name)}')" style="padding: 4px 12px; font-size: 12px;">Remove</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    removeLookup(name) {
+        delete this.state.lookups[name];
+        this.updateLookupsList();
+        this.saveStateToStorage();
+        this.showNotification(`Lookup table '${name}' removed`, 'info');
+    }
+
+    // Custom Functions UI is intentionally not implemented.
+    // The WASM bridge cannot support custom functions because Go closures
+    // cannot be created from JavaScript at runtime in the syscall/js bridge.
+    // Custom functions must be pre-registered on the Go side (see compileTemplateWithOptions
+    // and the functionSet mechanism in wasm-bridge.js).
+
     // Export/Import
     exportConfig() {
         // Get word wrap settings from localStorage

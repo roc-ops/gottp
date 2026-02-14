@@ -154,14 +154,39 @@
 
     <!-- Lookups Modal -->
     <div id="lookups-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
                 <h2>Lookup Tables</h2>
                 <button class="modal-close" data-modal="lookups-modal">&times;</button>
             </div>
             <div class="modal-body">
-                <div id="lookups-list"></div>
-                <button class="button-primary" id="add-lookup-btn">Add Lookup Table</button>
+                <div style="margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 10px;">Add Lookup Table</h3>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <button class="button-primary" id="lookup-load-file-btn">Load from File(s)</button>
+                        <button class="button-primary" id="lookup-paste-btn">Paste Content</button>
+                    </div>
+                    <input type="file" id="lookup-file-input" accept=".json,.yaml,.yml,.csv" multiple style="display: none;">
+                    <div id="lookup-paste-container" style="display: none; margin-top: 10px;">
+                        <input type="text" id="lookup-paste-name" placeholder="Lookup table name (required)" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <select id="lookup-paste-format" style="padding: 8px;">
+                                <option value="json">JSON</option>
+                                <option value="yaml">YAML</option>
+                                <option value="csv">CSV</option>
+                            </select>
+                            <input type="text" id="lookup-csv-key-column" placeholder="CSV key column (optional, defaults to first column)" style="flex: 1; padding: 8px; display: none;">
+                        </div>
+                        <textarea id="lookup-paste-content" placeholder="Paste lookup table content here..." style="width: 100%; min-height: 200px; padding: 8px; font-family: monospace; margin-bottom: 10px;"></textarea>
+                        <button class="button-primary" id="lookup-paste-load-btn">Load</button>
+                    </div>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: 10px;">Loaded Lookup Tables</h3>
+                    <div id="lookups-list" style="border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; min-height: 100px; max-height: 400px; overflow-y: auto;">
+                        <div style="color: var(--text-secondary); text-align: center; padding: 20px;">No lookup tables loaded</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
