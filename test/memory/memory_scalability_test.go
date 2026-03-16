@@ -58,7 +58,7 @@ func truncateLines(input string, n int) string {
 	return strings.Join(lines[:n], "\n")
 }
 
-const memThreshold500MB = 500 * 1024 * 1024
+const memThreshold50MB = 50 * 1024 * 1024
 
 // TestIssue1_CableModemMemory verifies that parsing the cable modem template
 // does not consume excessive memory.
@@ -72,8 +72,8 @@ func TestIssue1_CableModemMemory(t *testing.T) {
 	}
 	t.Logf("Issue1 cable-modem: allocated %d bytes (%.1f MB)", allocated, float64(allocated)/(1024*1024))
 
-	if allocated > memThreshold500MB {
-		t.Errorf("Issue1: memory allocation %d bytes (%.1f MB) exceeds threshold of 500 MB",
+	if allocated > memThreshold50MB {
+		t.Errorf("Issue1: memory allocation %d bytes (%.1f MB) exceeds threshold of 50 MB",
 			allocated, float64(allocated)/(1024*1024))
 	}
 }
@@ -91,8 +91,8 @@ func TestIssue2_StarlarkScalingSmall(t *testing.T) {
 	}
 	t.Logf("Issue2 starlark small (100 lines): allocated %d bytes (%.1f MB)", allocated, float64(allocated)/(1024*1024))
 
-	if allocated > memThreshold500MB {
-		t.Errorf("Issue2 small: memory allocation %d bytes (%.1f MB) exceeds threshold of 500 MB",
+	if allocated > memThreshold50MB {
+		t.Errorf("Issue2 small: memory allocation %d bytes (%.1f MB) exceeds threshold of 50 MB",
 			allocated, float64(allocated)/(1024*1024))
 	}
 }
@@ -147,8 +147,8 @@ func TestIssue3_DualGroupExcludeMemory(t *testing.T) {
 	}
 	t.Logf("Issue3 dual-group cmoffline: allocated %d bytes (%.1f MB)", allocated, float64(allocated)/(1024*1024))
 
-	if allocated > memThreshold500MB {
-		t.Errorf("Issue3 cmoffline: memory allocation %d bytes (%.1f MB) exceeds threshold of 500 MB",
+	if allocated > memThreshold50MB {
+		t.Errorf("Issue3 cmoffline: memory allocation %d bytes (%.1f MB) exceeds threshold of 50 MB",
 			allocated, float64(allocated)/(1024*1024))
 	}
 }
@@ -165,9 +165,32 @@ func TestIssue3_DatapathVariant(t *testing.T) {
 	}
 	t.Logf("Issue3 dual-group datapath: allocated %d bytes (%.1f MB)", allocated, float64(allocated)/(1024*1024))
 
-	if allocated > memThreshold500MB {
-		t.Errorf("Issue3 datapath: memory allocation %d bytes (%.1f MB) exceeds threshold of 500 MB",
+	if allocated > memThreshold50MB {
+		t.Errorf("Issue3 datapath: memory allocation %d bytes (%.1f MB) exceeds threshold of 50 MB",
 			allocated, float64(allocated)/(1024*1024))
+	}
+}
+
+// TestIssue2_StarlarkFullInput runs the full 12,951-line input.
+// Skipped in short mode.
+func TestIssue2_StarlarkFullInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping full input test in short mode")
+	}
+
+	tmpl := readTestData(t, "show_log.ttp")
+	input := readTestData(t, "show_log.txt")
+
+	allocated, err := measureParse(t, tmpl, input)
+	if err != nil {
+		t.Fatalf("Issue2 full: unexpected error: %v", err)
+	}
+	allocMB := float64(allocated) / (1024 * 1024)
+	t.Logf("Issue2 starlark full (12951 lines): allocated %d bytes (%.1f MB)", allocated, allocMB)
+
+	const thresholdMB = 200
+	if allocMB > thresholdMB {
+		t.Errorf("Issue2 full: memory allocation %.1f MB exceeds threshold of %d MB", allocMB, thresholdMB)
 	}
 }
 
