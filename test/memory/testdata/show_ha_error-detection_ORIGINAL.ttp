@@ -1,0 +1,59 @@
+<template name="show_ha_error_detection">
+
+<doc>
+REPRODUCTION TEMPLATE - this is the version that caused 4.8GB+ memory on 4-line input.
+The problematic combination: exclude() filters + Starlark macros + dual groups.
+</doc>
+
+<macro name="process_cmoffline" language="starlark">
+def process_cmoffline(data):
+    pct = str(data.get("_status_raw", "")).replace("%", "").strip()
+    if pct:
+        data["offline-pct"] = int(pct)
+    data.pop("_status_raw", None)
+    thresh_raw = str(data.get("_thresh_raw", ""))
+    cleaned = thresh_raw.replace("%", "").strip()
+    if cleaned:
+        data["threshold"] = int(cleaned)
+    data.pop("_thresh_raw", None)
+    hc = str(data.get("_hitcount_raw", "")).strip()
+    if hc:
+        num_part = hc.split("(")[0].strip()
+        if num_part:
+            data["threshold-hit-count"] = int(num_part)
+    data.pop("_hitcount_raw", None)
+    data.pop("_error_type", None)
+    return data
+</macro>
+
+<macro name="process_datapath" language="starlark">
+def process_datapath(data):
+    w1 = str(data.get("_error_word1", "")).strip().lower()
+    w2 = str(data.get("_error_word2", "")).strip().lower()
+    data.pop("_error_word1", None)
+    data.pop("_error_word2", None)
+    if "hibuf" in w1:
+        data["error-type"] = "hibuf"
+    elif "map" in w1:
+        data["error-type"] = "map-drop"
+    elif "cpu" in w2:
+        data["error-type"] = "max-cpu"
+    else:
+        data["error-type"] = w1 + "-" + w2
+    thresh_raw = str(data.get("_thresh_raw", ""))
+    cleaned = thresh_raw.replace("%", "").strip()
+    if cleaned:
+        data["threshold"] = int(cleaned)
+    data.pop("_thresh_raw", None)
+    return data
+</macro>
+
+<group name="cmoffline-status-entry*" macro="process_cmoffline">
+{{ _error_type | exclude("Error") | exclude("---") }} {{ port }} {{ _status_raw }} {{ _thresh_raw }} {{ _hitcount_raw }}
+</group>
+
+<group name="datapath-status-entry*" macro="process_datapath">
+{{ _error_word1 | exclude("Error") | exclude("---") }} {{ _error_word2 }} {{ module }} {{ status-value | to_int }} {{ _thresh_raw }} {{ hit-count | to_int }}
+</group>
+
+</template>

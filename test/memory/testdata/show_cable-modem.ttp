@@ -1,0 +1,97 @@
+<template name="show_cable_modem">
+
+<doc>
+Template: show cable modem (base command, no subcommands)
+Device:   Casa CMTS 8.8.3.6_build_c4e8-a01
+Purpose:  Parse CM registration status table into Data Harbor YANG structure
+Notes:    MAC address parsed in Cisco format (xxxx.xxxx.xxxx), normalized to EUI-48 via mac_eui
+          Interface names preserved as-is including bonding/OFDM suffixes (*, w, #)
+          bpi-enabled converted from yes/no string to boolean via lookup
+          Embedded CLI flags decomposed into boolean leaves via decompose_flags macro:
+            us-bonded, us-ofdma, us-partial-service, us-intf-name
+            ds-bonded, ds-ofdm, ds-partial-service, ds-intf-name
+            rogue (from '!' prefix on mac-status)
+            rx-power-at-max (from '!' suffix on rx-power)
+          Summary line (online cm N ; offline cm N ; ranging cm N) parsed separately
+          Synthetic leaves (cm-id, us-if-index, ds-if-index) populated via load="gnmi" lookups
+          when gNMI store is available; graceful degradation without
+Cross-ref: mac-to-cmid lookup resolves MAC -> docsIf3CmtsCmRegStatusId
+           ifname-to-ifindex lookup resolves CLI interface names -> ifIndex
+</doc>
+
+<macro name="decompose_flags" language="starlark">
+def decompose_flags(data):
+    # --- Interface suffix decomposition ---
+    for prefix, label in [("us-intf", "us"), ("ds-intf", "ds")]:
+        raw = data.get(prefix, "")
+        if not raw:
+            continue
+        bonded = "*" in raw
+        partial = "#" in raw
+        clean = raw.replace("*", "").replace("#", "")
+        ofdm = False
+        if clean and clean[-1] == "w":
+            ofdm = True
+            clean = clean[:-1]
+        data[label + "-intf-name"] = clean
+        data[label + "-bonded"] = bonded
+        if label == "us":
+            data[label + "-ofdma"] = ofdm
+        else:
+            data[label + "-ofdm"] = ofdm
+        data[label + "-partial-service"] = partial
+
+    # --- MAC status rogue flag ---
+    status = data.get("mac-status", "")
+    if status and status[0] == "!":
+        data["rogue"] = True
+        data["mac-status"] = status[1:]
+    else:
+        data["rogue"] = False
+
+    # --- RxPwr at-max flag ---
+    # rx-power is already parsed as float by to_float, but if CLI had '!'
+    # suffix it would fail to_float and stay as string. Handle both cases.
+    rx = data.get("rx-power", None)
+    if rx != None:
+        rx_str = str(rx)
+        if "!" in rx_str:
+            data["rx-power-at-max"] = True
+            data["rx-power"] = float(rx_str.replace("!", ""))
+        else:
+            data["rx-power-at-max"] = False
+    return data
+</macro>
+
+<doc>
+Note: For production Data Harbor use, register decompose_flags as a Go macro via
+ParseOptions.Functions.Macro for better performance. The Starlark version above keeps
+the template self-contained for development and testing.
+</doc>
+
+<lookup name="bpi_map" load="yaml">
+'yes': true
+'no': false
+</lookup>
+
+<lookup name="mac-to-cmid" load="gnmi"
+  yang_path="/DOCS-IF3-MIB/docsIf3CmtsCmRegStatusTable/docsIf3CmtsCmRegStatusEntry"
+  key="docsIf3CmtsCmRegStatusId"
+  values="docsIf3CmtsCmRegStatusMacAddr">
+</lookup>
+
+<lookup name="ifname-to-ifindex" load="gnmi"
+  yang_path="/IF-MIB/ifTable/ifEntry"
+  key="ifIndex"
+  values="ifName">
+</lookup>
+
+<group name="modem-entry*" yang="data-harbor-sw-8.8.3.6-build-c4e8-a01:casa-ios-cli/show_cable-modem/modem-entry" macro="decompose_flags">
+{{ mac-address | MAC | mac_eui }} {{ ip-address }} {{ us-intf }} {{ ds-intf }} {{ mac-status }} {{ prim-sid | to_int }} {{ rx-power | to_float }} {{ timing-offset | to_int }} {{ num-cpes | to_int }} {{ bpi-enabled | lookup("bpi_map") }}
+</group>
+
+<group name="summary">
+online cm {{ online-count | to_int }} ; offline cm {{ offline-count | to_int }} ; ranging cm {{ ranging-count | to_int }}
+</group>
+
+</template>

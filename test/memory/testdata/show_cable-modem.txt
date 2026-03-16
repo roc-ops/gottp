@@ -1,0 +1,7 @@
+MAC Address    IP Address      US             DS           MAC         Prim RxPwr  Timing Num  BPI
+                               Intf           Intf         Status      Sid  (dBmv) Offset CPEs Enb
+38f8.5edd.5e02 10.80.49.101    13/0.0w*       0/0/21*      online(pt)  44   0.0    2343   0    yes
+38f8.5edd.6204 10.80.49.100    13/0.3/0*      0/0/0w*      online(pt)  42   0.0    2504   0    yes
+6cff.ced0.7ab0 10.80.49.102    13/0.3/0*      0/0/0*       online(pt)  40   0.0    2535   0    yes
+bc3e.07fd.3b00 10.80.49.145    13/0.2/0*      0/0/0w*      online(pt)  43   -0.5   2628   1    yes
+online cm 4 ; offline cm 0 ; ranging cm 0

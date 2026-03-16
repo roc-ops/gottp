@@ -1,0 +1,4 @@
+    Error           Port            Status        Threshold   Threshold Hit Count
+-------------   -------------   ---------------   ---------   -------------------
+off-threshold     13(13)/0            0%          <100%             28(ups)
+off-threshold       0(0)/0            0%          <100%             36(qam)

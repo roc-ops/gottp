@@ -1,0 +1,106 @@
+<template name="show_log">
+
+<doc>
+Template: show log
+Device:   Casa CMTS 8.8.3.6_build_c4e8-a01
+Purpose:  Parse syslog entries into structured fields
+CLI cmd:  show log
+Key:      sequence-number (assigned by macro as line index)
+YANG:     dh-sw-8.8.3.6-build-c4e8-a01-show_log
+          container: show_log
+          list: log-entry
+Notes:    Each line has format:
+          [Day Mon DD HH:MM:SS.mmm TZ YYYY]-XX-YYY-N: module: message
+          XX = severity code (ER=error, AL=alert, WA=warning, NO=notice,
+          IN=info, DE=debug, CR=critical, EM=emergency).
+          YYY = facility (AAA, CLI, SYS, ROUTER, etc.).
+          N = sub-level (not used in YANG).
+          The message portion after "module:" is everything remaining.
+          sequence-number assigned as descending counter (newest first in raw).
+          Synthetic: is-error (priority <= error), is-warning (priority == warning).
+</doc>
+
+<macro name="process_log" language="starlark">
+def process_log(data):
+    # Parse the _raw_line: [timestamp]-XX-YYY-N: module: message
+    raw = data.get("_raw_line", "")
+    data.pop("_raw_line", None)
+    if not raw:
+        return data
+
+    raw = raw.strip()
+
+    # Extract timestamp: everything inside first [ ... ]
+    if not raw.startswith("["):
+        return data
+    bracket_end = raw.find("]")
+    if bracket_end < 0:
+        return data
+    data["timestamp"] = raw[1:bracket_end]
+
+    # After ']' comes '-XX-YYY-N: module: message'
+    rest = raw[bracket_end+1:]
+    if not rest.startswith("-"):
+        data["message"] = rest
+        return data
+    rest = rest[1:]  # strip leading '-'
+
+    # Parse severity code
+    severity_map = {
+        "EM": "emergency",
+        "AL": "alert",
+        "CR": "critical",
+        "ER": "error",
+        "WA": "warning",
+        "NO": "notice",
+        "IN": "information",
+        "DE": "debug",
+    }
+
+    # Format: XX-YYY-N: module: message
+    parts = rest.split("-", 2)
+    if len(parts) >= 2:
+        sev_code = parts[0]
+        data["priority"] = severity_map.get(sev_code, sev_code.lower())
+
+        # YYY-N: module: message
+        remainder = parts[1]
+        if len(parts) == 3:
+            remainder = parts[1] + "-" + parts[2]
+
+        # Split on first ': ' to get 'YYY-N' and 'module: message'
+        colon_idx = remainder.find(": ")
+        if colon_idx >= 0:
+            fac_part = remainder[:colon_idx]
+            msg_part = remainder[colon_idx+2:]
+
+            # facility is everything before the last '-N'
+            dash_idx = fac_part.rfind("-")
+            if dash_idx >= 0:
+                data["facility"] = fac_part[:dash_idx]
+            else:
+                data["facility"] = fac_part
+
+            # message is module: rest (keep the full message including module)
+            data["message"] = msg_part.strip()
+        else:
+            data["message"] = remainder
+    else:
+        data["message"] = rest
+
+    # Synthetic: is-error (priority <= error i.e. emergency, alert, critical, error)
+    prio = data.get("priority", "")
+    error_levels = ["emergency", "alert", "critical", "error"]
+    data["is-error"] = prio in error_levels
+
+    # Synthetic: is-warning
+    data["is-warning"] = prio == "warning"
+
+    return data
+</macro>
+
+<group name="log-entry*" yang="data-harbor-sw-8.8.3.6-build-c4e8-a01:casa-ios-cli/show_log/log-entry" macro="process_log">
+{{ _raw_line | re("\[.+\]-.+") }}
+</group>
+
+</template>
