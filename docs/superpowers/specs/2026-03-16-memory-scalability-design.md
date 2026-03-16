@@ -47,14 +47,14 @@ These are `testing.B` benchmarks so `go test -bench -benchmem` gives allocation 
 
 **File:** `internal/compiled/runtime.go`
 
-**Current:** `const maxGap = 500` — character distance between pattern match positions determines whether adjacent matches belong to the same group instance.
+**Current:** `const maxGap = 500` — character distance between pattern match positions determines whether adjacent matches belong to the same group instance. Note: the downstream user discovered the issue by changing maxGap to 10000 for testing, but the production value is 500. The fix replaces the character-based approach entirely.
 
 **Change:** Replace with `const maxGapLines = 30` — line-based gap counting.
 
 **Mechanics:**
-- Pre-compute a position-to-line lookup using the existing `lineOffsets` array (line 1227)
-- All gap comparisons (`match.spanStart - currentStartPos < maxGap`) become `lineOf(match.spanStart) - lineOf(currentStartPos) < maxGapLines`
-- Affects 5 comparison sites at lines ~2065, 2071, 2086, 2113, and the finalization path
+- Add a `lineIdx` field to the `patternMatch` struct (in `parseGroup`, around the struct definition at line ~1214). Compute during match collection using the existing `lineOffsets` array (line 1227) via `sort.SearchInts(lineOffsets, match.spanStart)`.
+- All gap comparisons (`match.spanStart - currentStartPos < maxGap`) become `match.lineIdx - currentStartLineIdx < maxGapLines`
+- Affects 5 comparison sites: the `hasLineIndicator` path in `shouldStartNewMatch` logic, the `hasAnyStartIndicator` path, the non-start pattern merge path, the `isStartPattern` gap check, and the finalization path in `shouldFinalizeAndStartNew`
 
 **Why 30 lines:** Most CLI record blocks are under 30 lines. The old 500-char limit was ~8-10 lines for typical 60-char-wide CLI output. 30 lines is generous enough for multi-line records but prevents cross-record merging.
 
@@ -79,7 +79,7 @@ type StarlarkEngine struct {
 }
 ```
 
-Initialize once in `NewStarlarkEngine()`, reuse in `ExecuteMacroStarlark` and `ExecuteMacro`. Starlark threads are lightweight state containers — reuse is safe for sequential execution.
+Initialize once in `NewStarlarkEngine()`, reuse in `ExecuteMacroStarlark` and `ExecuteMacro`. Thread reuse is safe because: (1) the existing `sync.RWMutex` on `StarlarkEngine` ensures sequential access, (2) Starlark threads carry no execution state between calls — they are essentially name+print-handler containers, and (3) the `go.starlark.net` library explicitly supports thread reuse for sequential calls.
 
 #### Layer 2: Reduce Conversion Churn
 
@@ -92,11 +92,13 @@ type StarlarkEngine struct {
 }
 ```
 
-In `goToStarlark` for `map[string]interface{}`, look up keys in cache before allocating. Cuts string allocations ~50% (keys reused, only values fresh).
+In `goToStarlark` for `map[string]interface{}`, look up keys in cache before allocating. The cache is populated lazily and lives for the lifetime of the `StarlarkEngine` (which is per-`CompiledTemplate`). Impact is moderate — saves one `starlark.String` allocation per key per entry, meaningful at 12K+ entries but not transformative on its own.
 
 #### Layer 3: GC Pressure Relief
 
 After every N entries (e.g., 1000), call `runtime.GC()` to force collection of previous batch's Starlark temporaries. The Go GC pacer falls behind when allocation rate is high and the `result` slice retains all final maps (high liveness ratio).
+
+**Important caveat:** `runtime.GC()` only helps with intermediate Starlark objects (dicts, strings created during conversion that are no longer referenced). It cannot reduce the retained `result` slice. If profiling shows that the retained results themselves dominate memory, we'll need to consider streaming output instead. The N=1000 interval is a starting point — profiling will show the optimal frequency vs. throughput trade-off.
 
 **Expected impact:** Thread reuse + key caching reduces per-entry allocation ~40-60%. GC relief prevents runaway accumulation. 12K entries should stay under 200MB.
 
@@ -121,7 +123,11 @@ After every N entries (e.g., 1000), call `runtime.GC()` to force collection of p
 
 **(d) Unknown:** Profiling data will determine the fix.
 
-**Key principle:** Phase 1 profiling must complete before committing to a specific Issue 3 fix.
+**Additional investigation target:** The `MatchCollector` in `match_collector.go` has unbounded `collections` slices. If the template triggers `joinmatches` behavior, this could be a contributing factor.
+
+**Key principles:**
+- Phase 1 profiling must complete before committing to a specific Issue 3 fix.
+- Issue 3 profiling should run AFTER the Issue 1 fix is applied, since the line-based gap change affects merge behavior and could alter Issue 3's profile.
 
 ## Phase 3: Regression Guardrails
 
@@ -144,7 +150,7 @@ The **linearity check** is the most important guardrail — it catches superline
 
 ## Reproduction Files
 
-Stored in `test/memory/testdata/` (from downstream user's reproduction zip):
+Stored in `test/memory/testdata/` (from downstream user's reproduction zip). These files contain sanitized/synthetic network data — no proprietary configuration.
 
 | File | Purpose |
 |---|---|
@@ -165,3 +171,4 @@ Stored in `test/memory/testdata/` (from downstream user's reproduction zip):
 | Key caching (Issue 2) | Very low: read-only cache of immutable strings | Unit test cache correctness |
 | GC calls (Issue 2) | Very low: correctness-preserving, only affects timing | Benchmark confirms improvement |
 | Issue 3 fix | TBD: depends on profiling findings | Profiling-first approach minimizes risk |
+| Cross-issue interaction | Issue 1 gap fix may change Issue 3 behavior | Profile Issue 3 after Issue 1 fix is applied |
