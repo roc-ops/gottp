@@ -103,8 +103,90 @@ type Extend struct {
 	Attributes map[string]string
 }
 
+// escapeContentBlocks escapes bare < and > characters inside <macro>...</macro>
+// and <doc>...</doc> blocks so the XML decoder doesn't interpret them as tags.
+// The XML decoder automatically unescapes &lt; and &gt; in CharData, so the
+// content is preserved correctly after parsing.
+func escapeContentBlocks(text string) string {
+	result := text
+	for _, tag := range []string{"macro", "doc"} {
+		result = escapeTagContent(result, tag)
+	}
+	return result
+}
+
+// escapeTagContent finds all occurrences of <tag ...>...</tag> and escapes
+// bare < and > in the content between the opening and closing tags.
+func escapeTagContent(text string, tag string) string {
+	openPrefix := "<" + tag
+	closeTag := "</" + tag + ">"
+	var buf strings.Builder
+	remaining := text
+
+	for {
+		// Find the next opening tag
+		openIdx := strings.Index(remaining, openPrefix)
+		if openIdx < 0 {
+			buf.WriteString(remaining)
+			break
+		}
+
+		// Make sure this is actually a tag start (followed by space, >, or end of string)
+		// not something like <macroexpand>
+		afterPrefix := openIdx + len(openPrefix)
+		if afterPrefix < len(remaining) {
+			ch := remaining[afterPrefix]
+			if ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r' && ch != '>' {
+				// Not our tag, write up to and including this prefix and continue
+				buf.WriteString(remaining[:afterPrefix])
+				remaining = remaining[afterPrefix:]
+				continue
+			}
+		}
+
+		// Find the > that closes the opening tag
+		openTagEnd := strings.Index(remaining[openIdx:], ">")
+		if openTagEnd < 0 {
+			// Malformed, just write the rest
+			buf.WriteString(remaining)
+			break
+		}
+		openTagEnd += openIdx // absolute index of the > closing the opening tag
+
+		// Find the closing tag
+		closeIdx := strings.Index(remaining[openTagEnd+1:], closeTag)
+		if closeIdx < 0 {
+			// No closing tag found, write the rest
+			buf.WriteString(remaining)
+			break
+		}
+		closeIdx += openTagEnd + 1 // absolute index of </tag>
+
+		// Write everything up to and including the opening tag's closing >
+		buf.WriteString(remaining[:openTagEnd+1])
+
+		// Escape the content between opening tag end and closing tag
+		content := remaining[openTagEnd+1 : closeIdx]
+		escaped := strings.ReplaceAll(content, "&", "&amp;")
+		escaped = strings.ReplaceAll(escaped, "<", "&lt;")
+		escaped = strings.ReplaceAll(escaped, ">", "&gt;")
+		buf.WriteString(escaped)
+
+		// Write the closing tag
+		buf.WriteString(closeTag)
+
+		// Advance past the closing tag
+		remaining = remaining[closeIdx+len(closeTag):]
+	}
+
+	return buf.String()
+}
+
 // ParseTemplate parses a TTP template from XML text
 func ParseTemplate(templateText string) (*Template, error) {
+	// Escape bare < and > inside <macro> and <doc> blocks before XML parsing
+	templateText = escapeContentBlocks(templateText)
+
 	// Wrap in <template> tag if not present
 	trimmed := strings.TrimSpace(templateText)
 	if !strings.HasPrefix(trimmed, "<template") && !strings.HasPrefix(trimmed, "<group") {
