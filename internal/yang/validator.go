@@ -163,7 +163,25 @@ func (v *Validator) validateFieldTypes(data map[string]interface{}, schemaEntry 
 
 		// Validate type
 		if childEntry.Type != nil {
-			if !v.validateValueType(value, childEntry.Type, childEntry) {
+			// Handle leaf-list: validate each element individually
+			if slice, ok := value.([]interface{}); ok {
+				for i, elem := range slice {
+					if !v.validateValueType(elem, childEntry.Type, childEntry) {
+						result.Valid = false
+						actualType := fmt.Sprintf("%T", elem)
+						msg := fmt.Sprintf("Field '%s' leaf-list element [%d] has invalid type %s, expected %s", name, i, actualType, childEntry.Type.Name)
+						if index >= 0 {
+							msg = fmt.Sprintf("Field '%s' leaf-list element [%d] has invalid type %s in item %d, expected %s", name, i, actualType, index, childEntry.Type.Name)
+						}
+						result.Errors = append(result.Errors, &ValidationError{
+							GroupName: groupName,
+							Path:      yangPath,
+							Field:     name,
+							Message:   msg,
+						})
+					}
+				}
+			} else if !v.validateValueType(value, childEntry.Type, childEntry) {
 				result.Valid = false
 				// Provide more detailed error message with actual type
 				actualType := fmt.Sprintf("%T", value)
@@ -289,7 +307,24 @@ func (v *Validator) validateConstraints(data map[string]interface{}, schemaEntry
 
 		// Validate range constraints for numeric types
 		if childEntry.Type.Range != nil {
-			if !v.validateRange(value, childEntry.Type.Range) {
+			if slice, ok := value.([]interface{}); ok {
+				// Validate range for each leaf-list element
+				for i, elem := range slice {
+					if !v.validateRange(elem, childEntry.Type.Range) {
+						result.Valid = false
+						msg := fmt.Sprintf("Field '%s' leaf-list element [%d] value is out of range", name, i)
+						if index >= 0 {
+							msg = fmt.Sprintf("Field '%s' leaf-list element [%d] value is out of range in item %d", name, i, index)
+						}
+						result.Errors = append(result.Errors, &ValidationError{
+							GroupName: groupName,
+							Path:      yangPath,
+							Field:     name,
+							Message:   msg,
+						})
+					}
+				}
+			} else if !v.validateRange(value, childEntry.Type.Range) {
 				result.Valid = false
 				msg := fmt.Sprintf("Field '%s' value is out of range", name)
 				if index >= 0 {
@@ -306,7 +341,25 @@ func (v *Validator) validateConstraints(data map[string]interface{}, schemaEntry
 
 		// Validate length constraints for string types
 		if childEntry.Type.Length != nil {
-			if strValue, ok := value.(string); ok {
+			if slice, ok := value.([]interface{}); ok {
+				for i, elem := range slice {
+					if strElem, ok := elem.(string); ok {
+						if !v.validateLength(strElem, childEntry.Type.Length) {
+							result.Valid = false
+							msg := fmt.Sprintf("Field '%s' leaf-list element [%d] length is out of range", name, i)
+							if index >= 0 {
+								msg = fmt.Sprintf("Field '%s' leaf-list element [%d] length is out of range in item %d", name, i, index)
+							}
+							result.Errors = append(result.Errors, &ValidationError{
+								GroupName: groupName,
+								Path:      yangPath,
+								Field:     name,
+								Message:   msg,
+							})
+						}
+					}
+				}
+			} else if strValue, ok := value.(string); ok {
 				if !v.validateLength(strValue, childEntry.Type.Length) {
 					result.Valid = false
 					msg := fmt.Sprintf("Field '%s' length is out of range", name)
