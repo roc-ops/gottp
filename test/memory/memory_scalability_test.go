@@ -60,28 +60,14 @@ func truncateLines(input string, n int) string {
 
 const memThreshold500MB = 500 * 1024 * 1024
 
-// hasXMLParserBug returns true when the template contains content that triggers
-// the known infinite-recursion bug in the XML parser fallback path. The bug
-// manifests when a <doc> block contains raw comparison operators (e.g. "<=")
-// that are not XML-safe: the lenient fallback decoder loops forever.
-func hasXMLParserBug(templateStr string) bool {
-	return strings.Contains(templateStr, "<=")
-}
-
 // TestIssue1_CableModemMemory verifies that parsing the cable modem template
 // does not consume excessive memory.
-//
-// Known issue: the template contains load="gnmi" lookups which are not yet
-// implemented; the test is skipped until gnmi support lands.
 func TestIssue1_CableModemMemory(t *testing.T) {
 	tmpl := readTestData(t, "show_cable-modem.ttp")
 	input := readTestData(t, "show_cable-modem.txt")
 
 	allocated, err := measureParse(t, tmpl, input)
 	if err != nil {
-		if strings.Contains(err.Error(), "gnmi") {
-			t.Skipf("Issue1: template requires gnmi lookup support (not yet implemented): %v", err)
-		}
 		t.Fatalf("Issue1: unexpected error: %v", err)
 	}
 	t.Logf("Issue1 cable-modem: allocated %d bytes (%.1f MB)", allocated, float64(allocated)/(1024*1024))
@@ -94,17 +80,9 @@ func TestIssue1_CableModemMemory(t *testing.T) {
 
 // TestIssue2_StarlarkScalingSmall verifies that parsing the first 100 lines of
 // the log file does not consume excessive memory.
-//
-// Known issue: show_log.ttp contains a <doc> block with a raw '<=' character
-// which causes the XML parser fallback to loop infinitely (stack overflow).
-// This test is skipped until the parser bug is fixed.
 func TestIssue2_StarlarkScalingSmall(t *testing.T) {
 	tmpl := readTestData(t, "show_log.ttp")
 	fullInput := readTestData(t, "show_log.txt")
-
-	if hasXMLParserBug(tmpl) {
-		t.Skip("Issue2: template contains '<=' in doc block which triggers infinite XML recursion (known parser bug — fix hasXMLParserBug once resolved)")
-	}
 
 	input := truncateLines(fullInput, 100)
 	allocated, err := measureParse(t, tmpl, input)
@@ -129,10 +107,6 @@ func TestIssue2_StarlarkLinearityCheck(t *testing.T) {
 
 	tmpl := readTestData(t, "show_log.ttp")
 	fullInput := readTestData(t, "show_log.txt")
-
-	if hasXMLParserBug(tmpl) {
-		t.Skip("Issue2: template contains '<=' in doc block which triggers infinite XML recursion (known parser bug — fix hasXMLParserBug once resolved)")
-	}
 
 	sizes := []int{100, 500, 1000, 5000}
 	allocations := make([]uint64, len(sizes))
@@ -204,9 +178,6 @@ func BenchmarkIssue1_CableModem(b *testing.B) {
 
 	compiled, err := gottp.CompileTemplate(tmpl)
 	if err != nil {
-		if strings.Contains(err.Error(), "gnmi") {
-			b.Skipf("Issue1: template requires gnmi lookup support (not yet implemented): %v", err)
-		}
 		b.Fatalf("CompileTemplate failed: %v", err)
 	}
 
@@ -226,10 +197,6 @@ func BenchmarkIssue1_CableModem(b *testing.B) {
 func BenchmarkIssue2_StarlarkScaling(b *testing.B) {
 	tmpl := readTestData(b, "show_log.ttp")
 	fullInput := readTestData(b, "show_log.txt")
-
-	if hasXMLParserBug(tmpl) {
-		b.Skip("Issue2: template contains '<=' in doc block which triggers infinite XML recursion (known parser bug)")
-	}
 
 	input := truncateLines(fullInput, 100)
 	compiled, err := gottp.CompileTemplate(tmpl)
@@ -275,10 +242,6 @@ func BenchmarkIssue3_DualGroupExclude(b *testing.B) {
 func BenchmarkIssue2_StarlarkScalingSizes(b *testing.B) {
 	tmpl := readTestData(b, "show_log.ttp")
 	fullInput := readTestData(b, "show_log.txt")
-
-	if hasXMLParserBug(tmpl) {
-		b.Skip("Issue2: template contains '<=' in doc block which triggers infinite XML recursion (known parser bug)")
-	}
 
 	compiled, err := gottp.CompileTemplate(tmpl)
 	if err != nil {

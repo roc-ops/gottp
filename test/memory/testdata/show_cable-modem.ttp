@@ -74,17 +74,6 @@ the template self-contained for development and testing.
 'no': false
 </lookup>
 
-<lookup name="mac-to-cmid" load="gnmi"
-  yang_path="/DOCS-IF3-MIB/docsIf3CmtsCmRegStatusTable/docsIf3CmtsCmRegStatusEntry"
-  key="docsIf3CmtsCmRegStatusId"
-  values="docsIf3CmtsCmRegStatusMacAddr">
-</lookup>
-
-<lookup name="ifname-to-ifindex" load="gnmi"
-  yang_path="/IF-MIB/ifTable/ifEntry"
-  key="ifIndex"
-  values="ifName">
-</lookup>
 
 <group name="modem-entry*" yang="data-harbor-sw-8.8.3.6-build-c4e8-a01:casa-ios-cli/show_cable-modem/modem-entry" macro="decompose_flags">
 {{ mac-address | MAC | mac_eui }} {{ ip-address }} {{ us-intf }} {{ ds-intf }} {{ mac-status }} {{ prim-sid | to_int }} {{ rx-power | to_float }} {{ timing-offset | to_int }} {{ num-cpes | to_int }} {{ bpi-enabled | lookup("bpi_map") }}
