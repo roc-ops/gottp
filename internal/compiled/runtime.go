@@ -1215,6 +1215,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		patternIdx int
 		spanStart  int
 		spanEnd    int
+		lineIdx    int // line number (0-based) for line-based gap comparison
 		result     map[string]interface{}
 	}
 
@@ -1329,6 +1330,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 							patternIdx: patternIdx,
 							spanStart:  spanStart,
 							spanEnd:    spanEnd,
+							lineIdx:    lineIdx,
 							result:     result,
 						})
 					}
@@ -1367,6 +1369,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 						patternIdx: patternIdx,
 						spanStart:  indices[0],
 						spanEnd:    indices[1],
+						lineIdx:    sort.SearchInts(lineOffsets, indices[0]+1) - 1,
 						result:     result,
 					})
 				}
@@ -1523,9 +1526,10 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	var mergedMatches []map[string]interface{}
 	var currentMatch map[string]interface{}
 	var currentStartPos int = -1
+	var currentStartLineIdx int = -1
 	var currentStartPatternIdx int = -1 // Track which pattern started the current match
 	var currentMatchHasEnd bool = false // Track if current match has hit _end_ pattern
-	const maxGap = 500                  // Maximum gap between patterns in same group instance (characters)
+	const maxGapLines = 30              // Maximum gap between patterns in same group instance (lines)
 
 	// Track which matches belong to which parent match for nested group context
 	// This maps parent match index to the indices of matches in allMatches that belong to it
@@ -2062,13 +2066,13 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					} else if hasLineIndicator {
 						// With _line_, check if this pattern is far enough from the current match start
 						// If it's on a different line or far enough away, start a new match
-						if match.spanStart >= currentStartPos && match.spanStart-currentStartPos < maxGap {
+						if match.lineIdx-currentStartLineIdx >= 0 && match.lineIdx-currentStartLineIdx < maxGapLines {
 							shouldStartNewMatch = false
 						} else {
 							// Far enough away - start a new match (this will finalize the previous one)
 							shouldStartNewMatch = true
 						}
-					} else if match.spanStart >= currentStartPos && match.spanStart-currentStartPos < maxGap {
+					} else if match.lineIdx-currentStartLineIdx >= 0 && match.lineIdx-currentStartLineIdx < maxGapLines {
 						shouldStartNewMatch = false
 					} else if currentStartPos == -1 {
 						// No current start position - this shouldn't happen, but merge to be safe
@@ -2083,7 +2087,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					shouldStartNewMatch = false
 				} else if isStartPattern {
 					// Different start pattern - check if it should merge or start new
-					if match.spanStart >= currentStartPos && match.spanStart-currentStartPos < maxGap {
+					if match.lineIdx-currentStartLineIdx >= 0 && match.lineIdx-currentStartLineIdx < maxGapLines {
 						shouldStartNewMatch = false
 					} else {
 						shouldStartNewMatch = true
@@ -2110,7 +2114,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 						// Start a new match to finalize the previous one
 						// BUT: If it has joinmatches, let the early merge logic handle it instead
 						shouldStartNewMatch = true
-					} else if match.spanStart >= currentStartPos && match.spanStart-currentStartPos < maxGap {
+					} else if match.lineIdx-currentStartLineIdx >= 0 && match.lineIdx-currentStartLineIdx < maxGapLines {
 						// First time seeing this pattern and close enough - merge
 						shouldStartNewMatch = false
 					} else {
@@ -2310,6 +2314,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					}
 				}
 				currentStartPos = match.spanStart
+				currentStartLineIdx = match.lineIdx
 				patternMatchCount = make(map[int]int)
 				patternMatchCount[match.patternIdx] = 1
 				// Continue to next match (don't execute normal start pattern logic)
@@ -2470,6 +2475,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					currentMatchHasEnd = false
 					currentParentMatchStartIdx = matchIdx // Track where this parent match started
 					currentStartPos = match.spanStart // Set start position for gap calculation
+					currentStartLineIdx = match.lineIdx
 					// Copy all variables from start match (even if empty for _start_ only patterns)
 					// Note: This is initializing a NEW match, so we can set all values directly
 					for k, v := range match.result {
@@ -2497,6 +2503,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					// Don't copy variables here - the merge logic below will handle it
 					// Just update the position and pattern count
 					currentStartPos = match.spanStart
+					currentStartLineIdx = match.lineIdx
 					patternMatchCount[match.patternIdx]++
 				}
 
@@ -2508,6 +2515,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					r.matchCollector.Clear()
 					currentMatch = nil
 					currentStartPos = -1
+					currentStartLineIdx = -1
 					currentMatchHasEnd = false
 					patternMatchCount = make(map[int]int)
 					// Continue to next match (don't execute merge logic)
@@ -2670,9 +2678,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					if !shouldFinalizeAndStartNew {
 						shouldMerge = true
 					}
-				} else if match.spanStart >= currentStartPos && match.spanStart-currentStartPos < maxGap {
+				} else if match.lineIdx-currentStartLineIdx >= 0 && match.lineIdx-currentStartLineIdx < maxGapLines {
 					// Normal gap check (when no _end_ patterns and no _line_ indicator)
-					// Pattern must come after the start position and be within maxGap
+					// Pattern must come after the start position and be within maxGapLines
 					// However, if we've already decided to finalize, don't override that
 					if !shouldFinalizeAndStartNew {
 						shouldMerge = true
@@ -2710,6 +2718,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				// Start new match
 				currentMatch = make(map[string]interface{})
 				currentStartPos = match.spanStart
+				currentStartLineIdx = match.lineIdx
 				currentStartPatternIdx = match.patternIdx
 				currentMatchHasEnd = false
 				currentParentMatchStartIdx = matchIdx // Track where this parent match started
@@ -2929,6 +2938,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 						}
 					}
 					currentStartPos = match.spanStart
+					currentStartLineIdx = match.lineIdx
 					patternMatchCount[match.patternIdx] = 1
 					// When shouldStart is true, we've already processed the match, so skip merge logic
 					// For joinmatches patterns, the early merge logic (line 1947) should handle subsequent matches
