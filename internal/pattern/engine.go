@@ -229,6 +229,17 @@ func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]
 	case "_end_", "_start_":
 		// _start_ matches the entire line but doesn't capture
 		// _end_ matches until end
+		// Check if re() function provides a custom regex before using default
+		for _, funcStr := range variable.Functions {
+			if strings.HasPrefix(funcStr, "re(") && strings.HasSuffix(funcStr, ")") {
+				arg := funcStr[3 : len(funcStr)-1]
+				arg = strings.TrimSpace(arg)
+				arg = strings.Trim(arg, `"'`)
+				if arg != "" {
+					return arg
+				}
+			}
+		}
 		return `.*?` // match anything (non-greedy)
 	case "_exact_", "_exact_space_":
 		// _exact_ and _exact_space_ are indicators, not variables that capture

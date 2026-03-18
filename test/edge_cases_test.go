@@ -308,3 +308,50 @@ ifCounterDiscontinuityTime: 0 day 0h 0m:00s.00th`
 	}
 }
 
+// TestStartIndicatorWithRe tests that _start_ with re() uses the re() regex
+// to determine which lines match the start pattern, rather than matching all
+// lines. Without this fix, _start_ ignores re() and matches every line,
+// causing each subsequent pattern to create a separate entry instead of
+// merging into one.
+func TestStartIndicatorWithRe(t *testing.T) {
+	template := `<group name="entry">
+{{ _start_ | re("^-+$") }}
+ifIndex: {{ ifIndex | to_int }}
+ifDescr: {{ ifDescr | ORPHRASE }}
+ifName: {{ ifName | ORPHRASE }}
+</group>`
+
+	data := `---
+ifIndex: 1
+ifDescr: eth 6/0
+ifName: eth 6/0`
+
+	compiled, err := gottp.CompileTemplate(template)
+	if err != nil {
+		t.Fatalf("Failed to compile template: %v", err)
+	}
+
+	result, err := compiled.Parse(gottp.Inputs{"Default_Input": data}, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	resultList, ok := result.([]interface{})
+	if !ok || len(resultList) == 0 {
+		t.Fatal("Expected at least one result")
+	}
+
+	entry := resultList[0].(map[string]interface{})["entry"]
+	entryMap, ok := entry.(map[string]interface{})
+	if !ok {
+		j, _ := json.MarshalIndent(result, "", "  ")
+		t.Fatalf("entry should be a single merged map, got %T.\n_start_ with re() is not filtering correctly.\nResult: %s", entry, j)
+	}
+
+	for _, field := range []string{"ifIndex", "ifDescr", "ifName"} {
+		if _, ok := entryMap[field]; !ok {
+			t.Errorf("Field %q missing from merged entry", field)
+		}
+	}
+}
+
