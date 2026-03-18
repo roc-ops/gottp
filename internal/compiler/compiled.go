@@ -315,9 +315,18 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 				lookupData, err = loader.Load(lookup.Content, loadType)
 			}
 			if err != nil {
-				return nil, fmt.Errorf("failed to load lookup table %s: %w", lookup.Name, err)
+				// Unknown load types (e.g., "gnmi") compile with nil data.
+				// The lookup can be populated at parse time via ParseOptions.Lookups.
+				if strings.Contains(err.Error(), "unsupported variable format") {
+					lookupData = nil
+					err = nil
+				} else {
+					return nil, fmt.Errorf("failed to load lookup table %s: %w", lookup.Name, err)
+				}
 			}
 		}
+		// Unknown load types with no content (e.g., load="gnmi" with yang_path attrs)
+		// compile with nil data — populated at parse time via ParseOptions.Lookups.
 
 		compiledLookup := &CompiledLookup{
 			Name:       lookup.Name,
