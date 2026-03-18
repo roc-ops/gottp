@@ -1529,7 +1529,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	var currentStartLineIdx int = -1
 	var currentStartPatternIdx int = -1 // Track which pattern started the current match
 	var currentMatchHasEnd bool = false // Track if current match has hit _end_ pattern
-	const maxGapLines = 30              // Maximum gap between patterns in same group instance (lines)
+	const maxGapLines = 50              // Maximum gap between patterns in same group instance (lines)
 
 	// Track which matches belong to which parent match for nested group context
 	// This maps parent match index to the indices of matches in allMatches that belong to it

@@ -214,3 +214,97 @@ interface Loopback0
 	}
 }
 
+// TestWideKeyValueRecordMerge tests that patterns spread across 30+ lines
+// of key-value CLI output merge into a single group entry. SNMP ifEntry
+// records have 37+ fields — patterns matching fields at the top and bottom
+// must merge into one entry.
+func TestWideKeyValueRecordMerge(t *testing.T) {
+	template := `<group name="ifEntry">
+ifIndex: {{ ifIndex | to_int }}
+ifDescr: {{ ifDescr | ORPHRASE }}
+ifHCOutBroadcastPkts: {{ ifHCOutBroadcastPkts | to_int }}
+ifName: {{ ifName | ORPHRASE }}
+</group>`
+
+	data := `total interface number is 894
+
+------------------------------------------------
+ifIndex: 1
+ifDescr: eth 6/0
+ifType: ifType_ethernet_csmacd
+ifMtu: 1500
+ifSpeed: 100000000
+ifPhysAddress: 00:17:10:2b:30:82
+ifAdminStatus: Up(1)
+ifOperStatus: Up(1)
+ifLastChange: 0 day 00h:01m:30s.60th
+ifInOctets: 378399415
+ifHCInOctets: 378399415
+ifInUcastPkts: 5698591
+ifHCInUcastPkts: 5698591
+ifInDiscards: 0
+ifInErrors: 0
+ifInUnknownProtos: 0
+ifOutOctets: 1266
+ifHCOutOctets: 1266
+ifOutUcastPkts: 11
+ifHCOutUcastPkts: 11
+ifOutDiscards: 0
+ifOutErrors: 0
+ifName: eth 6/0
+ifInMulticastPkts: 0
+ifHCInMulticastPkts: 0
+ifInBroadcastPkts: 0
+ifHCInBroadcastPkts: 0
+ifOutMulticastPkts: 0
+ifHCOutMulticastPkts: 0
+ifOutBroadcastPkts: 0
+ifHCOutBroadcastPkts: 0
+ifLinkUpDownTrapEnable: Enable
+ifHighSpeed: 100
+ifPromiscuousMode: 1
+ifConnectorPresent: 1
+ifAlias:
+ifCounterDiscontinuityTime: 0 day 0h 0m:00s.00th`
+
+	compiled, err := gottp.CompileTemplate(template)
+	if err != nil {
+		t.Fatalf("Failed to compile template: %v", err)
+	}
+
+	result, err := compiled.Parse(gottp.Inputs{"Default_Input": data}, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	resultList, ok := result.([]interface{})
+	if !ok || len(resultList) == 0 {
+		t.Fatalf("Expected list result with at least one entry, got %T", result)
+	}
+
+	entry, ok := resultList[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected map entry, got %T", resultList[0])
+	}
+
+	ifEntry, ok := entry["ifEntry"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected ifEntry map, got %T", entry["ifEntry"])
+	}
+
+	// All 4 fields must be present in a single merged entry
+	for _, field := range []string{"ifIndex", "ifDescr", "ifHCOutBroadcastPkts", "ifName"} {
+		if _, exists := ifEntry[field]; !exists {
+			t.Errorf("Field %q missing from ifEntry (maxGapLines too small for 37-field records?)", field)
+		}
+	}
+
+	if v, ok := ifEntry["ifHCOutBroadcastPkts"]; ok {
+		// Should be 0 (int after to_int)
+		jsonVal, _ := json.Marshal(v)
+		if string(jsonVal) != "0" {
+			t.Errorf("ifHCOutBroadcastPkts: got %s, want 0", jsonVal)
+		}
+	}
+}
+
