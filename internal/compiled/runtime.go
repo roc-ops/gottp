@@ -1529,7 +1529,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	var currentStartLineIdx int = -1
 	var currentStartPatternIdx int = -1 // Track which pattern started the current match
 	var currentMatchHasEnd bool = false // Track if current match has hit _end_ pattern
-	const maxGapLines = 50              // Maximum gap between patterns in same group instance (lines)
+	const maxGapLines = 100             // Maximum gap between patterns in same group instance (lines)
 
 	// Track which matches belong to which parent match for nested group context
 	// This maps parent match index to the indices of matches in allMatches that belong to it
@@ -2542,9 +2542,19 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 			currentMatchStartedByStart := false
 			if currentStartPatternIdx >= 0 && currentStartPatternIdx < len(group.Patterns) {
 				startPattern := group.Patterns[currentStartPatternIdx]
-				for varName := range startPattern.Variables {
+				for varName, variable := range startPattern.Variables {
 					if varName == "_start_" {
 						currentMatchStartedByStart = true
+						break
+					}
+					// Also check if _start_ is in functions (e.g., {{ mac-address | _start_ }})
+					for _, funcStr := range variable.Functions {
+						if funcStr == "_start_" {
+							currentMatchStartedByStart = true
+							break
+						}
+					}
+					if currentMatchStartedByStart {
 						break
 					}
 				}
