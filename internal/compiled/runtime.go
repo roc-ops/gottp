@@ -31,6 +31,7 @@ type Runtime struct {
 	matchCollector    *MatchCollector
 	yangValidator     *yang.Validator
 	validationResults map[string]*yang.ValidationResult // group name -> validation result
+	keyFields         map[string][]string              // group name -> key field names (from keys= attribute)
 	recordedVars      map[string]interface{}            // global recorded variables (from record() function)
 	runtimeLookups    map[string]map[string]interface{} // per-parse runtime lookup tables from ParseOptions
 	runtimeFunctions  *RuntimeFunctions                 // per-parse custom function overrides from ParseOptions
@@ -57,6 +58,7 @@ func NewRuntimeWithFunctions(compiled *compiler.CompiledTemplate, compileFns *Ru
 		pathResolver:      NewPathResolver(),
 		matchCollector:    NewMatchCollector(),
 		validationResults: make(map[string]*yang.ValidationResult),
+		keyFields:         make(map[string][]string),
 		compileFunctions:  compileFns,
 	}
 
@@ -95,6 +97,11 @@ func (r *Runtime) SetYANGModuleSet(moduleSet *yang.ModuleSet) {
 // GetValidationResults returns all validation results
 func (r *Runtime) GetValidationResults() map[string]*yang.ValidationResult {
 	return r.validationResults
+}
+
+// GetKeyFields returns declared key fields for each group (from keys= attribute)
+func (r *Runtime) GetKeyFields() map[string][]string {
+	return r.keyFields
 }
 
 // GetMacroRegistry returns the macro registry for registering Go macros
@@ -365,11 +372,18 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 	for _, group := range r.compiled.Groups {
 		// Skip nested groups - they're processed within their parent group
 		if group.IsNested {
-			// Nested groups should never be processed as top-level groups
-			// They are only processed within their parent group's context
-			// If we see a nested group here, it shouldn't be in the top-level list
-			// This is a bug - nested groups should only be in parent's Groups field
 			continue
+		}
+
+		// Collect key fields from keys= attribute (before any processing)
+		if keysAttr, ok := group.Attributes["keys"]; ok && keysAttr != "" {
+			keys := strings.Split(keysAttr, ",")
+			for i := range keys {
+				keys[i] = strings.TrimSpace(keys[i])
+			}
+			// Store by group name without * suffix
+			groupName := strings.TrimSuffix(group.Name, "*")
+			r.keyFields[groupName] = keys
 		}
 
 		// Determine which inputs to process

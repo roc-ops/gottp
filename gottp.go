@@ -142,6 +142,7 @@ type ParseResult struct {
 	Data             interface{}                          // Parsed data
 	ValidationResults map[string]*yang.ValidationResult // YANG validation results by group name
 	SourceMap        *SourceMap                          // Source map tracking input positions to results (optional)
+	KeyFields        map[string][]string                // group name -> key field names (from keys= attribute on <group>)
 }
 
 // SourceMap tracks which parts of input text matched which template patterns
@@ -262,10 +263,17 @@ func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, option
 		sourceMap = convertSourceMap(internalSourceMap)
 	}
 
+	// Get key fields from group declarations
+	keyFields := runtime.GetKeyFields()
+	if keyFields == nil {
+		keyFields = make(map[string][]string)
+	}
+
 	return &ParseResult{
 		Data:             data,
 		ValidationResults: validationResults,
 		SourceMap:        sourceMap,
+		KeyFields:        keyFields,
 	}, nil
 }
 
@@ -495,10 +503,17 @@ func (r *Runtime) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOp
 		sourceMap = convertSourceMap(internalSourceMap)
 	}
 
+	// Get key fields from group declarations
+	keyFields := r.runtime.GetKeyFields()
+	if keyFields == nil {
+		keyFields = make(map[string][]string)
+	}
+
 	return &ParseResult{
 		Data:             data,
 		ValidationResults: validationResults,
 		SourceMap:        sourceMap,
+		KeyFields:        keyFields,
 	}, nil
 }
 
