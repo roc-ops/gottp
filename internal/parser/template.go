@@ -103,16 +103,86 @@ type Extend struct {
 	Attributes map[string]string
 }
 
-// escapeContentBlocks escapes bare < and > characters inside <macro>...</macro>
-// and <doc>...</doc> blocks so the XML decoder doesn't interpret them as tags.
-// The XML decoder automatically unescapes &lt; and &gt; in CharData, so the
-// content is preserved correctly after parsing.
+// knownTags lists the XML element names that are valid in TTP templates.
+// Any '<' not followed by one of these (or '/', '!--', '?') is bare content
+// and must be escaped before XML parsing.
+var knownTags = []string{
+	"template", "group", "vars", "variables",
+	"input", "output", "lookup", "macro",
+	"doc", "extend", "_root_",
+}
+
+// escapeContentBlocks escapes bare < characters that are not part of known TTP
+// XML tags. It scans the template text in a single pass, checking each '<' to
+// see if it starts a recognized tag. Bare '<' (from re() patterns, Starlark
+// code, doc text, CLI values) are replaced with &lt;.
+// The XML decoder automatically unescapes &lt; back to '<' in CharData.
 func escapeContentBlocks(text string) string {
-	result := text
-	for _, tag := range []string{"macro", "doc"} {
-		result = escapeTagContent(result, tag)
+	var b strings.Builder
+	b.Grow(len(text))
+	for i := 0; i < len(text); i++ {
+		if text[i] == '<' {
+			// Skip CDATA sections entirely — content is literal
+			if strings.HasPrefix(text[i:], "<![CDATA[") {
+				end := strings.Index(text[i:], "]]>")
+				if end >= 0 {
+					b.WriteString(text[i : i+end+3])
+					i += end + 2 // loop increments i
+					continue
+				}
+			}
+			if isKnownTagStart(text, i) {
+				b.WriteByte('<')
+			} else {
+				b.WriteString("&lt;")
+			}
+		} else {
+			b.WriteByte(text[i])
+		}
 	}
-	return result
+	return b.String()
+}
+
+// isKnownTagStart checks if the '<' at position i in text starts a known
+// TTP XML tag, closing tag, comment, or processing instruction.
+func isKnownTagStart(text string, i int) bool {
+	rest := text[i+1:] // everything after '<'
+	if len(rest) == 0 {
+		return false
+	}
+	// XML comment: <!-- or CDATA: <![CDATA[
+	if rest[0] == '!' {
+		return true
+	}
+	// XML processing instruction: <?
+	if rest[0] == '?' {
+		return true
+	}
+	// Closing tag: </tagname
+	closing := false
+	if rest[0] == '/' {
+		closing = true
+		rest = rest[1:]
+		if len(rest) == 0 {
+			return false
+		}
+	}
+	_ = closing
+	// Check if rest starts with a known tag name followed by whitespace, '>', or '/'
+	for _, tag := range knownTags {
+		if strings.HasPrefix(rest, tag) {
+			// Must be followed by whitespace, '>', '/', or end of string
+			afterTag := len(tag)
+			if afterTag >= len(rest) {
+				return true // tag at end of string
+			}
+			c := rest[afterTag]
+			if c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '>' || c == '/' {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // escapeTagContent finds all occurrences of <tag ...>...</tag> and escapes

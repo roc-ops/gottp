@@ -223,21 +223,19 @@ def second(data):
 }
 
 func TestEscapeContentBlocks(t *testing.T) {
-	// Test that escapeContentBlocks only escapes inside macro/doc blocks
-	input := `<group name="test">x > 0</group><macro name="m">if x < 0:</macro><doc>a > b</doc>`
+	// Test that escapeContentBlocks escapes bare < everywhere except known XML tags
+	input := `<group name="test">x < 0</group><macro name="m">if x < 0:</macro><doc>a < b</doc>`
 	result := escapeContentBlocks(input)
 
-	// Group content should NOT be escaped
-	if !strings.Contains(result, `<group name="test">x > 0</group>`) {
-		t.Errorf("Group content should not be escaped, got: %s", result)
+	// All bare < should be escaped (group, macro, doc content)
+	expected := `<group name="test">x &lt; 0</group><macro name="m">if x &lt; 0:</macro><doc>a &lt; b</doc>`
+	if result != expected {
+		t.Errorf("escapeContentBlocks:\n  got:  %s\n  want: %s", result, expected)
 	}
-	// Macro content SHOULD be escaped
-	if !strings.Contains(result, `&lt;`) {
-		t.Errorf("Macro content should be escaped, got: %s", result)
-	}
-	// Doc content SHOULD be escaped
-	if !strings.Contains(result, `&gt;`) {
-		t.Errorf("Doc content should be escaped, got: %s", result)
+
+	// Known XML tags should NOT be escaped
+	if strings.Contains(result, "&lt;group") || strings.Contains(result, "&lt;macro") || strings.Contains(result, "&lt;doc") {
+		t.Errorf("Known XML tags should not be escaped, got: %s", result)
 	}
 }
 
