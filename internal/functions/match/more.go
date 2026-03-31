@@ -434,11 +434,13 @@ func toStr(value interface{}, args []string, kwargs map[string]interface{}) (int
 // toInt converts value to integer
 func toInt(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
 	str := fmt.Sprintf("%v", value)
-	i, err := strconv.Atoi(strings.TrimSpace(str))
+	i, err := strconv.ParseInt(strings.TrimSpace(str), 10, 64)
 	if err != nil {
 		// Return original value if conversion fails (like Python TTP)
 		return value, nil
 	}
+	// Return int64 to guarantee 64-bit values (Counter64, HC counters)
+	// are preserved regardless of platform word size.
 	return i, nil
 }
 
