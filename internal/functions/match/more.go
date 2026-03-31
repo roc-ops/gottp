@@ -433,15 +433,21 @@ func toStr(value interface{}, args []string, kwargs map[string]interface{}) (int
 
 // toInt converts value to integer
 func toInt(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	str := fmt.Sprintf("%v", value)
-	i, err := strconv.ParseInt(strings.TrimSpace(str), 10, 64)
-	if err != nil {
-		// Return original value if conversion fails (like Python TTP)
-		return value, nil
+	str := strings.TrimSpace(fmt.Sprintf("%v", value))
+	// Try signed int64 first (covers most values including negative)
+	i, err := strconv.ParseInt(str, 10, 64)
+	if err == nil {
+		return i, nil
 	}
-	// Return int64 to guarantee 64-bit values (Counter64, HC counters)
-	// are preserved regardless of platform word size.
-	return i, nil
+	// If int64 overflows, try unsigned uint64 (covers full Counter64 range
+	// up to 2^64-1 = 18,446,744,073,709,551,615). Counters wrap, so values
+	// above int64 max are valid.
+	u, err := strconv.ParseUint(str, 10, 64)
+	if err == nil {
+		return u, nil
+	}
+	// Return original value if conversion fails (like Python TTP)
+	return value, nil
 }
 
 // toFloat converts value to float

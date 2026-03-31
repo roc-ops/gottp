@@ -49,6 +49,27 @@ func TestToInt(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "counter beyond int64 max (wrapped Counter64)",
+			value:   "18000000000000000000",
+			args:    nil,
+			want:    uint64(18000000000000000000),
+			wantErr: false,
+		},
+		{
+			name:    "max uint64 (Counter64 max)",
+			value:   "18446744073709551615",
+			args:    nil,
+			want:    uint64(18446744073709551615),
+			wantErr: false,
+		},
+		{
+			name:    "negative value",
+			value:   "-42",
+			args:    nil,
+			want:    int64(-42),
+			wantErr: false,
+		},
+		{
 			name:    "invalid string",
 			value:   "not a number",
 			args:    nil,
