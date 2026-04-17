@@ -104,6 +104,23 @@ func (r *Runtime) GetKeyFields() map[string][]string {
 	return r.keyFields
 }
 
+// collectGroupKeys recursively collects key fields from a group and all its
+// nested sub-groups. This ensures DH's converter can resolve keys for nested
+// lists (e.g., channel-entry inside qam-entry) via GetKeyFields().
+func (r *Runtime) collectGroupKeys(group *compiler.CompiledGroup) {
+	if keysAttr, ok := group.Attributes["keys"]; ok && keysAttr != "" {
+		keys := strings.Split(keysAttr, ",")
+		for i := range keys {
+			keys[i] = strings.TrimSpace(keys[i])
+		}
+		groupName := strings.TrimSuffix(group.Name, "*")
+		r.keyFields[groupName] = keys
+	}
+	for _, nested := range group.Groups {
+		r.collectGroupKeys(nested)
+	}
+}
+
 // GetMacroRegistry returns the macro registry for registering Go macros
 func (r *Runtime) GetMacroRegistry() *macro.MacroRegistry {
 	return r.macroRegistry
@@ -375,16 +392,8 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 			continue
 		}
 
-		// Collect key fields from keys= attribute (before any processing)
-		if keysAttr, ok := group.Attributes["keys"]; ok && keysAttr != "" {
-			keys := strings.Split(keysAttr, ",")
-			for i := range keys {
-				keys[i] = strings.TrimSpace(keys[i])
-			}
-			// Store by group name without * suffix
-			groupName := strings.TrimSuffix(group.Name, "*")
-			r.keyFields[groupName] = keys
-		}
+		// Collect key fields from keys= attribute (recursively includes nested groups)
+		r.collectGroupKeys(group)
 
 		// Determine which inputs to process
 		// If group specifies input attribute, only process that input
