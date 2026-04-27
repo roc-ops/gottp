@@ -36,8 +36,14 @@ var streamableGroupFunctions = map[string]bool{
 
 // parseGroupFunctionNames extracts function names from a group's
 // Functions= attribute string. The format is comma-separated function
-// calls, e.g. "containsall('mac-address'), to_int". Returns the bare
-// names ("containsall", "to_int") with arguments stripped.
+// calls, e.g. "containsall('mac-address', 'us-intf'), to_int". Returns
+// the bare names ("containsall", "to_int") with arguments stripped.
+//
+// Commas inside argument lists are handled by skipping any token that
+// does not begin with a valid identifier character (letter or '_').
+// Argument fragments produced by splitting on commas inside a call — e.g.
+// "'us-intf'" or "ds-intf')" — start with a quote or closing paren and
+// are therefore discarded.
 func parseGroupFunctionNames(functions string) []string {
 	if functions == "" {
 		return nil
@@ -47,6 +53,14 @@ func parseGroupFunctionNames(functions string) []string {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
+		}
+		// Skip tokens that are argument fragments (start with quote or ')').
+		// Real function names always begin with a letter or underscore.
+		if len(part) > 0 {
+			first := part[0]
+			if first == '\'' || first == '"' || first == ')' {
+				continue
+			}
 		}
 		// Strip arguments: "containsall('x')" -> "containsall"
 		if idx := strings.IndexByte(part, '('); idx >= 0 {
