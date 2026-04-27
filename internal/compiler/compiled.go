@@ -50,6 +50,11 @@ type CompiledTemplate struct {
 
 	// Compilation warnings (non-fatal issues like Python-specific syntax in Starlark macros)
 	Warnings []string
+
+	// Streamable is true iff every top-level group is streamable.
+	// Used by ParseStream to gate entry; false means ParseStream returns
+	// *TemplateNotStreamableError without invoking the callback.
+	Streamable bool
 }
 
 // CompiledVarsWithName represents compiled vars with name attribute
