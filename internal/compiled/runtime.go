@@ -5393,7 +5393,7 @@ func (r *Runtime) searchNestedGroupInMap(m map[string]interface{}, nestedGroupNa
 
 // processFunctions applies function pipeline to a value
 // Returns an error with message "condition_failed" if a condition function returns false
-func (r *Runtime) processFunctions(value interface{}, functions []string, vars map[string]interface{}) (interface{}, error) {
+func (r *Runtime) processFunctions(value interface{}, functions []string, vars map[string]interface{}, matchData map[string]interface{}, varName string) (interface{}, error) {
 	result := value
 
 	// Pre-allocate kwargs map only if needed (for functions that require vars)
@@ -5502,10 +5502,10 @@ func (r *Runtime) processFunctions(value interface{}, functions []string, vars m
 
 			// Pass match result data structure to let and set functions so they can set additional fields
 			if funcName == "let" || funcName == "set" {
-				if matchData, ok := vars["_match_data"]; ok {
+				if matchData != nil {
 					kwargs["_match_data"] = matchData
 				}
-				if varName, ok := vars["_var_name"]; ok {
+				if varName != "" {
 					kwargs["_var_name"] = varName
 				}
 			}
@@ -5532,7 +5532,7 @@ func (r *Runtime) processFunctions(value interface{}, functions []string, vars m
 				}
 				kwargs["_lookup_tables"] = lookupTables
 				// Also pass match data for add_field support
-				if matchData, ok := vars["_match_data"]; ok {
+				if matchData != nil {
 					kwargs["_match_data"] = matchData
 				}
 			}
@@ -5619,17 +5619,9 @@ func (r *Runtime) extractMatchResult(match []string, compiledPattern *pattern.Co
 			continue
 		}
 
-		// Pass match result data structure to processFunctions so let and set can set additional fields
-		// Create a copy of vars with _match_data pointing to the result map
-		processVars := make(map[string]interface{})
-		for k, v := range vars {
-			processVars[k] = v
-		}
-		processVars["_match_data"] = result
-		// Also pass the variable name so set can use it
-		processVars["_var_name"] = variable.Name
-
-		// Apply functions if any (but handle joinmatches specially)
+		// Apply functions if any (but handle joinmatches specially).
+		// Pass result + variable.Name as explicit matchData/varName so we
+		// avoid cloning vars per variable just to inject _match_data/_var_name.
 		var processedValue interface{}
 		var err error
 		if variable.HasJoinMatches {
@@ -5642,7 +5634,7 @@ func (r *Runtime) extractMatchResult(match []string, compiledPattern *pattern.Co
 					otherFuncs = append(otherFuncs, funcStr)
 				}
 			}
-			processedValue, err = r.processFunctions(value, otherFuncs, processVars)
+			processedValue, err = r.processFunctions(value, otherFuncs, vars, result, variable.Name)
 			if err != nil {
 				// Check if it's a condition failure
 				if strings.Contains(err.Error(), "condition_failed") {
@@ -5656,7 +5648,7 @@ func (r *Runtime) extractMatchResult(match []string, compiledPattern *pattern.Co
 				continue
 			}
 		} else {
-			processedValue, err = r.processFunctions(value, variable.Functions, processVars)
+			processedValue, err = r.processFunctions(value, variable.Functions, vars, result, variable.Name)
 			if err != nil {
 				// Check if it's a condition failure
 				if strings.Contains(err.Error(), "condition_failed") {
