@@ -73,6 +73,16 @@ type CompiledGroup struct {
 	Attributes map[string]string
 	IsNested   bool                   // true if this group is nested (should not be processed as top-level)
 	Defaults   map[string]interface{} // default values for variables (e.g., from unconditional set())
+
+	// Streamability — set during compile by analyzeStreamability.
+	// Streamable is true iff this group passed the strict streamability check.
+	// NonStreamableReasons lists one human-readable explanation per failed
+	// rule when Streamable is false; empty otherwise.
+	// NormalizedPath is Name with trailing "*" stripped, used as the
+	// groupPath argument to the ParseStream callback.
+	Streamable           bool
+	NonStreamableReasons []string
+	NormalizedPath       string
 }
 
 // CompiledInput represents a compiled input configuration
