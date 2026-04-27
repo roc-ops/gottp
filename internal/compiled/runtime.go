@@ -1,6 +1,7 @@
 package compiled
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -744,6 +745,215 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 		return []interface{}{finalResults}, nil
 	}
 	return finalResults, nil
+}
+
+// errStreamGate is the sentinel matched by errors.Is when the gate fires.
+// The public TemplateNotStreamableError wraps this.
+var errStreamGate = errors.New("template not streamable (internal sentinel)")
+
+// streamGateError carries the per-group reasons through the package
+// boundary. The public gottp wrapper translates this into
+// *gottp.TemplateNotStreamableError in the next task.
+type streamGateError struct {
+	Reasons []string
+}
+
+func (e *streamGateError) Error() string        { return errStreamGate.Error() }
+func (e *streamGateError) Is(target error) bool { return target == errStreamGate }
+func (e *streamGateError) Unwrap() error        { return errStreamGate }
+
+func wrapNotStreamableError(reasons []string) error {
+	return &streamGateError{Reasons: reasons}
+}
+
+// StreamGateReasons returns the per-group reasons if err is a streamGateError,
+// or nil otherwise. Used by the public wrapper to translate the internal
+// sentinel into *gottp.TemplateNotStreamableError.
+func StreamGateReasons(err error) []string {
+	var e *streamGateError
+	if errors.As(err, &e) {
+		return e.Reasons
+	}
+	return nil
+}
+
+// ParseStream is the streaming counterpart to Parse. For each top-level
+// group in the compiled template, it drives the streaming runtime and
+// invokes fn once per completed record, in (group, scan) order.
+//
+// Returns a streamGateError (which the public wrapper translates to
+// *gottp.TemplateNotStreamableError) without invoking fn if any top-level
+// group is not streamable. Returning a non-nil error from fn aborts the
+// parse and returns that error.
+func (r *Runtime) ParseStream(
+	inputs map[string]string,
+	vars map[string]interface{},
+	options *ParseOptions,
+	fn func(record map[string]interface{}, srcRange [2]int, groupPath string) error,
+) error {
+	if r.compiled == nil {
+		return fmt.Errorf("ParseStream: compiled template is nil")
+	}
+	if !r.compiled.Streamable {
+		var reasons []string
+		for _, g := range r.compiled.Groups {
+			if !g.Streamable {
+				reasons = append(reasons, g.NonStreamableReasons...)
+			}
+		}
+		return wrapNotStreamableError(reasons)
+	}
+
+	// --- Setup: mirror Parse exactly ---
+
+	// Clear previous validation results
+	r.validationResults = make(map[string]*yang.ValidationResult)
+	// Clear recorded vars (from record() function)
+	r.recordedVars = make(map[string]interface{})
+
+	// Clear runtime lookups
+	r.runtimeLookups = nil
+
+	// Clear runtime functions
+	r.runtimeFunctions = nil
+
+	// Set YANG module set if provided
+	if options != nil && options.YANGModuleSet != nil {
+		r.SetYANGModuleSet(options.YANGModuleSet)
+	}
+
+	// Set runtime lookups if provided
+	if options != nil && options.Lookups != nil {
+		r.runtimeLookups = options.Lookups
+	}
+
+	// Set runtime functions if provided
+	if options != nil && options.Functions != nil {
+		r.runtimeFunctions = options.Functions
+	}
+
+	// Re-register compile-time macro functions (restore baseline after previous Parse)
+	if r.compileFunctions != nil && r.compileFunctions.Macro != nil {
+		for name, fn := range r.compileFunctions.Macro {
+			r.macroRegistry.RegisterGoMacro(name, fn)
+		}
+	}
+
+	// Register runtime macro overrides (highest precedence)
+	if r.runtimeFunctions != nil && r.runtimeFunctions.Macro != nil {
+		for name, fn := range r.runtimeFunctions.Macro {
+			r.macroRegistry.RegisterGoMacro(name, fn)
+		}
+	}
+
+	// Merge template vars (from <vars> tag) with passed vars
+	// Template vars are the base, passed vars override them
+	if r.compiled.Vars != nil || vars != nil {
+		mergedVars := make(map[string]interface{})
+		if r.compiled.Vars != nil {
+			for k, v := range r.compiled.Vars {
+				mergedVars[k] = v
+			}
+		}
+		for k, v := range vars {
+			mergedVars[k] = v
+		}
+		vars = mergedVars
+	}
+
+	// Merge ParseOptions.Vars (highest precedence)
+	if options != nil && options.Vars != nil {
+		if vars == nil {
+			vars = make(map[string]interface{})
+		}
+		for k, v := range options.Vars {
+			vars[k] = v
+		}
+	}
+
+	// Build inputOrder: same logic as Parse.
+	allInputNames := make(map[string]bool)
+	inputOrder := make([]string, 0)
+
+	// Process input tags from template first (provide embedded text data)
+	if r.compiled.Inputs != nil {
+		for _, input := range r.compiled.Inputs {
+			if input.Load == "text" && input.Data != "" {
+				if _, exists := inputs[input.Name]; !exists {
+					inputs[input.Name] = input.Data
+				}
+			}
+		}
+	}
+
+	// Add template inputs in template order
+	if r.compiled.Inputs != nil {
+		for _, input := range r.compiled.Inputs {
+			if _, exists := inputs[input.Name]; exists {
+				if !allInputNames[input.Name] {
+					allInputNames[input.Name] = true
+					inputOrder = append(inputOrder, input.Name)
+				}
+			}
+		}
+	}
+
+	// Add passed inputs not already in order (sorted for determinism)
+	passedInputNames := make([]string, 0)
+	for name := range inputs {
+		if !allInputNames[name] {
+			passedInputNames = append(passedInputNames, name)
+		}
+	}
+	sort.Strings(passedInputNames)
+	for _, name := range passedInputNames {
+		allInputNames[name] = true
+		inputOrder = append(inputOrder, name)
+	}
+
+	// --- Drive parseGroupStream for each top-level group ---
+
+	for _, g := range r.compiled.Groups {
+		// Skip nested groups — they're processed within their parent group.
+		// (Streamable templates have none, but guard for safety.)
+		if g.IsNested {
+			continue
+		}
+
+		r.collectGroupKeys(g)
+
+		// Determine which inputs to process (mirrors Parse exactly).
+		var inputsToProcess []string
+		if g.Input != "" {
+			inputNames := strings.Split(g.Input, ",")
+			for _, name := range inputNames {
+				name = strings.TrimSpace(name)
+				if name != "" {
+					inputsToProcess = append(inputsToProcess, name)
+				}
+			}
+		} else {
+			inputsToProcess = inputOrder
+		}
+
+		for _, inputName := range inputsToProcess {
+			inputData, ok := inputs[inputName]
+			if !ok {
+				continue
+			}
+
+			processedInputData, err := r.processInputFunctions(inputName, inputData, vars)
+			if err != nil {
+				return fmt.Errorf("failed to process input functions for %s: %w", inputName, err)
+			}
+
+			if err := r.parseGroupStream(g, processedInputData, vars, fn); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // ParseWithSourceMap executes the compiled template and returns both data and source map
