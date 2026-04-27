@@ -5570,16 +5570,11 @@ func (r *Runtime) processFunctions(value interface{}, functions []string, vars m
 func (r *Runtime) extractMatchResult(match []string, compiledPattern *pattern.CompiledPattern, vars map[string]interface{}) map[string]interface{} {
 	// Python TTP quirk: when ignore() uses a template variable, return empty result
 	// This causes the match to be added but with no fields (matches Python TTP behavior)
-	for _, variable := range compiledPattern.Variables {
-		if variable.Name == "ignore" && variable.IgnoreUsesTemplateVar {
-			// Return empty result to match Python TTP's behavior
-			// The empty result will be added to matches (Python TTP returns [{}])
-			return make(map[string]interface{})
-		}
+	if compiledPattern.IgnoreUsesTemplateVar {
+		// Return empty result to match Python TTP's behavior
+		// The empty result will be added to matches (Python TTP returns [{}])
+		return make(map[string]interface{})
 	}
-
-	result := make(map[string]interface{})
-	varIndex := 1 // First capture group is at index 1 (index 0 is full match)
 
 	// Use the preserved variable order from the pattern
 	varNames := compiledPattern.VariableOrder
@@ -5589,6 +5584,11 @@ func (r *Runtime) extractMatchResult(match []string, compiledPattern *pattern.Co
 			varNames = append(varNames, varName)
 		}
 	}
+
+	// Pre-size result map: most variables produce a single key, so VariableOrder
+	// length is a tight upper bound and avoids map growth/rehash for wide patterns.
+	result := make(map[string]interface{}, len(varNames))
+	varIndex := 1 // First capture group is at index 1 (index 0 is full match)
 
 	// Extract values in order
 	for _, varName := range varNames {
