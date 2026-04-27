@@ -31,3 +31,44 @@ func TestTemplateNotStreamableError_EmptyReasons(t *testing.T) {
 		t.Errorf("error message should not be empty even with no reasons")
 	}
 }
+
+func TestWhyNotStreamable_Streamable(t *testing.T) {
+	// Use a template that we know is streamable.
+	tmpl := `<group name="entry*">
+mac {{ mac | _start_ }}
+ip {{ ip }}
+</group>`
+	c, err := CompileTemplate(tmpl)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	streamable, reasons := WhyNotStreamable(c)
+	if !streamable {
+		t.Errorf("expected streamable=true, got false; reasons: %v", reasons)
+	}
+	if len(reasons) != 0 {
+		t.Errorf("expected no reasons when streamable, got: %v", reasons)
+	}
+}
+
+func TestWhyNotStreamable_NotStreamable(t *testing.T) {
+	// joinmatches makes it non-streamable.
+	tmpl := `<group name="entry*">
+desc {{ desc | joinmatches }}
+</group>`
+	c, err := CompileTemplate(tmpl)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	streamable, reasons := WhyNotStreamable(c)
+	if streamable {
+		t.Errorf("expected streamable=false")
+	}
+	if len(reasons) == 0 {
+		t.Errorf("expected at least one reason")
+	}
+	joined := strings.Join(reasons, " ")
+	if !strings.Contains(joined, "joinmatches") {
+		t.Errorf("expected reason to mention joinmatches; got: %v", reasons)
+	}
+}
