@@ -28,6 +28,11 @@ type MatchVariable struct {
 	Functions             []string // function pipeline
 	Pattern               string   // regex pattern for this variable
 	IgnoreUsesTemplateVar bool     // true if ignore() uses a template variable (Python TTP quirk: returns empty result)
+
+	// Compile-time cached function flags. Populated by CompiledPattern.PopulateFlags
+	// to avoid per-match scans of Functions in the runtime hot path.
+	HasSet         bool // any function starts with "set("
+	HasJoinMatches bool // any function starts with "joinmatches"
 }
 
 // CompiledPattern represents a compiled regex pattern with variable information
@@ -36,6 +41,59 @@ type CompiledPattern struct {
 	Variables     map[string]*MatchVariable
 	VariableOrder []string // Order of variables as they appear in the pattern
 	Original      string
+
+	// Compile-time cached flags consumed by the runtime hot path. Populated by
+	// PopulateFlags after Variables and Regex are assigned.
+	HasAnchors               bool // regex contains ^ or $ -> match line-by-line
+	HasOnlySpecialIndicators bool // every variable is ignore/_start_/_end_/_line_/_exact_/_exact_space_
+	IgnoreUsesTemplateVar    bool // any "ignore" variable has IgnoreUsesTemplateVar=true
+	HasJoinMatches           bool // any variable has a joinmatches function
+}
+
+// PopulateFlags computes the compile-time cached booleans from the pattern's
+// regex and variable functions. Must be called after Regex and Variables are
+// assigned. Idempotent.
+func (cp *CompiledPattern) PopulateFlags() {
+	regexStr := ""
+	if cp.Regex != nil {
+		regexStr = cp.Regex.String()
+	}
+	cp.HasAnchors = strings.Contains(regexStr, "^") || strings.Contains(regexStr, "$")
+
+	hasOnlySpecial := true
+	ignoreUsesTemplateVar := false
+	patternHasJoinMatches := false
+	for _, v := range cp.Variables {
+		if v.Name != "ignore" && v.Name != "_start_" && v.Name != "_end_" &&
+			v.Name != "_line_" && v.Name != "_exact_" && v.Name != "_exact_space_" {
+			hasOnlySpecial = false
+		}
+		if v.Name == "ignore" && v.IgnoreUsesTemplateVar {
+			ignoreUsesTemplateVar = true
+		}
+
+		varHasSet := false
+		varHasJoinMatches := false
+		for _, f := range v.Functions {
+			if !varHasSet && strings.HasPrefix(f, "set(") {
+				varHasSet = true
+			}
+			if !varHasJoinMatches && strings.HasPrefix(f, "joinmatches") {
+				varHasJoinMatches = true
+			}
+			if varHasSet && varHasJoinMatches {
+				break
+			}
+		}
+		v.HasSet = varHasSet
+		v.HasJoinMatches = varHasJoinMatches
+		if varHasJoinMatches {
+			patternHasJoinMatches = true
+		}
+	}
+	cp.HasOnlySpecialIndicators = hasOnlySpecial
+	cp.IgnoreUsesTemplateVar = ignoreUsesTemplateVar
+	cp.HasJoinMatches = patternHasJoinMatches
 }
 
 // Engine handles pattern generation and compilation
@@ -566,12 +624,14 @@ func (e *Engine) CompilePattern(line string, exactSpace, exact bool) (*CompiledP
 		varOrder[i] = v.Name
 	}
 
-	return &CompiledPattern{
+	cp := &CompiledPattern{
 		Regex:         compiled,
 		Variables:     varMap,
 		VariableOrder: varOrder,
 		Original:      line,
-	}, nil
+	}
+	cp.PopulateFlags()
+	return cp, nil
 }
 
 // validatePattern validates a pattern string for common regex errors
