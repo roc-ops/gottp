@@ -1,9 +1,8 @@
 package compiler
 
 import (
+	"fmt"
 	"strings"
-
-	"github.com/roc-ops/gottp/internal/pattern"
 )
 
 // streamableGroupFunctions lists the group-level functions (the ones in
@@ -105,5 +104,53 @@ func hasAnyJoinMatches(g *CompiledGroup) bool {
 	return false
 }
 
-// patternUnused — silence unused import warning until we add the analyzer.
-var _ = pattern.CompiledPattern{}
+// analyzeStreamability runs the strict streamability check defined in
+// docs/superpowers/specs/2026-04-27-streaming-parsegroup-design.md and
+// populates g.Streamable, g.NonStreamableReasons, and g.NormalizedPath.
+//
+// Each failed rule contributes one reason. Order matches the spec for
+// reviewability.
+func analyzeStreamability(g *CompiledGroup) {
+	g.NormalizedPath = strings.TrimSuffix(g.Name, "*")
+
+	var reasons []string
+
+	// Rule 1: top-level only in v1.
+	if g.IsNested {
+		reasons = append(reasons, fmt.Sprintf("group %q is nested (nested groups deferred to v2)", g.Name))
+	}
+
+	// Rule 2: no nested children in v1.
+	if len(g.Groups) > 0 {
+		reasons = append(reasons, fmt.Sprintf("group %q has %d nested child group(s) (deferred to v2)", g.Name, len(g.Groups)))
+	}
+
+	// Rule 3: no joinmatches anywhere in the group's variables.
+	if hasAnyJoinMatches(g) {
+		// Find which variable for a clearer message.
+		for _, p := range g.Patterns {
+			for _, v := range p.Variables {
+				if v.HasJoinMatches {
+					reasons = append(reasons, fmt.Sprintf("group %q variable %q uses joinmatches (aggregates across records)", g.Name, v.Name))
+					goto joinmatchesDone
+				}
+			}
+		}
+	joinmatchesDone:
+	}
+
+	// Rule 4: must have a record boundary (either _start_ or fully line-anchored).
+	if !hasStartIndicator(g) && !allPatternsAnchored(g) {
+		reasons = append(reasons, fmt.Sprintf("group %q has no record boundary: no _start_ indicator and not all patterns are line-anchored", g.Name))
+	}
+
+	// Rule 5: group functions must all be in the streamable allowlist.
+	for _, fn := range parseGroupFunctionNames(g.Functions) {
+		if !streamableGroupFunctions[fn] {
+			reasons = append(reasons, fmt.Sprintf("group %q uses group function %q which is not in the streamable allowlist", g.Name, fn))
+		}
+	}
+
+	g.NonStreamableReasons = reasons
+	g.Streamable = len(reasons) == 0
+}
