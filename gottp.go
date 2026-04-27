@@ -210,6 +210,72 @@ func (ct *CompiledTemplate) Parse(inputs Inputs, vars Vars, options *ParseOption
 	return result.Data, nil
 }
 
+// ParseStream invokes fn for each record produced by the streamable
+// groups in this template, dropping intermediate state between records
+// to bound peak heap usage.
+//
+// Returns *TemplateNotStreamableError (matches ErrTemplateNotStreamable via
+// errors.Is) if any top-level group fails the streamability check; in
+// that case fn is never invoked.
+//
+// Calling order: groups in template definition order; within a group,
+// matches in input scan order. No cross-group ordering guarantee.
+//
+// If fn returns non-nil, parsing aborts immediately: that error is
+// returned; no further fn invocations occur.
+func (ct *CompiledTemplate) ParseStream(
+	inputs Inputs,
+	vars map[string]interface{},
+	options *ParseOptions,
+	fn func(record map[string]interface{}, srcRange [2]int, groupPath string) error,
+) error {
+	if fn == nil {
+		return fmt.Errorf("ParseStream: callback is nil")
+	}
+
+	r := compiled.NewRuntimeWithFunctions(ct.compiled, ct.compileFunctions)
+
+	// Convert Inputs to map[string]string
+	inputMap := make(map[string]string)
+	for k, v := range inputs {
+		inputMap[k] = v
+	}
+
+	// Convert vars to map[string]interface{}
+	varMap := make(map[string]interface{})
+	for k, v := range vars {
+		varMap[k] = v
+	}
+
+	// Handle YANG modules and source map option
+	var opts *compiled.ParseOptions
+	if options != nil {
+		opts = &compiled.ParseOptions{
+			EnableSourceMap: options.EnableSourceMap,
+			Lookups:         options.Lookups,
+			Vars:            options.Vars,
+			Functions:       convertFunctions(options.Functions),
+		}
+
+		// Load YANG modules if provided
+		if options.YANGModules != nil {
+			moduleSet, err := loadYANGModules(options.YANGModules)
+			if err != nil {
+				return fmt.Errorf("failed to load YANG modules: %w", err)
+			}
+			opts.YANGModuleSet = moduleSet
+		}
+	}
+
+	err := r.ParseStream(inputMap, varMap, opts, fn)
+
+	// Translate the internal stream-gate error into the public one.
+	if reasons := compiled.StreamGateReasons(err); reasons != nil {
+		return &TemplateNotStreamableError{Reasons: reasons}
+	}
+	return err
+}
+
 // ParseWithValidation parses and returns both data and validation results
 func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOptions) (*ParseResult, error) {
 	runtime := compiled.NewRuntimeWithFunctions(ct.compiled, ct.compileFunctions)

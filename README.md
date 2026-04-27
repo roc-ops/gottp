@@ -86,6 +86,25 @@ interface Vlan778
 }
 ```
 
+## Streaming mode (ParseStream)
+
+For templates with high-cardinality output (thousands of records) and a clear repeating record boundary, `ParseStream` emits records one at a time via callback, bounding peak heap usage:
+
+```go
+err := compiled.ParseStream(inputs, nil, nil,
+    func(record map[string]interface{}, srcRange [2]int, groupPath string) error {
+        return handle(record)
+    })
+```
+
+Returns `*TemplateNotStreamableError` (matching `errors.Is(err, gottp.ErrTemplateNotStreamable)`) on templates that don't meet the streamability criteria. Use `gottp.WhyNotStreamable(compiled)` to audit a template before calling.
+
+Streamability requires: top-level group, no nested children, no `joinmatches`, a record boundary (`_start_` indicator or fully line-anchored patterns), and per-record group functions only (no `itemize` / `expand`).
+
+Measured on a 24 MB / 256K-record CMTS capture: peak heap drops from 752 MB (`Parse`) to 24 MB (`ParseStream`) — a 31× reduction.
+
+See `docs/superpowers/specs/2026-04-27-streaming-parsegroup-design.md` for full design and rationale.
+
 ## Installation
 
 ```bash

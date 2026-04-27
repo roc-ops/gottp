@@ -50,6 +50,11 @@ type CompiledTemplate struct {
 
 	// Compilation warnings (non-fatal issues like Python-specific syntax in Starlark macros)
 	Warnings []string
+
+	// Streamable is true iff every top-level group is streamable.
+	// Used by ParseStream to gate entry; false means ParseStream returns
+	// *TemplateNotStreamableError without invoking the callback.
+	Streamable bool
 }
 
 // CompiledVarsWithName represents compiled vars with name attribute
@@ -73,6 +78,16 @@ type CompiledGroup struct {
 	Attributes map[string]string
 	IsNested   bool                   // true if this group is nested (should not be processed as top-level)
 	Defaults   map[string]interface{} // default values for variables (e.g., from unconditional set())
+
+	// Streamability — set during compile by analyzeStreamability.
+	// Streamable is true iff this group passed the strict streamability check.
+	// NonStreamableReasons lists one human-readable explanation per failed
+	// rule when Streamable is false; empty otherwise.
+	// NormalizedPath is Name with trailing "*" stripped, used as the
+	// groupPath argument to the ParseStream callback.
+	Streamable           bool
+	NonStreamableReasons []string
+	NormalizedPath       string
 }
 
 // CompiledInput represents a compiled input configuration
@@ -390,6 +405,17 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 
 		// Merge child template VarsWithName
 		compiled.VarsWithName = append(compiled.VarsWithName, compiledChild.VarsWithName...)
+	}
+
+	// Analyze streamability for all top-level groups (and their descendants),
+	// then compute the template-level Streamable flag.
+	for _, g := range compiled.Groups {
+		analyzeStreamabilityRecursive(g)
+	}
+	computeTemplateStreamable(compiled)
+
+	if err := validateGroupPathCollisions(compiled); err != nil {
+		return nil, err
 	}
 
 	return compiled, nil
