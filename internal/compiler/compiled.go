@@ -414,6 +414,10 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 	}
 	computeTemplateStreamable(compiled)
 
+	if err := validateGroupPathCollisions(compiled); err != nil {
+		return nil, err
+	}
+
 	return compiled, nil
 }
 

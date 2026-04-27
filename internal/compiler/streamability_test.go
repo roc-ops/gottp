@@ -182,6 +182,55 @@ func TestCompileTemplate_PropagatesStreamable(t *testing.T) {
 	}
 }
 
+func TestValidateGroupPathCollisions_FooVsFooStar(t *testing.T) {
+	a := makeGroup(t, "foo", false, []string{"{{ x }}"}, "", nil)
+	b := makeGroup(t, "foo*", false, []string{"{{ y }}"}, "", nil)
+	analyzeStreamability(a)
+	analyzeStreamability(b)
+	tmpl := &CompiledTemplate{Groups: []*CompiledGroup{a, b}}
+
+	err := validateGroupPathCollisions(tmpl)
+	if err == nil {
+		t.Fatal("expected error for foo / foo* collision, got nil")
+	}
+	gpErr, ok := err.(*GroupPathCollisionError)
+	if !ok {
+		t.Fatalf("expected *GroupPathCollisionError, got %T", err)
+	}
+	if gpErr.NormalizedPath != "foo" {
+		t.Errorf("NormalizedPath: got %q, want %q", gpErr.NormalizedPath, "foo")
+	}
+	if len(gpErr.GroupNames) != 2 {
+		t.Errorf("GroupNames: got %v, want 2 entries", gpErr.GroupNames)
+	}
+}
+
+func TestValidateGroupPathCollisions_DuplicateAlternatives(t *testing.T) {
+	// Two groups with identical Name (deliberate alternative-pattern
+	// synthesis, like show_iftable_detail's ups-port-virtual-entry*) — no error.
+	a := makeGroup(t, "alt*", false, []string{"a {{ x }}"}, "", nil)
+	b := makeGroup(t, "alt*", false, []string{"b {{ x }}"}, "", nil)
+	analyzeStreamability(a)
+	analyzeStreamability(b)
+	tmpl := &CompiledTemplate{Groups: []*CompiledGroup{a, b}}
+
+	if err := validateGroupPathCollisions(tmpl); err != nil {
+		t.Fatalf("expected no error for identical-name groups, got: %v", err)
+	}
+}
+
+func TestValidateGroupPathCollisions_DistinctPaths(t *testing.T) {
+	a := makeGroup(t, "foo*", false, []string{"{{ x }}"}, "", nil)
+	b := makeGroup(t, "bar*", false, []string{"{{ x }}"}, "", nil)
+	analyzeStreamability(a)
+	analyzeStreamability(b)
+	tmpl := &CompiledTemplate{Groups: []*CompiledGroup{a, b}}
+
+	if err := validateGroupPathCollisions(tmpl); err != nil {
+		t.Fatalf("expected no error for distinct paths, got: %v", err)
+	}
+}
+
 // containsString reports whether any element of haystack contains needle.
 func containsString(haystack []string, needle string) bool {
 	for _, s := range haystack {

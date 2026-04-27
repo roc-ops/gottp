@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -172,6 +173,61 @@ func computeTemplateStreamable(t *CompiledTemplate) {
 		if !g.Streamable {
 			t.Streamable = false
 			return
+		}
+	}
+}
+
+// GroupPathCollisionError is returned by CompileTemplate when two or
+// more groups in the template have distinct literal Name values that
+// normalize to the same path. The collision is a template-authoring
+// bug: if the author wanted them to merge, they should use the same
+// literal Name (the deliberate alternative-pattern synthesis pattern).
+type GroupPathCollisionError struct {
+	NormalizedPath string
+	GroupNames     []string // the literal Name values that collide
+}
+
+func (e *GroupPathCollisionError) Error() string {
+	return fmt.Sprintf("group path collision: %d groups normalize to %q: %s",
+		len(e.GroupNames), e.NormalizedPath, strings.Join(e.GroupNames, ", "))
+}
+
+// validateGroupPathCollisions walks every group (including nested) and
+// returns a *GroupPathCollisionError if any normalized path is shared
+// by groups with distinct literal names. Identical literal names are
+// allowed (deliberate alternative-pattern synthesis).
+func validateGroupPathCollisions(t *CompiledTemplate) error {
+	// Map: normalizedPath -> set of distinct literal names that produced it.
+	pathToNames := make(map[string]map[string]bool)
+	collectGroupPaths(t.Groups, pathToNames)
+
+	for path, names := range pathToNames {
+		if len(names) > 1 {
+			distinct := make([]string, 0, len(names))
+			for n := range names {
+				distinct = append(distinct, n)
+			}
+			// Sort for stable error messages.
+			sort.Strings(distinct)
+			return &GroupPathCollisionError{
+				NormalizedPath: path,
+				GroupNames:     distinct,
+			}
+		}
+	}
+	return nil
+}
+
+// collectGroupPaths populates pathToNames with every group's
+// (NormalizedPath, set of literal Names) including nested groups.
+func collectGroupPaths(groups []*CompiledGroup, pathToNames map[string]map[string]bool) {
+	for _, g := range groups {
+		if pathToNames[g.NormalizedPath] == nil {
+			pathToNames[g.NormalizedPath] = make(map[string]bool)
+		}
+		pathToNames[g.NormalizedPath][g.Name] = true
+		if len(g.Groups) > 0 {
+			collectGroupPaths(g.Groups, pathToNames)
 		}
 	}
 }
