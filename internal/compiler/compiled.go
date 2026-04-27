@@ -527,12 +527,14 @@ func (c *Compiler) compilePatternWithVars(line string, exactSpace, exact bool, v
 		varOrder[i] = v.Name
 	}
 
-	return &pattern.CompiledPattern{
+	cp := &pattern.CompiledPattern{
 		Regex:         compiled,
 		Variables:     varMap,
 		VariableOrder: varOrder,
 		Original:      line,
-	}, nil
+	}
+	cp.PopulateFlags()
+	return cp, nil
 }
 
 // splitLines splits text into lines, preserving empty lines

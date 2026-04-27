@@ -1258,12 +1258,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 	for patternIdx, compiledPattern := range group.Patterns {
 
-		// Check if pattern has line anchors (^ and $)
-		// Note: Original is the template line, not the regex, so we check the compiled regex
-		hasAnchors := strings.Contains(compiledPattern.Regex.String(), "^") ||
-			strings.Contains(compiledPattern.Regex.String(), "$")
-
-		if hasAnchors {
+		if compiledPattern.HasAnchors {
 			// Match line by line
 			for lineIdx, line := range lines {
 				// Trim \r and trailing spaces, but preserve leading spaces for regex matching
@@ -1311,42 +1306,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 				if match != nil {
 					result := r.extractMatchResult(match, compiledPattern, vars)
-					// Allow matches even if result is empty (e.g., patterns with only _start_, _end_, or _line_)
-					// Check if this pattern has only special indicators
-					// Note: _exact_ and _exact_space_ are indicators, not variables that capture values
-					hasOnlySpecialIndicators := true
-					for varName := range compiledPattern.Variables {
-						if varName != "ignore" && varName != "_start_" && varName != "_end_" && varName != "_line_" && varName != "_exact_" && varName != "_exact_space_" {
-							hasOnlySpecialIndicators = false
-							break
-						}
-					}
-
-					// Check if ignore uses template variable - if so, allow empty result
-					ignoreUsesTemplateVar := false
-					for _, variable := range compiledPattern.Variables {
-						if variable.Name == "ignore" && variable.IgnoreUsesTemplateVar {
-							ignoreUsesTemplateVar = true
-							break
-						}
-					}
-
-					// Check if this pattern has joinmatches - if so, allow empty results
-					// (they will be filtered during collection)
-					hasJoinMatches := false
-					for _, variable := range compiledPattern.Variables {
-						for _, funcStr := range variable.Functions {
-							if strings.HasPrefix(funcStr, "joinmatches") {
-								hasJoinMatches = true
-								break
-							}
-						}
-						if hasJoinMatches {
-							break
-						}
-					}
-
-					if result != nil && (len(result) > 0 || hasOnlySpecialIndicators || ignoreUsesTemplateVar || hasJoinMatches) {
+					if result != nil && (len(result) > 0 || compiledPattern.HasOnlySpecialIndicators || compiledPattern.IgnoreUsesTemplateVar || compiledPattern.HasJoinMatches) {
 						spanStart := lineOffsets[lineIdx]
 						spanEnd := lineOffsets[lineIdx] + len(line)
 						allMatches = append(allMatches, patternMatch{
@@ -1379,15 +1339,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 				// Extract result
 				result := r.extractMatchResult(matchGroups, compiledPattern, vars)
-				// Check if ignore uses template variable - if so, allow empty result
-				ignoreUsesTemplateVar := false
-				for _, variable := range compiledPattern.Variables {
-					if variable.Name == "ignore" && variable.IgnoreUsesTemplateVar {
-						ignoreUsesTemplateVar = true
-						break
-					}
-				}
-				if result != nil && (len(result) > 0 || ignoreUsesTemplateVar) {
+				if result != nil && (len(result) > 0 || compiledPattern.IgnoreUsesTemplateVar) {
 					allMatches = append(allMatches, patternMatch{
 						patternIdx: patternIdx,
 						spanStart:  indices[0],
@@ -2278,13 +2230,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					// Check if ignore uses template variable - if so, clear the match
 					ignoreUsesTemplateVar := false
 					for _, compiledPattern := range group.Patterns {
-						for _, variable := range compiledPattern.Variables {
-							if variable.Name == "ignore" && variable.IgnoreUsesTemplateVar {
-								ignoreUsesTemplateVar = true
-								break
-							}
-						}
-						if ignoreUsesTemplateVar {
+						if compiledPattern.IgnoreUsesTemplateVar {
+							ignoreUsesTemplateVar = true
 							break
 						}
 					}
@@ -2308,13 +2255,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				// Check if ignore uses template variable - if so, don't copy result fields
 				ignoreUsesTemplateVar := false
 				for _, compiledPattern := range group.Patterns {
-					for _, variable := range compiledPattern.Variables {
-						if variable.Name == "ignore" && variable.IgnoreUsesTemplateVar {
-							ignoreUsesTemplateVar = true
-							break
-						}
-					}
-					if ignoreUsesTemplateVar {
+					if compiledPattern.IgnoreUsesTemplateVar {
+						ignoreUsesTemplateVar = true
 						break
 					}
 				}
@@ -4392,10 +4334,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 	lineOffsets[len(lines)] = offset
 
 	for patternIdx, compiledPattern := range group.Patterns {
-		hasAnchors := strings.Contains(compiledPattern.Regex.String(), "^") ||
-			strings.Contains(compiledPattern.Regex.String(), "$")
-
-		if hasAnchors {
+		if compiledPattern.HasAnchors {
 			// Match line by line
 			for lineIdx, line := range lines {
 				line = strings.TrimRight(line, "\r \t")
@@ -4441,37 +4380,8 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 					}
 
 					result := r.extractMatchResult(match, compiledPattern, vars)
-					
-					hasOnlySpecialIndicators := true
-					for varName := range compiledPattern.Variables {
-						if varName != "ignore" && varName != "_start_" && varName != "_end_" && varName != "_line_" && varName != "_exact_" && varName != "_exact_space_" {
-							hasOnlySpecialIndicators = false
-							break
-						}
-					}
 
-					ignoreUsesTemplateVar := false
-					for _, variable := range compiledPattern.Variables {
-						if variable.Name == "ignore" && variable.IgnoreUsesTemplateVar {
-							ignoreUsesTemplateVar = true
-							break
-						}
-					}
-
-					hasJoinMatches := false
-					for _, variable := range compiledPattern.Variables {
-						for _, funcStr := range variable.Functions {
-							if strings.HasPrefix(funcStr, "joinmatches") {
-								hasJoinMatches = true
-								break
-							}
-						}
-						if hasJoinMatches {
-							break
-						}
-					}
-
-					if result != nil && (len(result) > 0 || hasOnlySpecialIndicators || ignoreUsesTemplateVar || hasJoinMatches) {
+					if result != nil && (len(result) > 0 || compiledPattern.HasOnlySpecialIndicators || compiledPattern.IgnoreUsesTemplateVar || compiledPattern.HasJoinMatches) {
 						spanStart := lineOffsets[lineIdx] + matchIndices[0]
 						spanEnd := lineOffsets[lineIdx] + matchIndices[1]
 						
@@ -4532,15 +4442,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 				}
 
 				result := r.extractMatchResult(matchGroups, compiledPattern, vars)
-				ignoreUsesTemplateVar := false
-				for _, variable := range compiledPattern.Variables {
-					if variable.Name == "ignore" && variable.IgnoreUsesTemplateVar {
-						ignoreUsesTemplateVar = true
-						break
-					}
-				}
-				
-				if result != nil && (len(result) > 0 || ignoreUsesTemplateVar) {
+				if result != nil && (len(result) > 0 || compiledPattern.IgnoreUsesTemplateVar) {
 					// Find which line this match is on
 					lineIdx := 0
 					for i, offset := range lineOffsets {
@@ -5021,10 +4923,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 				parentLines := strings.Split(parentInputData, "\n")
 				
 				for patternIdx, compiledPattern := range nestedGroup.Patterns {
-					hasAnchors := strings.Contains(compiledPattern.Regex.String(), "^") ||
-						strings.Contains(compiledPattern.Regex.String(), "$")
-
-					if hasAnchors {
+					if compiledPattern.HasAnchors {
 						// Match line by line within parent range
 						for localLineIdx, line := range parentLines {
 							absoluteLineIdx := rangeStartLine + localLineIdx
@@ -5229,10 +5128,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 					
 					// Process child group patterns within this nested group's range
 					for patternIdx, compiledPattern := range childGroup.Patterns {
-						hasAnchors := strings.Contains(compiledPattern.Regex.String(), "^") ||
-							strings.Contains(compiledPattern.Regex.String(), "$")
-						
-						if hasAnchors {
+						if compiledPattern.HasAnchors {
 							// Match line by line within nested group range
 							for lineIdx := nr.startLine; lineIdx < nr.endLine && lineIdx < len(inputSourceMap.Lines); lineIdx++ {
 								if lineIdx < 0 || lineIdx >= len(lines) {
@@ -5708,21 +5604,12 @@ func (r *Runtime) extractMatchResult(match []string, compiledPattern *pattern.Co
 			continue
 		}
 
-		// Check if this variable has set() function - if so, we need to process it even if it doesn't match
-		hasSet := false
-		for _, funcStr := range variable.Functions {
-			if strings.HasPrefix(funcStr, "set(") {
-				hasSet = true
-				break
-			}
-		}
-
 		// For variables with set(), we need to process them even if they don't match (varIndex >= len(match))
 		// The set() function will set the value regardless of what was matched
 		var value interface{}
 		if varIndex < len(match) {
 			value = match[varIndex]
-		} else if hasSet {
+		} else if variable.HasSet {
 			// Variable with set() didn't match - use empty string as value
 			// The set() function will set the actual value
 			value = ""
@@ -5730,15 +5617,6 @@ func (r *Runtime) extractMatchResult(match []string, compiledPattern *pattern.Co
 			// Variable didn't match and doesn't have set() - skip it
 			varIndex++
 			continue
-		}
-
-		// Check if this variable has joinmatches function
-		hasJoinMatches := false
-		for _, funcStr := range variable.Functions {
-			if strings.HasPrefix(funcStr, "joinmatches") {
-				hasJoinMatches = true
-				break
-			}
 		}
 
 		// Pass match result data structure to processFunctions so let and set can set additional fields
@@ -5754,7 +5632,7 @@ func (r *Runtime) extractMatchResult(match []string, compiledPattern *pattern.Co
 		// Apply functions if any (but handle joinmatches specially)
 		var processedValue interface{}
 		var err error
-		if hasJoinMatches {
+		if variable.HasJoinMatches {
 			// For joinmatches, collect the value but don't apply joinmatches yet
 			// We'll collect all matches and join them later
 			// Apply other functions first
@@ -5793,7 +5671,7 @@ func (r *Runtime) extractMatchResult(match []string, compiledPattern *pattern.Co
 		// If variable has set() function, it should set a value in the match result
 		// The set function should have already set it via _match_data
 		// For set(), we don't save the processedValue - the set function sets the value directly
-		if hasSet {
+		if variable.HasSet {
 			// The set function should have already set the value in result via _match_data
 			// Don't overwrite it with processedValue - set() handles the value setting
 			// Just skip saving processedValue - the value is already set by set()
@@ -5805,7 +5683,7 @@ func (r *Runtime) extractMatchResult(match []string, compiledPattern *pattern.Co
 		// so it can be collected during merging
 		// Store the processed value as-is (to_list will have already wrapped it if needed)
 		// The value will be collected during the merging phase
-		if hasJoinMatches {
+		if variable.HasJoinMatches {
 			// For joinmatches, we need to collect the value
 			// The value will be joined later in the merging phase
 			// Store as list to prepare for joining
