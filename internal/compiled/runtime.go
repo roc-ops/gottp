@@ -1472,6 +1472,12 @@ type mergeState struct {
 	// (with srcRange computed at call time). Caller MUST set flush before
 	// invoking stepMerge.
 	flush func(record map[string]interface{}, srcRange [2]int) error
+
+	// skipParentBookkeeping disables appending to parentMatchToAllMatches.
+	// Streaming mode (parseGroupStream) sets this to true: streamable groups
+	// have no nested children, so the parent->matches map is never read, and
+	// keeping it would grow O(records). Setting this flag bounds heap usage.
+	skipParentBookkeeping bool
 }
 
 // newMergeState constructs a fresh mergeState with the same initial values
@@ -1925,7 +1931,7 @@ func (r *Runtime) stepMerge(
 							return err
 						}
 						state.recordCount++
-						if state.currentParentMatchStartIdx >= 0 {
+						if state.currentParentMatchStartIdx >= 0 && !state.skipParentBookkeeping {
 							for i := state.currentParentMatchStartIdx; i <= matchIdx; i++ {
 								state.parentMatchToAllMatches[parentIdx] = append(state.parentMatchToAllMatches[parentIdx], i)
 							}
@@ -2088,7 +2094,7 @@ func (r *Runtime) stepMerge(
 					return err
 				}
 				state.recordCount++
-				if state.currentParentMatchStartIdx >= 0 {
+				if state.currentParentMatchStartIdx >= 0 && !state.skipParentBookkeeping {
 					for i := state.currentParentMatchStartIdx; i < matchIdx; i++ {
 						state.parentMatchToAllMatches[parentIdx] = append(state.parentMatchToAllMatches[parentIdx], i)
 					}
@@ -4771,12 +4777,26 @@ func (r *Runtime) parseGroupStream(
 		return nil
 	}
 
-	prep := r.prepareGroupMerge(group, inputData, vars)
+	// Compute indicator/joinmatches metadata once. This is cheap and does not
+	// scan input. We deliberately do NOT call prepareGroupMerge — that would
+	// fully materialize allMatches with extracted results (~256K entries on
+	// the phy fixture, ~500 MB peak heap). Instead we scan line-by-line below
+	// and feed stepMerge incrementally so each match's result map can be
+	// flushed and freed as we go.
+	indicator := computeStreamIndicatorMeta(group)
 
 	// For streamable groups, joinmatches is forbidden by the streamability
-	// rule, so joinMatchesVars and joinMatchesHasToList are guaranteed
-	// empty. We still pass them through stepMerge for signature parity.
+	// rule (rule 3), so joinMatchesVars and joinMatchesHasToList are
+	// guaranteed empty. We still pass them through stepMerge for signature
+	// parity.
+	joinMatchesVars := indicator.joinMatchesVars
+	joinMatchesHasToList := indicator.joinMatchesHasToList
+
 	state := newMergeState()
+	// Streamable groups have no nested children — the parent->matches map is
+	// never read in streaming mode, so disable the bookkeeping. Otherwise
+	// the map grows O(records) and dominates the peak heap on large inputs.
+	state.skipParentBookkeeping = true
 	state.flush = func(record map[string]interface{}, srcRange [2]int) error {
 		// Apply per-record group filter and macro that parseGroup applies
 		// post-merge. For streamable groups the allowlist guarantees these
@@ -4798,13 +4818,143 @@ func (r *Runtime) parseGroupStream(
 		return fn(filtered, srcRange, group.NormalizedPath)
 	}
 
-	// Walk allMatches just like parseGroup does.
-	for matchIdx := range prep.allMatches {
-		if err := r.stepMerge(state, prep.allMatches, matchIdx, group,
-			prep.joinMatchesVars, prep.joinMatchesHasToList,
-			prep.startPatterns, prep.endPatterns,
-			prep.hasLineIndicator, prep.hasAnyStartIndicator, prep.hasEmptyStartPattern); err != nil {
-			return err
+	// Pre-extract per-pattern indicator booleans (mirrors prepareGroupMerge's
+	// per-line-per-pattern reads of pattern.Variables for _start_/_end_).
+	type patInfo struct {
+		hasStartIndicator bool
+		hasEndIndicator   bool
+	}
+	patInfos := make([]patInfo, len(group.Patterns))
+	for i, p := range group.Patterns {
+		var info patInfo
+		for varName, v := range p.Variables {
+			if varName == "_start_" {
+				info.hasStartIndicator = true
+			}
+			if varName == "_end_" {
+				info.hasEndIndicator = true
+			}
+			for _, funcStr := range v.Functions {
+				if funcStr == "_start_" {
+					info.hasStartIndicator = true
+				}
+				if funcStr == "_end_" {
+					info.hasEndIndicator = true
+				}
+			}
+		}
+		patInfos[i] = info
+	}
+
+	// Streamability rule 4: every pattern must be line-anchored (or the group
+	// must have _start_; in practice the engine auto-anchors). Enforce
+	// HasAnchors here so we can iterate line-major. If a non-anchored pattern
+	// slips through, treat it as a streamability classifier bug.
+	for patternIdx, p := range group.Patterns {
+		if !p.HasAnchors {
+			return fmt.Errorf(
+				"parseGroupStream: pattern %d in group %q is not line-anchored; "+
+					"streamability classifier bug",
+				patternIdx, group.Name)
+		}
+	}
+
+	// Line-major, pattern-major iteration. All matches at the same line share
+	// the same spanStart (= line start offset), and stepMerge's forward
+	// lookahead at matchIdx+1 walks only while spanStart == match.spanStart,
+	// so passing per-line slices preserves lookahead semantics. method="table"
+	// is not in the streamable allowlist, so the dedup logic for that branch
+	// is irrelevant here.
+	//
+	// We walk the input as a single string with manual newline scanning
+	// (instead of strings.Split) to avoid materializing a slice of ~256K
+	// string headers (~4 MB for the phy fixture).
+	lineMatches := make([]patternMatch, 0, len(group.Patterns))
+	totalLen := len(inputData)
+
+	pos := 0
+	lineIdx := 0
+	for pos <= totalLen {
+		// Find next newline (or end of input).
+		nl := strings.IndexByte(inputData[pos:], '\n')
+		var rawLine string
+		var lineStartOffset = pos
+		if nl < 0 {
+			rawLine = inputData[pos:]
+			pos = totalLen + 1 // terminate loop
+		} else {
+			rawLine = inputData[pos : pos+nl]
+			pos = pos + nl + 1
+		}
+		curLineIdx := lineIdx
+		lineIdx++
+
+		// Trim \r and trailing spaces (mirror prepareGroupMerge).
+		line := strings.TrimRight(rawLine, "\r \t")
+		trimmedLine := strings.TrimSpace(line)
+
+		// Build per-line matches. Reset slice (keep backing array).
+		lineMatches = lineMatches[:0]
+
+		for patternIdx, compiledPattern := range group.Patterns {
+			info := patInfos[patternIdx]
+
+			// Skip empty lines unless this pattern has _start_/_end_.
+			if trimmedLine == "" && !info.hasStartIndicator && !info.hasEndIndicator {
+				continue
+			}
+
+			matchLine := line
+			if trimmedLine == "" && (info.hasStartIndicator || info.hasEndIndicator) {
+				matchLine = ""
+			}
+
+			match := compiledPattern.Regex.FindStringSubmatch(matchLine)
+			if match == nil {
+				continue
+			}
+
+			result := r.extractMatchResult(match, compiledPattern, vars)
+			if result == nil {
+				continue
+			}
+			if len(result) == 0 && !compiledPattern.HasOnlySpecialIndicators &&
+				!compiledPattern.IgnoreUsesTemplateVar && !compiledPattern.HasJoinMatches {
+				continue
+			}
+
+			spanStart := lineStartOffset
+			spanEnd := lineStartOffset + len(line)
+			lineMatches = append(lineMatches, patternMatch{
+				patternIdx: patternIdx,
+				spanStart:  spanStart,
+				spanEnd:    spanEnd,
+				lineIdx:    curLineIdx,
+				result:     result,
+			})
+		}
+
+		if len(lineMatches) == 0 {
+			continue
+		}
+
+		// Apply the same redundant-pure-indicator filter that prepareGroupMerge
+		// applies for non-table groups. Within a single line all matches share
+		// the same spanStart, so the filter is local to the line.
+		lineMatches = filterRedundantIndicatorsInLine(lineMatches, group)
+
+		// Feed each match through stepMerge. allMatches passed here is the
+		// per-line buffer; matchIdx is the position within the line. The
+		// forward lookahead at matchIdx+1 only walks while spanStart matches,
+		// which is exactly the line boundary, so this is correct.
+		for k := range lineMatches {
+			if err := r.stepMerge(state, lineMatches, k, group,
+				joinMatchesVars, joinMatchesHasToList,
+				indicator.startPatterns, indicator.endPatterns,
+				indicator.hasLineIndicator, indicator.hasAnyStartIndicator,
+				indicator.hasEmptyStartPattern); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -4825,7 +4975,7 @@ func (r *Runtime) parseGroupStream(
 			for k, v := range state.currentMatch {
 				matchCopy[k] = v
 			}
-			srcRange := [2]int{state.currentStartPos, len(inputData)}
+			srcRange := [2]int{state.currentStartPos, totalLen}
 			if err := state.flush(matchCopy, srcRange); err != nil {
 				return err
 			}
@@ -4836,6 +4986,343 @@ func (r *Runtime) parseGroupStream(
 	}
 
 	return nil
+}
+
+// streamIndicatorMeta bundles the indicator/joinmatches metadata that
+// stepMerge consumes. Computed once at the top of parseGroupStream.
+type streamIndicatorMeta struct {
+	joinMatchesVars      map[string]bool
+	joinMatchesHasToList map[string]bool
+	startPatterns        map[int]bool
+	endPatterns          map[int]bool
+	hasLineIndicator     bool
+	hasAnyStartIndicator bool
+	hasEmptyStartPattern bool
+}
+
+// computeStreamIndicatorMeta extracts the indicator/joinmatches metadata
+// that prepareGroupMerge computes — without scanning input. This lifts only
+// the cheap, per-group, per-pattern-metadata work; the per-line/per-match
+// extraction is left to the streaming loop in parseGroupStream.
+func computeStreamIndicatorMeta(group *compiler.CompiledGroup) streamIndicatorMeta {
+	meta := streamIndicatorMeta{
+		joinMatchesVars:      make(map[string]bool),
+		joinMatchesHasToList: make(map[string]bool),
+		startPatterns:        make(map[int]bool),
+		endPatterns:          make(map[int]bool),
+	}
+
+	// joinmatches metadata. Streamability rule 3 forbids joinmatches, but we
+	// compute defensively for parity with prepareGroupMerge.
+	for _, pattern := range group.Patterns {
+		for varName, variable := range pattern.Variables {
+			hasToList := false
+			for _, funcStr := range variable.Functions {
+				if funcStr == "to_list" {
+					hasToList = true
+				}
+				if strings.HasPrefix(funcStr, "joinmatches") {
+					meta.joinMatchesVars[varName] = true
+					meta.joinMatchesHasToList[varName] = hasToList
+					break
+				}
+			}
+		}
+	}
+
+	// Detect hasAnyStartIndicator and hasAnyEndIndicator.
+	if group.Method == "table" {
+		for patternIdx := range group.Patterns {
+			meta.startPatterns[patternIdx] = true
+		}
+	} else {
+		hasAnyStartIndicator := false
+		for _, compiledPattern := range group.Patterns {
+			for _, variable := range compiledPattern.Variables {
+				if variable.Name == "_start_" {
+					hasAnyStartIndicator = true
+					break
+				}
+				for _, funcStr := range variable.Functions {
+					if funcStr == "_start_" {
+						hasAnyStartIndicator = true
+						break
+					}
+				}
+				if hasAnyStartIndicator {
+					break
+				}
+			}
+			if hasAnyStartIndicator {
+				break
+			}
+		}
+		meta.hasAnyStartIndicator = hasAnyStartIndicator
+
+		hasAnyEndIndicator := false
+		for _, compiledPattern := range group.Patterns {
+			for _, variable := range compiledPattern.Variables {
+				if variable.Name == "_end_" {
+					hasAnyEndIndicator = true
+					break
+				}
+				for _, funcStr := range variable.Functions {
+					if funcStr == "_end_" {
+						hasAnyEndIndicator = true
+						break
+					}
+				}
+				if hasAnyEndIndicator {
+					break
+				}
+			}
+			if hasAnyEndIndicator {
+				break
+			}
+		}
+
+		for patternIdx, compiledPattern := range group.Patterns {
+			patternHasJoinMatches := false
+			for _, variable := range compiledPattern.Variables {
+				for _, funcStr := range variable.Functions {
+					if strings.HasPrefix(funcStr, "joinmatches") {
+						patternHasJoinMatches = true
+						break
+					}
+				}
+				if patternHasJoinMatches {
+					break
+				}
+			}
+
+			if hasAnyStartIndicator && hasAnyEndIndicator {
+				patternHasStart := false
+				for _, variable := range compiledPattern.Variables {
+					if variable.Name == "_start_" {
+						patternHasStart = true
+						break
+					}
+					for _, funcStr := range variable.Functions {
+						if funcStr == "_start_" {
+							patternHasStart = true
+							break
+						}
+					}
+					if patternHasStart {
+						break
+					}
+				}
+				if patternHasStart {
+					meta.startPatterns[patternIdx] = true
+				}
+			} else if hasAnyStartIndicator {
+				firstStartPatternIdx := -1
+				for idx, pattern := range group.Patterns {
+					for _, variable := range pattern.Variables {
+						if variable.Name == "_start_" {
+							firstStartPatternIdx = idx
+							break
+						}
+						for _, funcStr := range variable.Functions {
+							if funcStr == "_start_" {
+								firstStartPatternIdx = idx
+								break
+							}
+						}
+						if firstStartPatternIdx >= 0 {
+							break
+						}
+					}
+					if firstStartPatternIdx >= 0 {
+						break
+					}
+				}
+
+				patternHasStart := false
+				for _, variable := range compiledPattern.Variables {
+					if variable.Name == "_start_" {
+						patternHasStart = true
+						break
+					}
+					for _, funcStr := range variable.Functions {
+						if funcStr == "_start_" {
+							patternHasStart = true
+							break
+						}
+					}
+					if patternHasStart {
+						break
+					}
+				}
+				if patternHasStart {
+					meta.startPatterns[patternIdx] = true
+				} else if firstStartPatternIdx >= 0 && patternIdx < firstStartPatternIdx {
+					hasNonSpecialVars := false
+					for varName := range compiledPattern.Variables {
+						if varName != "_start_" && varName != "_end_" && varName != "_line_" && varName != "ignore" {
+							hasNonSpecialVars = true
+							break
+						}
+					}
+					if hasNonSpecialVars {
+						meta.startPatterns[patternIdx] = true
+					}
+				}
+			}
+
+			for _, variable := range compiledPattern.Variables {
+				if variable.Name == "_start_" || variable.Name == "_line_" {
+					if variable.Name == "_line_" && patternHasJoinMatches {
+						if !hasAnyStartIndicator {
+							meta.startPatterns[patternIdx] = false
+							meta.startPatterns[patternIdx] = true
+						}
+					} else {
+						meta.startPatterns[patternIdx] = true
+					}
+					if len(compiledPattern.Variables) == 1 && variable.Name == "_line_" {
+						meta.hasLineIndicator = true
+					}
+					if len(compiledPattern.Variables) == 1 && variable.Name == "_start_" {
+						if compiledPattern.Regex != nil {
+							regexStr := compiledPattern.Regex.String()
+							if regexStr == "^.*$" || regexStr == "(?m)^.*$" || regexStr == "^$" || regexStr == "(?m)^$" || regexStr == `^[\t ]*$` || regexStr == `(?m)^[\t ]*$` {
+								meta.hasEmptyStartPattern = true
+							}
+						}
+					}
+					break
+				}
+				for _, funcStr := range variable.Functions {
+					if funcStr == "_start_" || funcStr == "_line_" {
+						if funcStr == "_line_" && patternHasJoinMatches {
+							if !hasAnyStartIndicator {
+								meta.startPatterns[patternIdx] = false
+							}
+						} else {
+							meta.startPatterns[patternIdx] = true
+						}
+						break
+					}
+				}
+			}
+		}
+
+		if len(meta.startPatterns) == 0 {
+			meta.startPatterns[0] = true
+		}
+	}
+
+	// endPatterns + start-default when only _end_ patterns exist.
+	hasAnyEndIndicator := false
+	for patternIdx, compiledPattern := range group.Patterns {
+		for varName := range compiledPattern.Variables {
+			if varName == "_end_" {
+				meta.endPatterns[patternIdx] = true
+				hasAnyEndIndicator = true
+			}
+			for _, funcStr := range compiledPattern.Variables[varName].Functions {
+				if funcStr == "_end_" {
+					meta.endPatterns[patternIdx] = true
+					hasAnyEndIndicator = true
+				}
+			}
+		}
+	}
+	if hasAnyEndIndicator && !meta.hasAnyStartIndicator {
+		if len(meta.startPatterns) == 0 || !meta.startPatterns[0] {
+			meta.startPatterns[0] = true
+		}
+	}
+	for patternIdx, compiledPattern := range group.Patterns {
+		for _, variable := range compiledPattern.Variables {
+			if variable.Name == "_end_" {
+				meta.endPatterns[patternIdx] = true
+				break
+			}
+			for _, funcStr := range variable.Functions {
+				if funcStr == "_end_" {
+					meta.endPatterns[patternIdx] = true
+					break
+				}
+			}
+		}
+	}
+
+	return meta
+}
+
+// filterRedundantIndicatorsInLine mirrors the per-position redundant
+// pure-indicator filter prepareGroupMerge applies for non-table groups.
+// Within a single line all matches share the same spanStart, so the filter
+// reduces to the same logic over the line's match slice.
+func filterRedundantIndicatorsInLine(lineMatches []patternMatch, group *compiler.CompiledGroup) []patternMatch {
+	if group.Method == "table" {
+		// Table mode: keep only the first pattern that matched the line.
+		if len(lineMatches) > 0 {
+			return lineMatches[:1]
+		}
+		return lineMatches
+	}
+
+	hasNormalMatch := false
+	for _, m := range lineMatches {
+		isPureIndicator := true
+		for v := range m.result {
+			if v != "_start_" && v != "_end_" && v != "_line_" {
+				isPureIndicator = false
+				break
+			}
+		}
+		if !isPureIndicator {
+			hasNormalMatch = true
+			break
+		}
+	}
+
+	if !hasNormalMatch {
+		return lineMatches
+	}
+
+	out := lineMatches[:0]
+	for _, m := range lineMatches {
+		isPureIndicator := true
+		for v := range m.result {
+			if v != "_start_" && v != "_end_" && v != "_line_" {
+				isPureIndicator = false
+				break
+			}
+		}
+		isStartPatternMatch := false
+		isLinePatternMatch := false
+		if m.patternIdx < len(group.Patterns) {
+			pattern := group.Patterns[m.patternIdx]
+			for varName := range pattern.Variables {
+				if varName == "_start_" {
+					isStartPatternMatch = true
+					break
+				}
+				if varName == "_line_" {
+					if len(pattern.Variables) == 1 {
+						isLinePatternMatch = true
+						break
+					}
+				}
+			}
+		}
+
+		if isPureIndicator {
+			// hasNormalMatch is true here; keep _start_ and standalone _line_.
+			if isStartPatternMatch || isLinePatternMatch {
+				out = append(out, m)
+				continue
+			}
+			// Skip _end_ and _line_-with-joinmatches when redundant.
+			continue
+		}
+		out = append(out, m)
+	}
+	return out
 }
 
 // parseGroupWithSourceMap parses input data against a compiled group and collects source map data
