@@ -1231,11 +1231,16 @@ type patternMatch struct {
 // mergeState carries the cross-match state that the parseGroup merge phase
 // tracks while walking sorted matches. Streaming and non-streaming variants
 // share the same state machine via stepMerge, so this struct holds every
-// field that survives across iterations of the merge loop, including the
-// running mergedMatches accumulator (the state machine reads len(mergedMatches)
-// to make decisions, so it must live on the state).
+// field that survives across iterations of the merge loop.
+//
+// The original mergeState owned a running mergedMatches accumulator and the
+// state machine read len(mergedMatches) mid-iteration to drive decisions.
+// To support streaming (where there is no accumulator at all), every append
+// now flows through the flush callback and len(mergedMatches) reads have
+// been replaced by recordCount. Batch mode sets flush to a closure that
+// appends to a local slice; streaming mode sets flush to a closure that
+// invokes the user callback.
 type mergeState struct {
-	mergedMatches              []map[string]interface{}
 	currentMatch               map[string]interface{}
 	currentStartPos            int
 	currentStartLineIdx        int
@@ -1244,10 +1249,24 @@ type mergeState struct {
 	patternMatchCount          map[int]int
 	parentMatchToAllMatches    map[int][]int
 	currentParentMatchStartIdx int
+
+	// recordCount mirrors the count of records flushed so far. Always
+	// incremented at every flush point. Replaces every place stepMerge
+	// previously read len(mergedMatches) to drive a decision.
+	recordCount int
+
+	// flush is invoked at every place the original code did
+	//   mergedMatches = append(mergedMatches, currentMatch)
+	// Batch mode sets it to a closure that appends to a local slice.
+	// Streaming mode sets it to a closure that invokes the user callback
+	// (with srcRange computed at call time). Caller MUST set flush before
+	// invoking stepMerge.
+	flush func(record map[string]interface{}, srcRange [2]int) error
 }
 
 // newMergeState constructs a fresh mergeState with the same initial values
-// the inline merge loop used to set on its local variables.
+// the inline merge loop used to set on its local variables. The caller MUST
+// set state.flush before invoking stepMerge.
 func newMergeState() *mergeState {
 	return &mergeState{
 		currentStartPos:            -1,
@@ -1256,20 +1275,29 @@ func newMergeState() *mergeState {
 		patternMatchCount:          make(map[int]int),
 		parentMatchToAllMatches:    make(map[int][]int),
 		currentParentMatchStartIdx: -1,
+		recordCount:                0,
 	}
 }
 
 // stepMerge advances the merge state machine by one match. It is a verbatim
 // extraction of the per-iteration body of the original parseGroup merge loop:
 // same conditions, same branch order, same edge cases, same side effects on
-// r.pathResolver / r.matchCollector. The function mutates state.mergedMatches
-// directly because the original loop reads len(mergedMatches) mid-iteration to
-// drive decisions, so the append cannot be deferred to the caller.
+// r.pathResolver / r.matchCollector.
+//
+// Append-points: every place the original code did
+// `mergedMatches = append(mergedMatches, ...)` now invokes state.flush with
+// the record and srcRange = [currentStartPos, allMatches[matchIdx].spanStart]
+// (i.e. the new match's start position is the end of the just-flushed record).
+// Length reads: every place the original code read len(mergedMatches) for a
+// decision now reads state.recordCount, which is incremented immediately
+// after each successful flush. parentIdx assignments use state.recordCount
+// captured BEFORE the flush, matching the pre-increment len() semantics.
 //
 // Read this function as the original loop body with `currentMatch` etc.
-// rewritten to `state.currentMatch`, `mergedMatches` to `state.mergedMatches`,
-// and pre-computed booleans like `hasLineIndicator` passed as arguments. Each
-// `return` corresponds to a `continue` in the original loop.
+// rewritten to `state.currentMatch`, append-to-mergedMatches rewritten to
+// state.flush, and pre-computed booleans like `hasLineIndicator` passed as
+// arguments. Each `return nil` corresponds to a `continue` in the original
+// loop.
 func (r *Runtime) stepMerge(
 	state *mergeState,
 	allMatches []patternMatch,
@@ -1282,7 +1310,7 @@ func (r *Runtime) stepMerge(
 	hasLineIndicator bool,
 	hasAnyStartIndicator bool,
 	hasEmptyStartPattern bool,
-) {
+) error {
 	match := allMatches[matchIdx]
 	const maxGapLines = 100
 
@@ -1467,7 +1495,7 @@ func (r *Runtime) stepMerge(
 				} else if match.lineIdx-state.currentStartLineIdx >= 0 && match.lineIdx-state.currentStartLineIdx < maxGapLines {
 					shouldStartNewMatch = false
 				} else {
-					if len(state.mergedMatches) > 0 {
+					if state.recordCount > 0 {
 						shouldStartNewMatch = true
 					} else {
 						shouldStartNewMatch = true
@@ -1530,7 +1558,7 @@ func (r *Runtime) stepMerge(
 						}
 					}
 				}
-				return // continue - skip rest of step
+				return nil // continue - skip rest of step
 			} else {
 				if patternHasJoinMatches {
 					state.patternMatchCount[match.patternIdx]++
@@ -1564,7 +1592,11 @@ func (r *Runtime) stepMerge(
 				}
 
 				if hasNonSpecialVars {
-					state.mergedMatches = append(state.mergedMatches, state.currentMatch)
+					srcRange := [2]int{state.currentStartPos, match.spanStart}
+					if err := state.flush(state.currentMatch, srcRange); err != nil {
+						return err
+					}
+					state.recordCount++
 					r.pathResolver.UpdateCache(state.currentMatch)
 					r.matchCollector.Clear()
 				}
@@ -1600,7 +1632,7 @@ func (r *Runtime) stepMerge(
 			state.currentStartLineIdx = match.lineIdx
 			state.patternMatchCount = make(map[int]int)
 			state.patternMatchCount[match.patternIdx] = 1
-			return // continue
+			return nil // continue
 		}
 
 		if shouldStartNewMatch && !shouldMerge {
@@ -1677,8 +1709,12 @@ func (r *Runtime) stepMerge(
 						for k, v := range state.currentMatch {
 							matchCopy[k] = v
 						}
-						parentIdx := len(state.mergedMatches)
-						state.mergedMatches = append(state.mergedMatches, matchCopy)
+						parentIdx := state.recordCount
+						srcRange := [2]int{state.currentStartPos, match.spanStart}
+						if err := state.flush(matchCopy, srcRange); err != nil {
+							return err
+						}
+						state.recordCount++
 						if state.currentParentMatchStartIdx >= 0 {
 							for i := state.currentParentMatchStartIdx; i <= matchIdx; i++ {
 								state.parentMatchToAllMatches[parentIdx] = append(state.parentMatchToAllMatches[parentIdx], i)
@@ -1718,7 +1754,11 @@ func (r *Runtime) stepMerge(
 
 			if isEndPattern {
 				state.currentMatchHasEnd = true
-				state.mergedMatches = append(state.mergedMatches, state.currentMatch)
+				srcRange := [2]int{state.currentStartPos, match.spanEnd}
+				if err := state.flush(state.currentMatch, srcRange); err != nil {
+					return err
+				}
+				state.recordCount++
 				r.pathResolver.UpdateCache(state.currentMatch)
 				r.matchCollector.Clear()
 				state.currentMatch = nil
@@ -1726,7 +1766,7 @@ func (r *Runtime) stepMerge(
 				state.currentStartLineIdx = -1
 				state.currentMatchHasEnd = false
 				state.patternMatchCount = make(map[int]int)
-				return // continue
+				return nil // continue
 			}
 		}
 	} else {
@@ -1777,7 +1817,7 @@ func (r *Runtime) stepMerge(
 					} else {
 						shouldFinalizeAndStartNew = false
 						shouldMerge = false
-						return // continue
+						return nil // continue
 					}
 				} else {
 					if isFirstPattern {
@@ -1786,7 +1826,7 @@ func (r *Runtime) stepMerge(
 					} else {
 						shouldFinalizeAndStartNew = false
 						shouldMerge = false
-						return // continue
+						return nil // continue
 					}
 				}
 			} else if currentMatchStartedByStart || hasEndPatterns {
@@ -1832,8 +1872,12 @@ func (r *Runtime) stepMerge(
 				for k, v := range state.currentMatch {
 					matchCopy[k] = v
 				}
-				parentIdx := len(state.mergedMatches)
-				state.mergedMatches = append(state.mergedMatches, matchCopy)
+				parentIdx := state.recordCount
+				srcRange := [2]int{state.currentStartPos, match.spanStart}
+				if err := state.flush(matchCopy, srcRange); err != nil {
+					return err
+				}
+				state.recordCount++
 				if state.currentParentMatchStartIdx >= 0 {
 					for i := state.currentParentMatchStartIdx; i < matchIdx; i++ {
 						state.parentMatchToAllMatches[parentIdx] = append(state.parentMatchToAllMatches[parentIdx], i)
@@ -1950,12 +1994,12 @@ func (r *Runtime) stepMerge(
 				shouldStart = false
 			} else if len(startPatterns) == 0 {
 				shouldStart = true
-			} else if len(state.mergedMatches) == 0 {
+			} else if state.recordCount == 0 {
 				shouldStart = isStartPattern
 				if !shouldStart && len(startPatterns) > 0 {
 					// Debug: non-start pattern trying to match when no matches yet
 				}
-			} else if hasEndPatterns && len(state.mergedMatches) > 0 {
+			} else if hasEndPatterns && state.recordCount > 0 {
 				if len(startPatterns) > 0 {
 					shouldStart = isStartPattern
 				} else {
@@ -1991,11 +2035,11 @@ func (r *Runtime) stepMerge(
 			} else {
 				isFirstPattern := match.patternIdx == 0
 				if len(startPatterns) > 0 && !isStartPattern && !isFirstPattern {
-					if !(hasEndPatterns && len(state.mergedMatches) > 0) {
+					if !(hasEndPatterns && state.recordCount > 0) {
 						if group.Name == "ipv4_afi" {
 							// Debug placeholder preserved from original
 						}
-						return // continue
+						return nil // continue
 					}
 				}
 			}
@@ -2082,6 +2126,561 @@ func (r *Runtime) stepMerge(
 		if isEndPattern {
 			state.currentMatchHasEnd = true
 		}
+	}
+	return nil
+}
+
+// groupMergePrep bundles all the precomputed state that the merge phase
+// (stepMerge loop) needs. It is the output of prepareGroupMerge — Phase 1+2
+// of the parse pipeline (pattern dispatch, sort, filter, indicator detection
+// and joinmatches metadata) — and is shared between parseGroup (batch) and
+// parseGroupStream (streaming).
+type groupMergePrep struct {
+	allMatches           []patternMatch
+	lineOffsets          []int
+	joinMatchesVars      map[string]bool
+	joinMatchesChars     map[string]string
+	joinMatchesHasToList map[string]bool
+	startPatterns        map[int]bool
+	endPatterns          map[int]bool
+	hasLineIndicator     bool
+	hasAnyStartIndicator bool
+	hasEmptyStartPattern bool
+}
+
+// prepareGroupMerge runs Phase 1+2 of parseGroup: it dispatches every group
+// pattern against the input, collects all hits with positions, sorts and
+// filters them, and computes the indicator/joinmatches metadata that
+// stepMerge needs to drive its decisions. The returned struct is consumed
+// by both batch (parseGroup) and streaming (parseGroupStream) paths.
+//
+// This is a pure extraction — the body is the verbatim Phase 1+2 from the
+// original inline parseGroup, with locals routed onto the result struct.
+func (r *Runtime) prepareGroupMerge(group *compiler.CompiledGroup, inputData string, vars map[string]interface{}) groupMergePrep {
+	var allMatches []patternMatch
+
+	// Process each pattern and collect matches with positions
+	// For patterns with ^ and $ anchors, we need to match line by line
+	// For patterns without anchors, we can match against the entire input
+	lines := strings.Split(inputData, "\n")
+	lineOffsets := make([]int, len(lines)+1) // Track byte offsets for each line
+	offset := 0
+	for i, line := range lines {
+		lineOffsets[i] = offset
+		offset += len(line) + 1 // +1 for newline
+	}
+	lineOffsets[len(lines)] = offset
+
+	for patternIdx, compiledPattern := range group.Patterns {
+
+		if compiledPattern.HasAnchors {
+			// Match line by line
+			for lineIdx, line := range lines {
+				// Trim \r and trailing spaces, but preserve leading spaces for regex matching
+				// The regex was generated from the template which may have leading spaces
+				line = strings.TrimRight(line, "\r \t")
+				trimmedLine := strings.TrimSpace(line)
+
+				// Check if this pattern has _start_ or _end_ indicator - if so, allow matching empty lines
+				hasStartIndicator := false
+				hasEndIndicator := false
+				for varName := range compiledPattern.Variables {
+					if varName == "_start_" {
+						hasStartIndicator = true
+					}
+					if varName == "_end_" {
+						hasEndIndicator = true
+					}
+					// Also check functions
+					for _, funcStr := range compiledPattern.Variables[varName].Functions {
+						if funcStr == "_start_" {
+							hasStartIndicator = true
+						}
+						if funcStr == "_end_" {
+							hasEndIndicator = true
+						}
+					}
+					if hasStartIndicator && hasEndIndicator {
+						break
+					}
+				}
+
+				// Skip empty lines unless this pattern has _start_ or _end_ indicator
+				if trimmedLine == "" && !hasStartIndicator && !hasEndIndicator {
+					continue
+				}
+
+				// Use the line (with leading spaces but trailing spaces trimmed) for matching
+				// For _start_ or _end_ patterns on empty lines, use empty string
+				matchLine := line
+				if trimmedLine == "" && (hasStartIndicator || hasEndIndicator) {
+					matchLine = ""
+				}
+
+				match := compiledPattern.Regex.FindStringSubmatch(matchLine)
+
+				if match != nil {
+					result := r.extractMatchResult(match, compiledPattern, vars)
+					if result != nil && (len(result) > 0 || compiledPattern.HasOnlySpecialIndicators || compiledPattern.IgnoreUsesTemplateVar || compiledPattern.HasJoinMatches) {
+						spanStart := lineOffsets[lineIdx]
+						spanEnd := lineOffsets[lineIdx] + len(line)
+						allMatches = append(allMatches, patternMatch{
+							patternIdx: patternIdx,
+							spanStart:  spanStart,
+							spanEnd:    spanEnd,
+							lineIdx:    lineIdx,
+							result:     result,
+						})
+					}
+				}
+			}
+		} else {
+			// Match against entire input
+			// Find all matches in the input
+			allIndices := compiledPattern.Regex.FindAllStringSubmatchIndex(inputData, -1)
+
+			for _, indices := range allIndices {
+				if len(indices) < 2 {
+					continue
+				}
+
+				// Extract the full match groups
+				matchGroups := make([]string, len(indices)/2)
+				for i := 0; i < len(indices); i += 2 {
+					if indices[i] >= 0 && indices[i+1] >= 0 {
+						matchGroups[i/2] = inputData[indices[i]:indices[i+1]]
+					}
+				}
+
+				// Extract result
+				result := r.extractMatchResult(matchGroups, compiledPattern, vars)
+				if result != nil && (len(result) > 0 || compiledPattern.IgnoreUsesTemplateVar) {
+					allMatches = append(allMatches, patternMatch{
+						patternIdx: patternIdx,
+						spanStart:  indices[0],
+						spanEnd:    indices[1],
+						lineIdx:    sort.SearchInts(lineOffsets, indices[0]+1) - 1,
+						result:     result,
+					})
+				}
+			}
+		}
+	}
+
+	// Sort matches by position (spanStart)
+	// Use Go's sort.Slice for better performance (O(n log n) vs O(n²))
+	sort.Slice(allMatches, func(i, j int) bool {
+		if allMatches[i].spanStart == allMatches[j].spanStart {
+			// If same position, sort by pattern index (first pattern wins)
+			// This ensures that when _line_ matches on the same line as other patterns,
+			// _line_ comes first so it can start the match before others merge into it
+			return allMatches[i].patternIdx < allMatches[j].patternIdx
+		}
+		return allMatches[i].spanStart < allMatches[j].spanStart
+	})
+
+	// For method="table", only keep the first pattern that matches each line
+	// This ensures that if multiple patterns match the same line, only the first one is used
+	if group.Method == "table" {
+		filteredMatches := make([]patternMatch, 0, len(allMatches))
+		seenPositions := make(map[int]bool) // Track which positions (spanStart) we've already matched
+		for _, match := range allMatches {
+			if !seenPositions[match.spanStart] {
+				seenPositions[match.spanStart] = true
+				filteredMatches = append(filteredMatches, match)
+			}
+		}
+		allMatches = filteredMatches
+	} else {
+		// For non-table method, filter redundant pure indicator matches
+		// If a line is matched by a normal pattern, ignore pure indicator matches (_start_, _end_) on the same line
+		// This prevents _start_/_end_ from matching every line and triggering unwanted logic
+		filteredMatches := make([]patternMatch, 0, len(allMatches))
+		i := 0
+		for i < len(allMatches) {
+			currentStart := allMatches[i].spanStart
+			// Find all matches at this position
+			j := i
+			hasNormalMatch := false
+			for j < len(allMatches) && allMatches[j].spanStart == currentStart {
+				// Check if this is a "normal" match (not just pure _start_/_end_)
+				isPureIndicator := true
+				for v := range allMatches[j].result {
+					if v != "_start_" && v != "_end_" && v != "_line_" {
+						isPureIndicator = false
+						break
+					}
+				}
+				if !isPureIndicator {
+					hasNormalMatch = true
+				}
+				j++
+			}
+
+			// Process matches at this position
+			for k := i; k < j; k++ {
+				isPureIndicator := true
+				for v := range allMatches[k].result {
+					if v != "_start_" && v != "_end_" && v != "_line_" {
+						isPureIndicator = false
+						break
+					}
+				}
+				// Check if this is a _start_ or _line_ pattern by checking the pattern index
+				// These patterns are needed to start matches even if redundant
+				isStartPatternMatch := false
+				isLinePatternMatch := false
+				if allMatches[k].patternIdx < len(group.Patterns) {
+					pattern := group.Patterns[allMatches[k].patternIdx]
+					for varName := range pattern.Variables {
+						if varName == "_start_" {
+							isStartPatternMatch = true
+							break
+						}
+						if varName == "_line_" {
+							// Check if _line_ is on its own line (not used with joinmatches)
+							// If pattern has only _line_ variable, it's on its own line and should start matches
+							if len(pattern.Variables) == 1 {
+								isLinePatternMatch = true
+								break
+							}
+						}
+					}
+				}
+
+				if hasNormalMatch && isPureIndicator {
+					// Skip pure indicator match if we have a normal match
+					// EXCEPT _start_ and _line_ (on its own line), which we need to start matches even if redundant
+					// Filter out _end_ and _line_ (with joinmatches) when redundant, but keep _start_ and standalone _line_
+					if isStartPatternMatch || isLinePatternMatch {
+						// Keep _start_ or standalone _line_ even if redundant - they're needed to start matches
+						filteredMatches = append(filteredMatches, allMatches[k])
+						continue
+					}
+					// Skip _end_ and _line_ (with joinmatches) when redundant
+					continue
+				}
+				filteredMatches = append(filteredMatches, allMatches[k])
+			}
+			i = j
+		}
+		allMatches = filteredMatches
+	}
+
+	// Check if any pattern has joinmatches variables and extract join characters
+	joinMatchesVars := make(map[string]bool)      // Track which variables have joinmatches
+	joinMatchesChars := make(map[string]string)   // Track join characters for each variable
+	joinMatchesHasToList := make(map[string]bool) // Track if to_list was used before joinmatches
+	for _, pattern := range group.Patterns {
+		for varName, variable := range pattern.Variables {
+			hasToList := false
+			joinChar := "\n" // default join character
+			for _, funcStr := range variable.Functions {
+				if funcStr == "to_list" {
+					hasToList = true
+				}
+				if strings.HasPrefix(funcStr, "joinmatches") {
+					joinMatchesVars[varName] = true
+					joinMatchesHasToList[varName] = hasToList
+					// Extract join character from joinmatches function call
+					// Format: "joinmatches" or "joinmatches(',')" or "joinmatches('char')"
+					if strings.Contains(funcStr, "(") {
+						// Extract argument between parentheses
+						start := strings.Index(funcStr, "(")
+						end := strings.Index(funcStr, ")")
+						if start >= 0 && end > start {
+							arg := funcStr[start+1 : end]
+							// Remove quotes if present
+							arg = strings.Trim(arg, "'\"")
+							if arg != "" {
+								joinChar = arg
+							}
+						}
+					}
+					joinMatchesChars[varName] = joinChar
+					break // Only need first joinmatches
+				}
+			}
+		}
+	}
+
+	// Detect which patterns have _start_ indicator
+	// Start pattern detection rules:
+	// - When _start_ AND _end_ are present: Only patterns with _start_ are start patterns
+	// - When _start_ is present but NO _end_:
+	//   * Patterns with _start_ are always start patterns
+	//   * Patterns BEFORE the first _start_ pattern can also be start patterns (if they have non-special variables)
+	//   * Patterns AFTER the first _start_ pattern are NOT start patterns (they only merge)
+	startPatterns := make(map[int]bool) // pattern index -> is start pattern
+	hasEmptyStartPattern := false       // true if we have a _start_ pattern that only matches empty lines
+	hasLineIndicator := false           // true if we have a _line_ indicator (matches any line)
+	hasAnyStartIndicator := false       // true if ANY pattern has _start_ indicator
+
+	// If method is "table", all patterns are start patterns
+	if group.Method == "table" {
+		for patternIdx := range group.Patterns {
+			startPatterns[patternIdx] = true
+		}
+	} else {
+		// Otherwise, check for _start_ or _line_ indicator
+		// First pass: detect if any pattern has _start_ indicator
+		// Python TTP behavior: if ANY pattern has _start_, ALL patterns can serve as start patterns
+		hasAnyStartIndicator = false
+		for _, compiledPattern := range group.Patterns {
+			for _, variable := range compiledPattern.Variables {
+				if variable.Name == "_start_" {
+					hasAnyStartIndicator = true
+					break
+				}
+				// Also check if _start_ is in functions (e.g., {{ name | _start_ }})
+				for _, funcStr := range variable.Functions {
+					if funcStr == "_start_" {
+						hasAnyStartIndicator = true
+						break
+					}
+				}
+				if hasAnyStartIndicator {
+					break
+				}
+			}
+			if hasAnyStartIndicator {
+				break
+			}
+		}
+
+		// Second pass: mark start patterns
+		// First, check if we have _end_ patterns (needed for special handling)
+		hasAnyEndIndicator := false
+		for _, compiledPattern := range group.Patterns {
+			for _, variable := range compiledPattern.Variables {
+				if variable.Name == "_end_" {
+					hasAnyEndIndicator = true
+					break
+				}
+				for _, funcStr := range variable.Functions {
+					if funcStr == "_end_" {
+						hasAnyEndIndicator = true
+						break
+					}
+				}
+				if hasAnyEndIndicator {
+					break
+				}
+			}
+			if hasAnyEndIndicator {
+				break
+			}
+		}
+
+		for patternIdx, compiledPattern := range group.Patterns {
+			// Check if this pattern has joinmatches - if so, _line_ in functions shouldn't make it a start pattern
+			patternHasJoinMatches := false
+			for _, variable := range compiledPattern.Variables {
+				for _, funcStr := range variable.Functions {
+					if strings.HasPrefix(funcStr, "joinmatches") {
+						patternHasJoinMatches = true
+						break
+					}
+				}
+				if patternHasJoinMatches {
+					break
+				}
+			}
+
+			// SPECIAL: If we have BOTH _start_ and _end_ patterns, only patterns with _start_ should be start patterns.
+			if hasAnyStartIndicator && hasAnyEndIndicator {
+				// Check if this specific pattern has _start_
+				patternHasStart := false
+				for _, variable := range compiledPattern.Variables {
+					if variable.Name == "_start_" {
+						patternHasStart = true
+						break
+					}
+					for _, funcStr := range variable.Functions {
+						if funcStr == "_start_" {
+							patternHasStart = true
+							break
+						}
+					}
+					if patternHasStart {
+						break
+					}
+				}
+				// Only mark as start pattern if it has _start_
+				if patternHasStart {
+					startPatterns[patternIdx] = true
+				}
+			} else if hasAnyStartIndicator {
+				// If any pattern has _start_ but NO _end_, patterns with _start_ are start patterns.
+				// Find the first pattern with _start_
+				firstStartPatternIdx := -1
+				for idx, pattern := range group.Patterns {
+					for _, variable := range pattern.Variables {
+						if variable.Name == "_start_" {
+							firstStartPatternIdx = idx
+							break
+						}
+						for _, funcStr := range variable.Functions {
+							if funcStr == "_start_" {
+								firstStartPatternIdx = idx
+								break
+							}
+						}
+						if firstStartPatternIdx >= 0 {
+							break
+						}
+					}
+					if firstStartPatternIdx >= 0 {
+						break
+					}
+				}
+
+				// Check if this specific pattern has _start_
+				patternHasStart := false
+				for _, variable := range compiledPattern.Variables {
+					if variable.Name == "_start_" {
+						patternHasStart = true
+						break
+					}
+					for _, funcStr := range variable.Functions {
+						if funcStr == "_start_" {
+							patternHasStart = true
+							break
+						}
+					}
+					if patternHasStart {
+						break
+					}
+				}
+				if patternHasStart {
+					// Pattern has _start_ - mark as start pattern
+					startPatterns[patternIdx] = true
+				} else if firstStartPatternIdx >= 0 && patternIdx < firstStartPatternIdx {
+					// Pattern comes BEFORE the first _start_ pattern - allow it to be a start pattern
+					hasNonSpecialVars := false
+					for varName := range compiledPattern.Variables {
+						if varName != "_start_" && varName != "_end_" && varName != "_line_" && varName != "ignore" {
+							hasNonSpecialVars = true
+							break
+						}
+					}
+					if hasNonSpecialVars {
+						startPatterns[patternIdx] = true
+					}
+				}
+				// Patterns AFTER the first _start_ pattern are NOT start patterns - they only merge
+			}
+
+			// Check if any variable in this pattern has _start_ or _line_ indicator
+			for _, variable := range compiledPattern.Variables {
+				if variable.Name == "_start_" || variable.Name == "_line_" {
+					// If _line_ is the variable name and pattern has joinmatches, don't treat as start pattern
+					if variable.Name == "_line_" && patternHasJoinMatches {
+						// Don't mark as start pattern - it should merge
+						if !hasAnyStartIndicator {
+							// Only unmark if we're not in "all patterns are start patterns" mode
+							startPatterns[patternIdx] = false
+							startPatterns[patternIdx] = true
+						}
+					} else {
+						startPatterns[patternIdx] = true
+					}
+					// Check if this pattern only has _line_ (on its own line)
+					if len(compiledPattern.Variables) == 1 && variable.Name == "_line_" {
+						hasLineIndicator = true
+					}
+					// Check if this pattern only has _start_ (on its own line)
+					if len(compiledPattern.Variables) == 1 && variable.Name == "_start_" {
+						// Check if pattern regex matches empty/whitespace-only lines
+						if compiledPattern.Regex != nil {
+							regexStr := compiledPattern.Regex.String()
+							if regexStr == "^.*$" || regexStr == "(?m)^.*$" || regexStr == "^$" || regexStr == "(?m)^$" || regexStr == `^[\t ]*$` || regexStr == `(?m)^[\t ]*$` {
+								hasEmptyStartPattern = true
+							}
+						}
+					}
+					break
+				}
+				// Also check if _start_ or _line_ is in functions (e.g., {{ name | _start_ }})
+				for _, funcStr := range variable.Functions {
+					if funcStr == "_start_" || funcStr == "_line_" {
+						// If _line_ is in functions and pattern has joinmatches, don't treat as start pattern
+						if funcStr == "_line_" && patternHasJoinMatches {
+							if !hasAnyStartIndicator {
+								startPatterns[patternIdx] = false
+							}
+						} else {
+							startPatterns[patternIdx] = true
+						}
+						break
+					}
+				}
+			}
+		}
+
+		// If no patterns have _start_, default to pattern 0 being the start
+		if len(startPatterns) == 0 {
+			startPatterns[0] = true
+		}
+	}
+
+	// Detect which patterns have _end_ indicator
+	endPatterns := make(map[int]bool) // pattern index -> is end pattern
+
+	// If we have _end_ patterns but no _start_ patterns,
+	// make the first pattern a start pattern to initiate match collection
+	hasAnyEndIndicator := false
+	for patternIdx, compiledPattern := range group.Patterns {
+		for varName := range compiledPattern.Variables {
+			if varName == "_end_" {
+				endPatterns[patternIdx] = true
+				hasAnyEndIndicator = true
+			}
+			// Check if _end_ is in functions
+			for _, funcStr := range compiledPattern.Variables[varName].Functions {
+				if funcStr == "_end_" {
+					endPatterns[patternIdx] = true
+					hasAnyEndIndicator = true
+				}
+			}
+		}
+	}
+
+	// If we have _end_ but no _start_, mark first pattern as start
+	if hasAnyEndIndicator && !hasAnyStartIndicator {
+		if len(startPatterns) == 0 || !startPatterns[0] {
+			startPatterns[0] = true
+		}
+	}
+
+	for patternIdx, compiledPattern := range group.Patterns {
+		// Check if any variable in this pattern has _end_ indicator
+		for _, variable := range compiledPattern.Variables {
+			if variable.Name == "_end_" {
+				endPatterns[patternIdx] = true
+				break
+			}
+			// Also check if _end_ is in functions
+			for _, funcStr := range variable.Functions {
+				if funcStr == "_end_" {
+					endPatterns[patternIdx] = true
+					break
+				}
+			}
+		}
+	}
+
+	return groupMergePrep{
+		allMatches:           allMatches,
+		lineOffsets:          lineOffsets,
+		joinMatchesVars:      joinMatchesVars,
+		joinMatchesChars:     joinMatchesChars,
+		joinMatchesHasToList: joinMatchesHasToList,
+		startPatterns:        startPatterns,
+		endPatterns:          endPatterns,
+		hasLineIndicator:     hasLineIndicator,
+		hasAnyStartIndicator: hasAnyStartIndicator,
+		hasEmptyStartPattern: hasEmptyStartPattern,
 	}
 }
 
@@ -2362,7 +2961,14 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	//
 	// All cross-iteration merge state lives on mergeState so the merge state
 	// machine can be shared with the streaming variant (parseGroupStream).
+	// Batch mode collects flushed records into a local slice via the flush
+	// callback; srcRange is ignored here (it's only meaningful for streaming).
 	state := newMergeState()
+	var mergedMatches []map[string]interface{}
+	state.flush = func(record map[string]interface{}, _ [2]int) error {
+		mergedMatches = append(mergedMatches, record)
+		return nil
+	}
 
 	// Detect which patterns have _start_ indicator
 	// Start pattern detection rules:
@@ -2649,16 +3255,18 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	}
 
 	for matchIdx := range allMatches {
-		r.stepMerge(state, allMatches, matchIdx, group,
+		if err := r.stepMerge(state, allMatches, matchIdx, group,
 			joinMatchesVars, joinMatchesHasToList,
 			startPatterns, endPatterns,
-			hasLineIndicator, hasAnyStartIndicator, hasEmptyStartPattern)
+			hasLineIndicator, hasAnyStartIndicator, hasEmptyStartPattern); err != nil {
+			return nil, err
+		}
 	}
 
 	// Re-bind locals from state for the post-loop logic that was originally
-	// written against function-local merge variables. These names are kept so
-	// the post-loop code reads the way it did before the extraction.
-	mergedMatches := state.mergedMatches
+	// written against function-local merge variables. mergedMatches is the
+	// closure-captured local populated via state.flush above; the rest are
+	// rebound from state for readability.
 	currentMatch := state.currentMatch
 	parentMatchToAllMatches := state.parentMatchToAllMatches
 	currentParentMatchStartIdx := state.currentParentMatchStartIdx
@@ -3873,6 +4481,151 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		}
 		return mergedMatches, nil
 	}
+}
+
+// applyGroupFilterStreaming runs the group's chain/functions attribute against
+// a single record. Returns nil to indicate the record should be dropped (e.g.
+// containsall failed). Implemented by wrapping the per-record value in a
+// single-element slice and calling processGroupFunctions, which is the same
+// path batch mode uses (preserving behavior).
+//
+// For streamable groups the allowlist guarantees these functions are
+// per-record (no aggregation), so a single-record invocation is well-defined.
+func (r *Runtime) applyGroupFilterStreaming(
+	record map[string]interface{},
+	group *compiler.CompiledGroup,
+	vars map[string]interface{},
+) (map[string]interface{}, error) {
+	chainStr := group.Chain
+	if chainStr == "" {
+		chainStr = group.Functions
+	}
+	if chainStr == "" {
+		return record, nil
+	}
+	out, err := r.processGroupFunctions([]map[string]interface{}{record}, chainStr, vars)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out[0], nil
+}
+
+// applyGroupMacroStreaming applies the group's macro chain to a single record.
+// Implemented by wrapping in a single-element slice and calling
+// processGroupMacro, which preserves the macro semantics used by batch mode.
+func (r *Runtime) applyGroupMacroStreaming(
+	record map[string]interface{},
+	group *compiler.CompiledGroup,
+	vars map[string]interface{},
+) (map[string]interface{}, error) {
+	if group.Macro == "" {
+		return record, nil
+	}
+	out, err := r.processGroupMacro([]map[string]interface{}{record}, group.Macro, vars)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out[0], nil
+}
+
+// parseGroupStream is the streaming variant of parseGroup. It drives the same
+// merge state machine (stepMerge) as parseGroup but invokes fn for each
+// completed record instead of accumulating into a slice. Phase 1+2 (pattern
+// dispatch and match collection into allMatches) is shared with parseGroup
+// via prepareGroupMerge — allMatches itself is bounded and not the source of
+// the heap pressure we're solving; the win is bypassing the post-merge
+// mergedMatches accumulation and intermediate slices in
+// processGroupFunctions / processGroupMacro / extractMatchResult.
+//
+// Caller must verify group.Streamable == true. parseGroupStream does not
+// re-check (entry gate is in Runtime.ParseStream).
+//
+// Streamability guarantees from Phase A simplify the body:
+//   - No nested groups → no recursion needed
+//   - No joinmatches → joinMatchesVars / joinMatchesHasToList are empty
+//   - No itemize → no aggregating group functions
+//   - Group chain functions are from the per-record allowlist
+func (r *Runtime) parseGroupStream(
+	group *compiler.CompiledGroup,
+	inputData string,
+	vars map[string]interface{},
+	fn func(record map[string]interface{}, srcRange [2]int, groupPath string) error,
+) error {
+	if len(group.Patterns) == 0 {
+		return nil
+	}
+
+	prep := r.prepareGroupMerge(group, inputData, vars)
+
+	// For streamable groups, joinmatches is forbidden by the streamability
+	// rule, so joinMatchesVars and joinMatchesHasToList are guaranteed
+	// empty. We still pass them through stepMerge for signature parity.
+	state := newMergeState()
+	state.flush = func(record map[string]interface{}, srcRange [2]int) error {
+		// Apply per-record group filter and macro that parseGroup applies
+		// post-merge. For streamable groups the allowlist guarantees these
+		// are per-record (no aggregation).
+		filtered, err := r.applyGroupFilterStreaming(record, group, vars)
+		if err != nil {
+			return err
+		}
+		if filtered == nil {
+			return nil // dropped by filter
+		}
+		filtered, err = r.applyGroupMacroStreaming(filtered, group, vars)
+		if err != nil {
+			return err
+		}
+		if filtered == nil {
+			return nil // dropped by macro
+		}
+		return fn(filtered, srcRange, group.NormalizedPath)
+	}
+
+	// Walk allMatches just like parseGroup does.
+	for matchIdx := range prep.allMatches {
+		if err := r.stepMerge(state, prep.allMatches, matchIdx, group,
+			prep.joinMatchesVars, prep.joinMatchesHasToList,
+			prep.startPatterns, prep.endPatterns,
+			prep.hasLineIndicator, prep.hasAnyStartIndicator, prep.hasEmptyStartPattern); err != nil {
+			return err
+		}
+	}
+
+	// Final flush — the last in-flight currentMatch. End position is end of
+	// input. Mirrors the post-loop "Add final match" logic in parseGroup but
+	// without the parentMatchToAllMatches bookkeeping (no nested groups in
+	// streamable templates).
+	if state.currentMatch != nil {
+		hasNonSpecialVars := false
+		for k := range state.currentMatch {
+			if k != "ignore" && k != "_start_" && k != "_end_" && k != "_line_" {
+				hasNonSpecialVars = true
+				break
+			}
+		}
+		if hasNonSpecialVars {
+			matchCopy := make(map[string]interface{})
+			for k, v := range state.currentMatch {
+				matchCopy[k] = v
+			}
+			srcRange := [2]int{state.currentStartPos, len(inputData)}
+			if err := state.flush(matchCopy, srcRange); err != nil {
+				return err
+			}
+			state.recordCount++
+			r.pathResolver.UpdateCache(matchCopy)
+			r.matchCollector.Clear()
+		}
+	}
+
+	return nil
 }
 
 // parseGroupWithSourceMap parses input data against a compiled group and collects source map data
