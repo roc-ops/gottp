@@ -154,3 +154,24 @@ func analyzeStreamability(g *CompiledGroup) {
 	g.NonStreamableReasons = reasons
 	g.Streamable = len(reasons) == 0
 }
+
+// analyzeStreamabilityRecursive runs analyzeStreamability on a group and
+// all its descendants. Called by the compiler after group assembly.
+func analyzeStreamabilityRecursive(g *CompiledGroup) {
+	analyzeStreamability(g)
+	for _, child := range g.Groups {
+		analyzeStreamabilityRecursive(child)
+	}
+}
+
+// computeTemplateStreamable sets t.Streamable = true iff every top-level
+// group is streamable.
+func computeTemplateStreamable(t *CompiledTemplate) {
+	t.Streamable = true
+	for _, g := range t.Groups {
+		if !g.Streamable {
+			t.Streamable = false
+			return
+		}
+	}
+}

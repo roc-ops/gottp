@@ -154,6 +154,34 @@ func TestAnalyzeStreamability_NormalizedPath(t *testing.T) {
 	}
 }
 
+func TestCompileTemplate_PropagatesStreamable(t *testing.T) {
+	g := makeGroup(t, "entry*", false, []string{"mac {{ mac | _start_ }}"}, "", nil)
+	analyzeStreamability(g)
+	if !g.Streamable {
+		t.Fatalf("group should be streamable, reasons: %v", g.NonStreamableReasons)
+	}
+
+	tmpl := &CompiledTemplate{Groups: []*CompiledGroup{g}}
+	computeTemplateStreamable(tmpl)
+	if !tmpl.Streamable {
+		t.Errorf("template Streamable should be true when all groups streamable")
+	}
+
+	// Add a non-streamable group; template flips to false. Use itemize to
+	// guarantee non-streamability (engine auto-anchors so we can't rely on
+	// "no record boundary" via plain {{ a }} {{ b }} — see A5 deviation).
+	bad := makeGroup(t, "bad*", false, []string{"mac {{ mac | _start_ }}"}, "itemize", nil)
+	analyzeStreamability(bad)
+	if bad.Streamable {
+		t.Fatalf("expected bad to be non-streamable")
+	}
+	tmpl.Groups = append(tmpl.Groups, bad)
+	computeTemplateStreamable(tmpl)
+	if tmpl.Streamable {
+		t.Errorf("template Streamable should be false when any group not streamable")
+	}
+}
+
 // containsString reports whether any element of haystack contains needle.
 func containsString(haystack []string, needle string) bool {
 	for _, s := range haystack {
