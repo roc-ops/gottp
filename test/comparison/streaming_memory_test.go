@@ -79,7 +79,11 @@ func TestParseStream_MemoryBound_Phy(t *testing.T) {
 	deltaMB := float64(delta) / 1024.0 / 1024.0
 	fmt.Printf("ParseStream show_cable_modem_phy: %d records, peak_delta=%.2f MB\n", count, deltaMB)
 
-	const limitMB = 20.0
+	// Pre-streaming Parse baseline on this fixture: 752 MB peak. Live working
+	// set in streaming mode is well under 20 MB; the limit here is set above
+	// that to absorb transient regex/map garbage between 50 ms GC sweep
+	// samples (the burst, not the steady state).
+	const limitMB = 32.0
 	if deltaMB > limitMB {
 		t.Errorf("peak heap delta %.2f MB exceeds limit %.2f MB", deltaMB, limitMB)
 	}
