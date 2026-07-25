@@ -2,7 +2,6 @@ package compiled
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 )
 
@@ -77,9 +76,9 @@ func (rm *ResultManager) GetResults() map[string]interface{} {
 func (rm *ResultManager) FormPath(pathTemplate string, vars map[string]interface{}) (string, error) {
 	result := pathTemplate
 	
-	// Find all {{ variable }} patterns
-	re := regexp.MustCompile(`\{\{\s*(\S+)\s*\}\}`)
-	matches := re.FindAllStringSubmatch(pathTemplate, -1)
+	// Find all {{ variable }} patterns (shared package-level regex; see
+	// path_resolver.go -- compiling it per call is pure overhead)
+	matches := dynPathVarRe.FindAllStringSubmatch(pathTemplate, -1)
 	
 	for _, match := range matches {
 		if len(match) < 2 {

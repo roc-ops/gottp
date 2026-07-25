@@ -1449,6 +1449,17 @@ type patternMatch struct {
 // now flows through the flush callback and len(mergedMatches) reads have
 // been replaced by recordCount. Batch mode sets flush to a closure that
 // appends to a local slice; streaming mode sets flush to a closure that
+// matchIndexRange is the half-open range [lo, hi) of allMatches indices that
+// belong to one parent match. Each parent's indices are always contiguous and
+// written exactly once (parentIdx is state.recordCount, incremented per flush),
+// so storing the bounds is equivalent to storing the expanded index list -- and
+// avoids allocating one []int per parent match, which on large inputs was
+// O(len(allMatches)) ints for a list whose only readers want its ends.
+type matchIndexRange struct {
+	lo int
+	hi int
+}
+
 // invokes the user callback.
 type mergeState struct {
 	currentMatch               map[string]interface{}
@@ -1457,7 +1468,7 @@ type mergeState struct {
 	currentStartPatternIdx     int
 	currentMatchHasEnd         bool
 	patternMatchCount          map[int]int
-	parentMatchToAllMatches    map[int][]int
+	parentMatchToAllMatches    map[int]matchIndexRange
 	currentParentMatchStartIdx int
 
 	// recordCount mirrors the count of records flushed so far. Always
@@ -1489,7 +1500,7 @@ func newMergeState() *mergeState {
 		currentStartLineIdx:        -1,
 		currentStartPatternIdx:     -1,
 		patternMatchCount:          make(map[int]int),
-		parentMatchToAllMatches:    make(map[int][]int),
+		parentMatchToAllMatches:    make(map[int]matchIndexRange),
 		currentParentMatchStartIdx: -1,
 		recordCount:                0,
 	}
@@ -1932,8 +1943,8 @@ func (r *Runtime) stepMerge(
 						}
 						state.recordCount++
 						if state.currentParentMatchStartIdx >= 0 && !state.skipParentBookkeeping {
-							for i := state.currentParentMatchStartIdx; i <= matchIdx; i++ {
-								state.parentMatchToAllMatches[parentIdx] = append(state.parentMatchToAllMatches[parentIdx], i)
+							if hi := matchIdx + 1; state.currentParentMatchStartIdx < hi {
+								state.parentMatchToAllMatches[parentIdx] = matchIndexRange{lo: state.currentParentMatchStartIdx, hi: hi}
 							}
 						}
 						r.pathResolver.UpdateCache(matchCopy)
@@ -2095,8 +2106,8 @@ func (r *Runtime) stepMerge(
 				}
 				state.recordCount++
 				if state.currentParentMatchStartIdx >= 0 && !state.skipParentBookkeeping {
-					for i := state.currentParentMatchStartIdx; i < matchIdx; i++ {
-						state.parentMatchToAllMatches[parentIdx] = append(state.parentMatchToAllMatches[parentIdx], i)
+					if state.currentParentMatchStartIdx < matchIdx {
+						state.parentMatchToAllMatches[parentIdx] = matchIndexRange{lo: state.currentParentMatchStartIdx, hi: matchIdx}
 					}
 				}
 				r.pathResolver.UpdateCache(matchCopy)
@@ -2960,8 +2971,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 			// Track which matches from allMatches belong to this parent
 			// All matches from currentParentMatchStartIdx to the last match index belong to this parent
 			if currentParentMatchStartIdx >= 0 && len(allMatches) > 0 {
-				for i := currentParentMatchStartIdx; i < len(allMatches); i++ {
-					parentMatchToAllMatches[parentIdx] = append(parentMatchToAllMatches[parentIdx], i)
+				if currentParentMatchStartIdx < len(allMatches) {
+					parentMatchToAllMatches[parentIdx] = matchIndexRange{lo: currentParentMatchStartIdx, hi: len(allMatches)}
 				}
 			}
 			// Update path resolver cache with final match values
@@ -3010,16 +3021,15 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		// Group matches by parent match using the tracked mapping
 		// Use parentMatchToAllMatches to get the correct matches for each parent
 		for parentIdx := 0; parentIdx < len(mergedMatches); parentIdx++ {
-			if matchIndices, ok := parentMatchToAllMatches[parentIdx]; ok {
-				for _, matchIdx := range matchIndices {
-					if matchIdx < len(allMatches) {
-						spanStart := allMatches[matchIdx].spanStart
-						if !parentSpans[parentIdx].ok {
-							parentSpans[parentIdx].first = spanStart
-							parentSpans[parentIdx].ok = true
-						}
-						parentSpans[parentIdx].last = spanStart
-					}
+			if idxRange, ok := parentMatchToAllMatches[parentIdx]; ok {
+				lo, hi := idxRange.lo, idxRange.hi
+				if hi > len(allMatches) {
+					hi = len(allMatches)
+				}
+				if lo < hi {
+					parentSpans[parentIdx].first = allMatches[lo].spanStart
+					parentSpans[parentIdx].last = allMatches[hi-1].spanStart
+					parentSpans[parentIdx].ok = true
 				}
 			}
 		}
