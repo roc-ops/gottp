@@ -1438,17 +1438,6 @@ type patternMatch struct {
 	result     map[string]interface{}
 }
 
-// mergeState carries the cross-match state that the parseGroup merge phase
-// tracks while walking sorted matches. Streaming and non-streaming variants
-// share the same state machine via stepMerge, so this struct holds every
-// field that survives across iterations of the merge loop.
-//
-// The original mergeState owned a running mergedMatches accumulator and the
-// state machine read len(mergedMatches) mid-iteration to drive decisions.
-// To support streaming (where there is no accumulator at all), every append
-// now flows through the flush callback and len(mergedMatches) reads have
-// been replaced by recordCount. Batch mode sets flush to a closure that
-// appends to a local slice; streaming mode sets flush to a closure that
 // matchIndexRange is the half-open range [lo, hi) of allMatches indices that
 // belong to one parent match. Each parent's indices are always contiguous and
 // written exactly once (parentIdx is state.recordCount, incremented per flush),
@@ -1460,6 +1449,17 @@ type matchIndexRange struct {
 	hi int
 }
 
+// mergeState carries the cross-match state that the parseGroup merge phase
+// tracks while walking sorted matches. Streaming and non-streaming variants
+// share the same state machine via stepMerge, so this struct holds every
+// field that survives across iterations of the merge loop.
+//
+// The original mergeState owned a running mergedMatches accumulator and the
+// state machine read len(mergedMatches) mid-iteration to drive decisions.
+// To support streaming (where there is no accumulator at all), every append
+// now flows through the flush callback and len(mergedMatches) reads have
+// been replaced by recordCount. Batch mode sets flush to a closure that
+// appends to a local slice; streaming mode sets flush to a closure that
 // invokes the user callback.
 type mergeState struct {
 	currentMatch               map[string]interface{}

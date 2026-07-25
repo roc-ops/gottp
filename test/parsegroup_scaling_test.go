@@ -17,12 +17,23 @@ import (
 // a production 5.6 MB input (~100K matches) they were ~17% of aggregate CPU,
 // ~50% within one 30s window.
 //
-// The assertion is deliberately loose. Linear would be 16x. Measured on an
-// Apple M4 Pro: the fixed code is ~13x, the quadratic version ~52x. The 32x
-// threshold sits between them with ~2.5x headroom over the fixed number, so
-// constant-factor noise, a GC pause, or a loaded CI box cannot manufacture a
-// failure. If this does fail, the parent-range block has almost certainly gone
-// back to scanning allMatches once per parent match.
+// The assertion is deliberately loose. Across 12 runs of the fixed code
+// (including 6 under heavy CPU contention) an 8x row increase cost 6.0x-11.4x;
+// across 6 runs of the quadratic code it cost 41.7x-94.5x. The 18x threshold
+// sits between those bands with headroom on both sides. Contention makes the
+// quadratic version worse, not better, so load widens the gap rather than
+// closing it.
+//
+// Two details matter for stability, both learned from a run that passed
+// against known-quadratic code. The small measurement must be large enough not
+// to be noise-dominated: inflating it *deflates* the ratio, so a noise burst
+// that lands on a short small-measurement hides a real regression. And the
+// large size is measured first, so the small size is timed against an already
+// warm allocator. Both sizes take the best of several runs for the same
+// reason.
+//
+// If this fails, the parent-range block has almost certainly gone back to
+// scanning allMatches once per parent match.
 func TestParseGroupScalesLinearly(t *testing.T) {
 	if testing.Short() {
 		t.Skip("timing-sensitive; skipped in -short mode")
@@ -63,13 +74,14 @@ func TestParseGroupScalesLinearly(t *testing.T) {
 	}
 
 	const (
-		smallRows   = 2500
-		largeRows   = smallRows * 16
-		maxSlowdown = 32.0
+		smallRows   = 10000
+		largeRows   = smallRows * 8
+		maxSlowdown = 18.0
 	)
 
-	small := measure(smallRows, 5)
+	// Large first: see the note above about warm-up skewing the small number.
 	large := measure(largeRows, 3)
+	small := measure(smallRows, 5)
 
 	ratio := float64(large) / float64(small)
 	t.Logf("%d rows: %v; %d rows: %v; ratio %.1fx (linear would be %dx)",
@@ -87,6 +99,12 @@ func TestParseGroupScalesLinearly(t *testing.T) {
 // the _end_ pattern belonging to that parent, not at some earlier or later
 // parent's _end_. Getting this wrong silently mis-slices the input handed to
 // nested groups, so it is asserted through nested-group content.
+//
+// The fourth block deliberately contains two `!` lines. The rewritten lookup is
+// a lower bound, i.e. the *first* _end_ at or after the parent's start; a
+// version that took the last one instead would swallow the trailing neighbor
+// and is only distinguishable when a parent's span holds more than one
+// candidate.
 func TestParseGroupEndPatternRanges(t *testing.T) {
 	template := `<group name="bgp*">
 router bgp {{ asn }} {{ _start_ }}
@@ -108,6 +126,11 @@ router bgp 65020
  neighbor 10.2.0.3 remote-as 65022
  neighbor 10.2.0.4 remote-as 65023
 !
+router bgp 65030
+ neighbor 10.3.0.2 remote-as 65031
+!
+ neighbor 10.3.0.9 remote-as 65039
+!
 `
 
 	compiled, err := gottp.CompileTemplate(template)
@@ -120,18 +143,20 @@ router bgp 65020
 	}
 
 	parents := flattenParents(t, res)
-	if len(parents) != 3 {
-		t.Fatalf("expected 3 parent matches, got %d: %#v", len(parents), parents)
+	if len(parents) != 4 {
+		t.Fatalf("expected 4 parent matches, got %d: %#v", len(parents), parents)
 	}
 
 	// Each parent must own exactly the neighbors inside its own _start_.._end_
 	// span. A range that ended too early or ran into the next parent would
 	// change these counts.
-	wantASN := []string{"65001", "65010", "65020"}
+	wantASN := []string{"65001", "65010", "65020", "65030"}
 	wantNeighbors := [][]string{
 		{"10.0.0.2", "10.0.0.3"},
 		{"10.1.0.2"},
 		{"10.2.0.2", "10.2.0.3", "10.2.0.4"},
+		// Range must stop at the FIRST `!`, so 10.3.0.9 is out of span.
+		{"10.3.0.2"},
 	}
 
 	for i, parent := range parents {
