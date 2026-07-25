@@ -3,7 +3,14 @@ package compiled
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
+
+// dynPathVarRe matches `{{ variable }}` placeholders in a dynamic path
+// template. Compiled once at package init: ResolvePath and
+// ExtractVariablesFromPath run per match, and recompiling here accounted for a
+// measurable share of total allocations in production profiles.
+var dynPathVarRe = regexp.MustCompile(`\{\{\s*(\S+)\s*\}\}`)
 
 // PathResolver resolves dynamic paths by replacing variables with actual values
 type PathResolver struct {
@@ -27,8 +34,7 @@ func (pr *PathResolver) ResolvePath(pathTemplate string, matchResult map[string]
 	result := pathTemplate
 
 	// Find all {{ variable }} patterns
-	re := regexp.MustCompile(`\{\{\s*(\S+)\s*\}\}`)
-	matches := re.FindAllStringSubmatch(pathTemplate, -1)
+	matches := dynPathVarRe.FindAllStringSubmatch(pathTemplate, -1)
 
 	for _, match := range matches {
 		if len(match) < 2 {
@@ -75,11 +81,12 @@ func (pr *PathResolver) ResolvePath(pathTemplate string, matchResult map[string]
 		// Convert value to string
 		valueStr := fmt.Sprintf("%v", value)
 
-		// Replace in template - handle special characters
-		// Try regex replacement first
-		escapedPattern := regexp.QuoteMeta(pattern)
-		replacer := regexp.MustCompile(escapedPattern)
-		result = replacer.ReplaceAllString(result, valueStr)
+		// Replace in template. The placeholder is matched literally, so a plain
+		// string replace is equivalent to the regexp.QuoteMeta + MustCompile +
+		// ReplaceAllString it replaces -- minus the per-call regex compile, and
+		// minus regexp's `$name` expansion in the replacement text, which would
+		// mangle any captured value containing a dollar sign.
+		result = strings.ReplaceAll(result, pattern, valueStr)
 	}
 
 	return result, nil
@@ -104,8 +111,7 @@ func (pr *PathResolver) ExtractVariablesFromPath(pathTemplate string) []string {
 	}
 
 	var varNames []string
-	re := regexp.MustCompile(`\{\{\s*(\S+)\s*\}\}`)
-	matches := re.FindAllStringSubmatch(pathTemplate, -1)
+	matches := dynPathVarRe.FindAllStringSubmatch(pathTemplate, -1)
 
 	for _, match := range matches {
 		if len(match) >= 2 {

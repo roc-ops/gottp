@@ -1438,6 +1438,17 @@ type patternMatch struct {
 	result     map[string]interface{}
 }
 
+// matchIndexRange is the half-open range [lo, hi) of allMatches indices that
+// belong to one parent match. Each parent's indices are always contiguous and
+// written exactly once (parentIdx is state.recordCount, incremented per flush),
+// so storing the bounds is equivalent to storing the expanded index list -- and
+// avoids allocating one []int per parent match, which on large inputs was
+// O(len(allMatches)) ints for a list whose only readers want its ends.
+type matchIndexRange struct {
+	lo int
+	hi int
+}
+
 // mergeState carries the cross-match state that the parseGroup merge phase
 // tracks while walking sorted matches. Streaming and non-streaming variants
 // share the same state machine via stepMerge, so this struct holds every
@@ -1457,7 +1468,7 @@ type mergeState struct {
 	currentStartPatternIdx     int
 	currentMatchHasEnd         bool
 	patternMatchCount          map[int]int
-	parentMatchToAllMatches    map[int][]int
+	parentMatchToAllMatches    map[int]matchIndexRange
 	currentParentMatchStartIdx int
 
 	// recordCount mirrors the count of records flushed so far. Always
@@ -1489,7 +1500,7 @@ func newMergeState() *mergeState {
 		currentStartLineIdx:        -1,
 		currentStartPatternIdx:     -1,
 		patternMatchCount:          make(map[int]int),
-		parentMatchToAllMatches:    make(map[int][]int),
+		parentMatchToAllMatches:    make(map[int]matchIndexRange),
 		currentParentMatchStartIdx: -1,
 		recordCount:                0,
 	}
@@ -1932,8 +1943,8 @@ func (r *Runtime) stepMerge(
 						}
 						state.recordCount++
 						if state.currentParentMatchStartIdx >= 0 && !state.skipParentBookkeeping {
-							for i := state.currentParentMatchStartIdx; i <= matchIdx; i++ {
-								state.parentMatchToAllMatches[parentIdx] = append(state.parentMatchToAllMatches[parentIdx], i)
+							if hi := matchIdx + 1; state.currentParentMatchStartIdx < hi {
+								state.parentMatchToAllMatches[parentIdx] = matchIndexRange{lo: state.currentParentMatchStartIdx, hi: hi}
 							}
 						}
 						r.pathResolver.UpdateCache(matchCopy)
@@ -2095,8 +2106,8 @@ func (r *Runtime) stepMerge(
 				}
 				state.recordCount++
 				if state.currentParentMatchStartIdx >= 0 && !state.skipParentBookkeeping {
-					for i := state.currentParentMatchStartIdx; i < matchIdx; i++ {
-						state.parentMatchToAllMatches[parentIdx] = append(state.parentMatchToAllMatches[parentIdx], i)
+					if state.currentParentMatchStartIdx < matchIdx {
+						state.parentMatchToAllMatches[parentIdx] = matchIndexRange{lo: state.currentParentMatchStartIdx, hi: matchIdx}
 					}
 				}
 				r.pathResolver.UpdateCache(matchCopy)
@@ -2960,8 +2971,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 			// Track which matches from allMatches belong to this parent
 			// All matches from currentParentMatchStartIdx to the last match index belong to this parent
 			if currentParentMatchStartIdx >= 0 && len(allMatches) > 0 {
-				for i := currentParentMatchStartIdx; i < len(allMatches); i++ {
-					parentMatchToAllMatches[parentIdx] = append(parentMatchToAllMatches[parentIdx], i)
+				if currentParentMatchStartIdx < len(allMatches) {
+					parentMatchToAllMatches[parentIdx] = matchIndexRange{lo: currentParentMatchStartIdx, hi: len(allMatches)}
 				}
 			}
 			// Update path resolver cache with final match values
@@ -2979,10 +2990,17 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	// Determine input ranges for each parent match based on actual match positions
 	// Find the start and end positions of matches that belong to each parent match
 	if len(mergedMatches) > 0 && len(allMatches) > 0 {
-		// Group matches by parent match index
-		// We need to track which matches belong to which parent match
-		// For now, we'll use a simple approach: find start patterns and group subsequent matches
-		parentMatchIndices := make([][]int, len(mergedMatches)) // parent index -> match indices
+		// Group matches by parent match index.
+		//
+		// Only the first and last spanStart of each parent are ever read below,
+		// so we keep just those two instead of materializing a full []int per
+		// parent (which allocated O(len(allMatches)) ints for no benefit).
+		type parentSpan struct {
+			first int
+			last  int
+			ok    bool
+		}
+		parentSpans := make([]parentSpan, len(mergedMatches))
 
 		// Find start patterns to identify parent match boundaries
 		startPatterns := make(map[int]bool)
@@ -3003,11 +3021,15 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		// Group matches by parent match using the tracked mapping
 		// Use parentMatchToAllMatches to get the correct matches for each parent
 		for parentIdx := 0; parentIdx < len(mergedMatches); parentIdx++ {
-			if matchIndices, ok := parentMatchToAllMatches[parentIdx]; ok {
-				for _, matchIdx := range matchIndices {
-					if matchIdx < len(allMatches) {
-						parentMatchIndices[parentIdx] = append(parentMatchIndices[parentIdx], allMatches[matchIdx].spanStart)
-					}
+			if idxRange, ok := parentMatchToAllMatches[parentIdx]; ok {
+				lo, hi := idxRange.lo, idxRange.hi
+				if hi > len(allMatches) {
+					hi = len(allMatches)
+				}
+				if lo < hi {
+					parentSpans[parentIdx].first = allMatches[lo].spanStart
+					parentSpans[parentIdx].last = allMatches[hi-1].spanStart
+					parentSpans[parentIdx].ok = true
 				}
 			}
 		}
@@ -3026,30 +3048,60 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 			}
 		}
 
+		// allMatches is sorted ascending by (spanStart, patternIdx) above, which
+		// lets both lookups below binary-search instead of rescanning the whole
+		// slice per parent match. On a 5.6 MB input with ~100K matches those
+		// linear rescans were the dominant cost of parseGroup (O(parents ×
+		// matches)); the results are identical because "first element in slice
+		// order satisfying a spanStart predicate" is exactly the lower bound of
+		// a sorted slice.
+
+		// firstSpanEnd returns the spanEnd of the first match whose spanStart
+		// equals pos, or (0, false) if there is none.
+		firstSpanEnd := func(pos int) (int, bool) {
+			idx := sort.Search(len(allMatches), func(k int) bool {
+				return allMatches[k].spanStart >= pos
+			})
+			if idx < len(allMatches) && allMatches[idx].spanStart == pos {
+				return allMatches[idx].spanEnd, true
+			}
+			return 0, false
+		}
+
+		// End-pattern matches are a small subset; filtering once (order
+		// preserved, so still sorted) keeps the per-parent lookup logarithmic
+		// in that subset rather than linear in allMatches.
+		var endMatches []patternMatch
+		if hasEndPatterns {
+			for _, match := range allMatches {
+				if endPatternIndices[match.patternIdx] {
+					endMatches = append(endMatches, match)
+				}
+			}
+		}
+
 		for i := range parentMatchRanges {
-			if i < len(parentMatchIndices) && len(parentMatchIndices[i]) > 0 {
+			if i < len(parentSpans) && parentSpans[i].ok {
 				// Use first match position as start
-				parentMatchRanges[i].start = parentMatchIndices[i][0]
+				parentMatchRanges[i].start = parentSpans[i].first
 				// Use last match position + some buffer as end
-				lastPos := parentMatchIndices[i][len(parentMatchIndices[i])-1]
+				lastPos := parentSpans[i].last
 				// Find the end of the last match
 				// If we have _end_ patterns, look for the _end_ pattern match for this parent
 				if hasEndPatterns {
 					// Find the _end_ pattern match that belongs to this parent
 					// It should be after the start but before the next parent's start
 					nextParentStart := len(inputData)
-					if i < len(parentMatchIndices)-1 && len(parentMatchIndices[i+1]) > 0 {
-						nextParentStart = parentMatchIndices[i+1][0]
+					if i < len(parentSpans)-1 && parentSpans[i+1].ok {
+						nextParentStart = parentSpans[i+1].first
 					}
 					// Look for _end_ pattern matches in this parent's range
-					for _, match := range allMatches {
-						if match.spanStart >= parentMatchRanges[i].start && match.spanStart < nextParentStart {
-							if endPatternIndices[match.patternIdx] {
-								// Found _end_ pattern - use its end position
-								parentMatchRanges[i].end = match.spanEnd
-								break
-							}
-						}
+					idx := sort.Search(len(endMatches), func(k int) bool {
+						return endMatches[k].spanStart >= parentMatchRanges[i].start
+					})
+					if idx < len(endMatches) && endMatches[idx].spanStart < nextParentStart {
+						// Found _end_ pattern - use its end position
+						parentMatchRanges[i].end = endMatches[idx].spanEnd
 					}
 				}
 				// If no _end_ found or no _end_ patterns, check if we have nested groups
@@ -3057,25 +3109,22 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				if parentMatchRanges[i].end == 0 {
 					if len(group.Groups) > 0 {
 						// We have nested groups - extend range to end of input or next parent
-						if i < len(mergedMatches)-1 && len(parentMatchIndices[i+1]) > 0 {
-							parentMatchRanges[i].end = parentMatchIndices[i+1][0]
+						if i < len(mergedMatches)-1 && i+1 < len(parentSpans) && parentSpans[i+1].ok {
+							parentMatchRanges[i].end = parentSpans[i+1].first
 						} else {
 							parentMatchRanges[i].end = len(inputData)
 						}
 					} else {
 						// No nested groups - use last match end
-						for _, match := range allMatches {
-							if match.spanStart == lastPos {
-								parentMatchRanges[i].end = match.spanEnd
-								break
-							}
+						if spanEnd, ok := firstSpanEnd(lastPos); ok {
+							parentMatchRanges[i].end = spanEnd
 						}
 					}
 				}
 				// If still no end found, use next parent's start or end of input
 				if parentMatchRanges[i].end == 0 {
-					if i < len(mergedMatches)-1 && len(parentMatchIndices[i+1]) > 0 {
-						parentMatchRanges[i].end = parentMatchIndices[i+1][0]
+					if i < len(mergedMatches)-1 && i+1 < len(parentSpans) && parentSpans[i+1].ok {
+						parentMatchRanges[i].end = parentSpans[i+1].first
 					} else {
 						parentMatchRanges[i].end = len(inputData)
 					}
