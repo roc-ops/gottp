@@ -4,6 +4,8 @@ All notable changes to GoTTP will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.1.12] - 2026-07-25
+
 ### Performance
 - **parseGroup Parent Ranges**: Removed two O(parents × matches) rescans of the match list in `parseGroup`'s parent-range computation. `allMatches` is already sorted by position, so both lookups are now binary searches. Parse time is linear in record count again instead of quadratic: on an 80,000-row input, ~1986 ms → ~130 ms (15×). Production profiles had this block at ~17% of aggregate CPU and ~50% within a single 30-second window.
 - **Parent Span Bookkeeping**: Parent-to-match index lists are stored as `{lo, hi}` ranges rather than materialized `[]int` slices, cutting allocations on the same 80,000-row input from 4.32M to 1.28M (−70%) and 426 MB to 164 MB (−62%).
@@ -11,6 +13,11 @@ All notable changes to GoTTP will be documented in this file.
 
 ### Fixed
 - **Dynamic Path Values Containing `$`**: A parsed value containing `$` was silently truncated when substituted into a dynamic group name — `{{ hostname }}` resolving to `r$1x` produced `r`. Substitution used a regex replacement, which expanded `$1` / `${name}` sequences inside the replacement text; it now inserts the value verbatim.
+
+### Also included (previously unreleased)
+
+These entries had been accumulating under `[Unreleased]` and ship with this tag.
+
 - **Start Pattern Detection**: Fixed issue where non-start patterns (like `route-policy`) were matching even when the `_start_` pattern didn't match. Now, when `_start_` is present but `_end_` is not:
   - Patterns with `_start_` are always start patterns
   - Patterns before the first `_start_` pattern can also be start patterns (if they have non-special variables)
