@@ -7,18 +7,21 @@ The problematic combination: exclude() filters + Starlark macros + dual groups.
 
 <macro name="process_cmoffline" language="starlark">
 def process_cmoffline(data):
-    pct = str(data.get("_status_raw", "")).replace("%", "").strip()
+    # Threshold-style fields can be displayed as e.g. "<100%" (device
+    # convention for "less than N") rather than a bare number - strip a
+    # leading comparator before converting to int so those don't blow up.
+    pct = str(data.get("_status_raw", "")).replace("%", "").strip().lstrip("<>").strip()
     if pct:
         data["offline-pct"] = int(pct)
     data.pop("_status_raw", None)
     thresh_raw = str(data.get("_thresh_raw", ""))
-    cleaned = thresh_raw.replace("%", "").strip()
+    cleaned = thresh_raw.replace("%", "").strip().lstrip("<>").strip()
     if cleaned:
         data["threshold"] = int(cleaned)
     data.pop("_thresh_raw", None)
     hc = str(data.get("_hitcount_raw", "")).strip()
     if hc:
-        num_part = hc.split("(")[0].strip()
+        num_part = hc.split("(")[0].strip().lstrip("<>").strip()
         if num_part:
             data["threshold-hit-count"] = int(num_part)
     data.pop("_hitcount_raw", None)
@@ -41,7 +44,7 @@ def process_datapath(data):
     else:
         data["error-type"] = w1 + "-" + w2
     thresh_raw = str(data.get("_thresh_raw", ""))
-    cleaned = thresh_raw.replace("%", "").strip()
+    cleaned = thresh_raw.replace("%", "").strip().lstrip("<>").strip()
     if cleaned:
         data["threshold"] = int(cleaned)
     data.pop("_thresh_raw", None)

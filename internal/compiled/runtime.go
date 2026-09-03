@@ -6689,6 +6689,22 @@ func (r *Runtime) applyGroupFunctions(matches []map[string]interface{}, funcStrs
 	return result, nil
 }
 
+// macroErrorIsNotFound reports whether err represents an unregistered macro
+// name - matching Python TTP's behavior of silently continuing with the
+// original data when a referenced macro doesn't exist - as opposed to a
+// real failure while running a macro that WAS found (a Starlark runtime
+// error, a compile error, etc). Only the former should be swallowed; the
+// latter was previously swallowed too, which meant a macro could fail
+// outright (e.g. a Starlark `del` statement erroring) with no error
+// surfaced and no indication the macro didn't run.
+// See https://github.com/roc-ops/gottp/issues/26.
+func macroErrorIsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "not found")
+}
+
 // processGroupMacro processes group macro on each match
 // Macro can be a single macro name or comma-separated list
 // Optimized to chain Starlark macros without Go↔Starlark conversions
@@ -6746,6 +6762,9 @@ func (r *Runtime) processGroupMacro(matches []map[string]interface{}, macroStr s
 				if len(actualMacroNames) > 0 {
 					resultVal, err := starlarkEngine.ExecuteMacroStarlarkBatch(actualMacroNames, dataVal, nil)
 					if err != nil {
+						if !macroErrorIsNotFound(err) {
+							return nil, fmt.Errorf("group macro %v failed: %w", actualMacroNames, err)
+						}
 						// Macro not found, continue with original data
 						// Fall through to original method
 					} else {
@@ -6789,6 +6808,9 @@ func (r *Runtime) processGroupMacro(matches []map[string]interface{}, macroStr s
 				}
 
 				if err != nil {
+					if !macroErrorIsNotFound(err) {
+						return nil, fmt.Errorf("macro %s failed: %w", actualMacroName, err)
+					}
 					// If macro not found, continue with original data (don't fail)
 					// This matches Python TTP behavior
 					continue

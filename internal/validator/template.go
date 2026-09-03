@@ -9,6 +9,7 @@ import (
 	"github.com/roc-ops/gottp/internal/functions/group"
 	"github.com/roc-ops/gottp/internal/functions/match"
 	"github.com/roc-ops/gottp/internal/parser"
+	"go.starlark.net/starlark"
 )
 
 // Validator validates TTP templates
@@ -287,7 +288,22 @@ func ValidateMacroSource(source, language string) []string {
 			warnings = append(warnings, fmt.Sprintf("macro contains implicit string concatenation (adjacent string literals) on line %d. Starlark does not support implicit concatenation. Use + operator to concatenate strings explicitly.", lineNum+1))
 		}
 	}
-	
+
+	// The checks above only catch specific known Python-isms by pattern
+	// matching. Actually attempt to compile the source as Starlark so any
+	// other invalid construct (e.g. `del`, which this version of
+	// go.starlark.net doesn't support at all) is caught too. Without this,
+	// macro registration fails silently at parse time (it's intentionally
+	// non-fatal there, matching Python TTP's "an unavailable macro is
+	// skipped" behavior) and every function defined in this source block
+	// becomes permanently unavailable with no visible error at all.
+	// See https://github.com/roc-ops/gottp/issues/26.
+	thread := &starlark.Thread{Name: "macro-validation"}
+	predeclared := starlark.StringDict{"_ttp_": starlark.NewDict(0)}
+	if _, err := starlark.ExecFile(thread, "<macro>", source, predeclared); err != nil {
+		warnings = append(warnings, fmt.Sprintf("macro failed to compile as Starlark and will not be available at parse time: %v", err))
+	}
+
 	return warnings
 }
 
