@@ -4,6 +4,13 @@ All notable changes to GoTTP will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.1.13] - 2026-09-03
+
+### Fixed
+- **SourceMap ResultPath for repeated groups**: `MatchMapping.ResultPath` for a repeated group (`name="interfaces*"`) always came back as the literal, unresolved group-name pattern (`"interfaces*"`) for every match, instead of resolving per-instance (`"interfaces[0]"`, `"interfaces[1]"`, ...) as documented. Per-match instance boundaries are now derived from the already-collected, position-sorted match list, with a safe fallback to the previous behavior for merge modes (table method, joinmatches) the boundary heuristic doesn't model. (#24)
+- **Silently-swallowed group macro failures**: a group macro that failed — whether its source didn't compile as Starlark at all (e.g. `del data[key]`, unsupported by this version of go.starlark.net) or it threw at call time on a specific record's data — was silently treated the same as an unregistered macro name, with the match falling back to completely unmodified data and no error or warning anywhere. `ValidateMacroSource` now actually attempts to compile macro source as Starlark, surfacing genuine syntax errors as a compile warning; `processGroupMacro` now distinguishes "macro not registered" (still silently skipped, matching Python TTP behavior) from a real execution failure of a macro that *was* found (now propagates as a parse error). (#26)
+- **Stale SourceMap.Variables after macro field rename**: a group macro that renamed a field (`data["name"] = data["ifname"]`) left `SourceMap.Variables` only keyed by the pre-macro name, with nothing connecting the renamed field in the final output back to the source span it came from. Renamed fields are now reconciled by value per resolved instance and aliased to their original span; macro-fabricated fields with no matching pre-macro value correctly still get no provenance entry. (#25)
+
 ## [v0.1.12] - 2026-07-25
 
 ### Performance
