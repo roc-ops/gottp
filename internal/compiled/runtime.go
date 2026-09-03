@@ -1298,8 +1298,16 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 				for _, lineMapping := range inputSourceMap.Lines {
 					for _, matchMapping := range lineMapping.Matches {
 						if matchMapping.GroupName == group.Name {
-							// Use the first actual path (most common case)
-							matchMapping.ResultPath = actualResultPaths[0]
+							// parseGroupWithSourceMap may have already resolved this
+							// match to a specific instance path (e.g. "interfaces[0]")
+							// using per-line instance detection. That's more precise
+							// than the single "first actual path" this loop otherwise
+							// falls back to (which only knows the resolved/dynamic
+							// group-level path, not which instance a given line
+							// belongs to) - so don't clobber it here.
+							if !strings.Contains(matchMapping.ResultPath, "[") {
+								matchMapping.ResultPath = actualResultPaths[0]
+							}
 						}
 					}
 				}
@@ -5105,7 +5113,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 	if result != nil && group.Name != "" {
 		// Check if group name exists in results map (might be resolved path)
 		resultPath := group.Name
-		
+
 		// Check if resultsMap has this group
 		if resultsMap != nil {
 			if _, exists := resultsMap[group.Name]; exists {
@@ -5121,12 +5129,68 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 				}
 			}
 		}
-		
-		// Update all matches for this group with the result path
-		for _, lineMapping := range inputSourceMap.Lines {
-			for _, matchMapping := range lineMapping.Matches {
-				if matchMapping.GroupName == group.Name {
-					matchMapping.ResultPath = resultPath
+
+		// For repeated groups (result is a slice of records), try to resolve
+		// each match to its own instance path (e.g. "interfaces[0]",
+		// "interfaces[1]") instead of collapsing every instance onto the
+		// same ResultPath. This is derived independently of parseGroup's
+		// merge state machine: a new instance is assumed to start whenever
+		// a pattern index that was already seen in the current instance
+		// appears again, which matches how the default (non-table,
+		// non-joinmatches) merge accumulates fields into a record until a
+		// field slot repeats. If the derived instance count doesn't agree
+		// with the actual number of records parseGroup produced (e.g.
+		// table method, joinmatches, or other merge modes this heuristic
+		// doesn't model), fall back to the previous single-path behavior
+		// rather than risk emitting a confidently wrong index.
+		instancePathAssigned := false
+		if resultList, isList := result.([]map[string]interface{}); isList && len(resultList) > 1 && len(allMatches) > 0 {
+			instanceOfMatch := make([]int, len(allMatches))
+			seen := make(map[int]bool)
+			instanceIdx := 0
+			for i, m := range allMatches {
+				if seen[m.patternIdx] {
+					instanceIdx++
+					seen = make(map[int]bool)
+				}
+				seen[m.patternIdx] = true
+				instanceOfMatch[i] = instanceIdx
+			}
+			numDerivedInstances := instanceOfMatch[len(allMatches)-1] + 1
+
+			if numDerivedInstances == len(resultList) {
+				// Strip the repetition formatter ("*" / "**") from the base
+				// path - it's a template marker, not part of the stored
+				// result path (storeAtPath strips it the same way).
+				basePath := strings.TrimSuffix(strings.TrimSuffix(resultPath, "**"), "*")
+
+				lineInstance := make(map[int]int, len(allMatches))
+				for i, m := range allMatches {
+					lineInstance[m.lineIdx] = instanceOfMatch[i]
+				}
+				for _, lineMapping := range inputSourceMap.Lines {
+					for _, matchMapping := range lineMapping.Matches {
+						if matchMapping.GroupName == group.Name {
+							if idx, ok := lineInstance[lineMapping.LineNumber]; ok {
+								matchMapping.ResultPath = fmt.Sprintf("%s[%d]", basePath, idx)
+							} else {
+								matchMapping.ResultPath = resultPath
+							}
+						}
+					}
+				}
+				instancePathAssigned = true
+			}
+		}
+
+		if !instancePathAssigned {
+			// Single match, or a merge mode we don't model above -
+			// update all matches for this group with the shared result path.
+			for _, lineMapping := range inputSourceMap.Lines {
+				for _, matchMapping := range lineMapping.Matches {
+					if matchMapping.GroupName == group.Name {
+						matchMapping.ResultPath = resultPath
+					}
 				}
 			}
 		}
