@@ -6,9 +6,7 @@ import (
 
 // TestMacroStarlark tests Starlark macro execution
 func TestMacroStarlark(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<macro>
 def process_data(data):
@@ -29,15 +27,13 @@ value {{ value }}
 
 // TestMacroJavaScript tests JavaScript macro execution
 func TestMacroJavaScript(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Skip this test - Python TTP has issues parsing JavaScript macros
 	// It fails with syntax errors and returns the original value
 	// GoTTP correctly executes JavaScript macros, so this is a known difference
 	skipIfKnownDifference(t, "javascript_macro")
-	
+
 	template := `<macro language="javascript">
 function process_data(data) {
     data.processed = true;
@@ -58,9 +54,7 @@ value {{ value }}
 
 // TestMacroMatchFunction tests macro in match function
 func TestMacroMatchFunction(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<macro>
 def double_value(data):
@@ -79,9 +73,7 @@ value {{ value | macro("double_value") }}
 
 // TestMacroConditional tests macro with conditional return
 func TestMacroConditional(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<macro>
 def filter_active(data):
@@ -106,9 +98,7 @@ interface Vlan100
 
 // TestMacroMultiple tests multiple macros
 func TestMacroMultiple(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<macro>
 def process1(data):
@@ -132,9 +122,7 @@ value {{ value }}
 
 // TestMacroWithVars tests macro with template variables
 func TestMacroWithVars(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 multiplier = 2
@@ -157,4 +145,3 @@ value {{ value }}
 
 	RunComparison(t, "macro_with_vars", template, data, nil, nil)
 }
-

@@ -7,9 +7,7 @@ import (
 
 // TestTemplateStructure tests basic template structure
 func TestTemplateStructure(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -27,9 +25,7 @@ interface Vlan100
 
 // TestTemplateNestedGroups tests nested groups
 func TestTemplateNestedGroups(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="device">
 hostname {{ hostname }}
@@ -55,9 +51,7 @@ interface Loopback0
 
 // TestTemplateDynamicPath tests dynamic path formation
 func TestTemplateDynamicPath(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces.{{ interface }}">
 interface {{ interface }}
@@ -75,9 +69,7 @@ interface Vlan100
 
 // TestTemplateVariables tests template variables
 func TestTemplateVariables(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 site = "datacenter1"
@@ -105,9 +97,7 @@ interface {{ interface }}
 
 // TestTemplateExtend tests template extension
 func TestTemplateExtend(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Note: Extend tag may need special handling
 	// For now, test with inline template combining both groups
@@ -129,9 +119,7 @@ vlan 100
 
 // TestTemplateAnonymousGroup tests anonymous groups
 func TestTemplateAnonymousGroup(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group>
 interface {{ interface }}
@@ -147,9 +135,7 @@ interface {{ interface }}
 
 // TestTemplateMethodAttribute tests method attribute
 func TestTemplateMethodAttribute(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces" method="table">
 interface {{ interface }}
@@ -167,9 +153,7 @@ interface Vlan100
 
 // TestTemplateInputOutput tests input and output attributes
 func TestTemplateInputOutput(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<input name="config1">
 interface {{ interface }}
@@ -193,9 +177,7 @@ interface {{ interface }}
 
 // TestTemplateStartEndIndicator tests start and end indicators
 func TestTemplateStartEndIndicator(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 _start_
@@ -215,9 +197,7 @@ interface Vlan100
 
 // TestTemplateLineIndicator tests line indicator
 func TestTemplateLineIndicator(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 _line_
@@ -238,9 +218,7 @@ interface Vlan100
 // This test loads a gottp-config.json file exported from the editor
 // To add a test case, place the gottp-config.json file in test/comparison/fixtures/issue_13/
 func TestIssue13(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Try to find config file in fixtures
 	configPath, err := fixturePath("issue_13", "gottp-config.json")
@@ -256,4 +234,3 @@ func TestIssue13(t *testing.T) {
 	// Run comparison with config file
 	RunComparisonWithConfig(t, "issue_13", configPath)
 }
-

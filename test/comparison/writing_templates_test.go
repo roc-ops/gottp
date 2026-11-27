@@ -6,9 +6,7 @@ import (
 
 // TestWritingTemplatesHierarchical tests hierarchical configuration parsing
 func TestWritingTemplatesHierarchical(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="bgp_cfg">
 router bgp {{ ASN }}
@@ -71,9 +69,7 @@ router bgp {{ ASN }}
 
 // TestWritingTemplatesTextTable tests text table parsing
 func TestWritingTemplatesTextTable(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="table_data" method="table">
 Internet  {{ ip | IP }}  {{ age }}   {{ mac }}  ARPA   {{ interface }}
@@ -90,4 +86,3 @@ Internet  10.12.15.6       164   0950.5C8A.5e43  ARPA   GigabitEthernet4.21  *
 
 	RunComparison(t, "writing_templates_text_table", template, data, nil, nil)
 }
-

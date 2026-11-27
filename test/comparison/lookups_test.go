@@ -6,9 +6,7 @@ import (
 
 // TestLookupBasic tests basic lookup table functionality
 func TestLookupBasic(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="ip_table">
 '10.0.0.1': 'host1'
@@ -35,9 +33,7 @@ interface Vlan200
 
 // TestLookupYAML tests YAML lookup table
 func TestLookupYAML(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="ip_table" load="yaml">
 '10.0.0.1': 'host1'
@@ -59,9 +55,7 @@ interface {{ interface }}
 
 // TestLookupJSON tests JSON lookup table
 func TestLookupJSON(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="ip_table" load="json">
 {"10.0.0.1": "host1", "10.0.0.2": "host2"}
@@ -82,9 +76,7 @@ interface {{ interface }}
 
 // TestLookupReverse tests reverse lookup
 func TestLookupReverse(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="ip_table">
 '10.0.0.1': 'host1'
@@ -108,9 +100,7 @@ interface Vlan100
 
 // TestLookupGlobPattern tests glob pattern lookup
 func TestLookupGlobPattern(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="domain_table">
 '*.example.com': 'internal'
@@ -133,9 +123,7 @@ hostname test.example.com
 
 // TestLookupGroupFunction tests lookup in group function
 func TestLookupGroupFunction(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="ip_table">
 '10.0.0.1': 'host1'
@@ -158,9 +146,7 @@ interface Vlan100
 
 // TestLookupWithUpdate tests lookup with update option
 func TestLookupWithUpdate(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="ip_table">
 '10.0.0.1': {'hostname': 'host1', 'site': 'dc1'}
@@ -181,9 +167,7 @@ interface {{ interface }}
 
 // TestLookupMultipleValues tests lookup with multiple values
 func TestLookupMultipleValues(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="vlan_table">
 '100': ['port1', 'port2']
@@ -201,4 +185,3 @@ vlan 200
 
 	RunComparison(t, "lookup_multiple_values", template, data, nil, nil)
 }
-

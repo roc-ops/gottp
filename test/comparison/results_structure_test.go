@@ -6,9 +6,7 @@ import (
 
 // TestResultsStructureGroupName tests group name attribute with nested paths
 func TestResultsStructureGroupName(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces.vlan.L3.vrf-enabled">
 interface {{ interface }}
@@ -28,9 +26,7 @@ interface {{ interface }}
 
 // TestResultsStructureDynamicPathExample1 tests dynamic path (Example-1 from docs)
 func TestResultsStructureDynamicPathExample1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces.{{ interface }}">
 interface {{ interface }}
@@ -57,9 +53,7 @@ interface Vlan777
 
 // TestResultsStructureDynamicPathExample2 tests dynamic path with partial substitution
 func TestResultsStructureDynamicPathExample2(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces.cool_{{ interface }}_interface">
 interface {{ interface }}
@@ -86,9 +80,7 @@ interface Vlan777
 
 // TestResultsStructureDynamicPathExample3 tests nested dynamic paths
 func TestResultsStructureDynamicPathExample3(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 hostname = "gethostname"
@@ -139,9 +131,7 @@ router bgp {{ asn }}
 
 // TestResultsStructureAnonymousGroup tests anonymous group (group without name attribute)
 func TestResultsStructureAnonymousGroup(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group>
 interface {{ interface }}
@@ -172,9 +162,7 @@ interface Vlan777
 
 // TestResultsStructurePathFormatters tests path formatters (* and **)
 func TestResultsStructurePathFormatters(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces*.vlan.L3*.vrf-enabled">
 interface {{ interface }}

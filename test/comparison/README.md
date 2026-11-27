@@ -29,14 +29,16 @@ The comparison test suite:
 
 ## Prerequisites
 
-1. **Python 3.9+** with TTP installed
+1. **Python 3.9+** with the pinned Python TTP from `requirements.txt` (currently `ttp==0.10.1`)
    ```bash
-   # Install Python TTP from ttp-original directory
-   cd ttp-original
-   pip install -e .
+   python3 -m venv .venv-ttp
+   .venv-ttp/bin/pip install -r test/comparison/requirements.txt
+   export GOTTP_PYTHON="$PWD/.venv-ttp/bin/python"   # default: python3 on PATH
    ```
+   The suite checks the installed version and **fails** if Python TTP is missing or a different
+   version. To skip the comparison tests on purpose, set `GOTTP_SKIP_PYTHON_TTP=1`.
 
-2. **Go 1.21+** with GoTTP built
+2. **Go** (version from `go.mod`) with GoTTP built
    ```bash
    go build ./...
    ```

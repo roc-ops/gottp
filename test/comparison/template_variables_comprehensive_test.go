@@ -6,9 +6,7 @@ import (
 
 // TestTemplateVariablesGethostname tests gethostname getter
 func TestTemplateVariablesGethostname(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars name="vars">
 hostname_var = "gethostname"
@@ -29,9 +27,7 @@ interface GigabitEthernet3/11
 
 // TestTemplateVariablesNameAttribute tests vars name attribute with dynamic path
 func TestTemplateVariablesNameAttribute(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars name="vars.info**.{{ hostname }}">
 hostname='switch-1'
@@ -55,4 +51,3 @@ interface {{ interface }}
 
 	RunComparison(t, "template_variables_name_attribute", template, data, nil, nil)
 }
-

@@ -6,9 +6,7 @@ import (
 
 // TestInputAttributeLoadExample tests input load attribute from docs
 func TestInputAttributeLoadExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<input name="test1" load="text" groups="interfaces.trunks">
 interface GigabitEthernet3/3
@@ -38,4 +36,3 @@ interface GigabitEthernet3/5
 
 	RunComparison(t, "input_attribute_load_example", template, data, nil, nil)
 }
-

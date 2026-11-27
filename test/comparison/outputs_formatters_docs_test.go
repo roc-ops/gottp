@@ -6,9 +6,7 @@ import (
 
 // TestOutputFormatterTableExample1 tests table formatter (Example-1 from docs)
 func TestOutputFormatterTableExample1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group>
 interface {{ interface }}
@@ -36,9 +34,7 @@ interface Vlan710
 
 // TestOutputFormatterTableExample2 tests table formatter with key and headers (Example-2 from docs)
 func TestOutputFormatterTableExample2(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces**.{{ interface }}">
 interface {{ interface }}
@@ -78,9 +74,7 @@ interface Vlan779
 
 // TestOutputFormatterCSVExample tests CSV formatter from docs
 func TestOutputFormatterCSVExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group>
 interface {{ interface }}
@@ -99,4 +93,3 @@ interface Vlan778
 
 	RunComparison(t, "output_formatter_csv_example", template, data, nil, nil)
 }
-

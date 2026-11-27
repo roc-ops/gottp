@@ -74,3 +74,6 @@ cable_modem_template_fixed.ttp
 
 # External Dependencies
 ttp-original/
+
+# Local Python venv for the comparison suite (see test/comparison/README.md)
+.venv-ttp/

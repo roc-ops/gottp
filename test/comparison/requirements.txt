@@ -1,0 +1,5 @@
+# Python TTP version the comparison suite checks gottp against.
+# requirePythonTTP (comparison_test.go) fails the suite if the installed version differs.
+ttp==0.10.1
+# Python TTP silently skips YAML lookups without PyYAML, which makes lookup tests differ.
+pyyaml==6.0.3
