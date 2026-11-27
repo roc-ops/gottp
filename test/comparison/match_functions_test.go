@@ -7,9 +7,7 @@ import (
 
 // TestMatchFunctionString tests string manipulation match functions
 func TestMatchFunctionString(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	tests := []struct {
 		name     string
@@ -115,9 +113,7 @@ value {{ value | truncate(10) }}
 
 // TestMatchFunctionTypeConversion tests type conversion match functions
 func TestMatchFunctionTypeConversion(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	tests := []struct {
 		name     string
@@ -170,9 +166,7 @@ value {{ value | to_ip }}
 
 // TestMatchFunctionIPMAC tests IP and MAC address functions
 func TestMatchFunctionIPMAC(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	tests := []struct {
 		name     string
@@ -258,9 +252,7 @@ ip {{ ip | ip_info }}
 
 // TestMatchFunctionConditions tests condition match functions
 func TestMatchFunctionConditions(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	tests := []struct {
 		name     string
@@ -341,9 +333,7 @@ value {{ value | notequal("other") }}
 
 // TestMatchFunctionDataManipulation tests data manipulation functions
 func TestMatchFunctionDataManipulation(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	tests := []struct {
 		name     string
@@ -396,9 +386,7 @@ value {{ value | sformat("prefix_{}") }}
 
 // TestMatchFunctionLookup tests lookup functions
 func TestMatchFunctionLookup(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="test_table" load="python">
 test_table = {
@@ -446,9 +434,7 @@ key {{ key | lookup("test_table") }}
 
 // TestMatchFunctionChain tests chain function
 func TestMatchFunctionChain(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 my_functions = "upper|strip|split(',')"
@@ -465,9 +451,7 @@ value {{ value | chain("my_functions") }}
 
 // TestMatchFunctionToUnicode tests to_unicode function
 func TestMatchFunctionToUnicode(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="test">
 value {{ value | to_unicode }}

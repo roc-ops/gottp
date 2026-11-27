@@ -6,9 +6,7 @@ import (
 
 // TestGroupFunctionBasic tests basic group functions
 func TestGroupFunctionBasic(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	tests := []struct {
 		name     string
@@ -134,9 +132,7 @@ interface Vlan100
 
 // TestGroupFunctionTransformation tests transformation group functions
 func TestGroupFunctionTransformation(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	tests := []struct {
 		name     string
@@ -218,9 +214,7 @@ value example.com
 
 // TestGroupFunctionLookup tests lookup group function
 func TestGroupFunctionLookup(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="ip_table">
 '10.0.0.1': 'host1'
@@ -243,9 +237,7 @@ interface Vlan100
 
 // TestGroupFunctionValidation tests validation group functions
 func TestGroupFunctionValidation(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Skip if Cerberus is not installed in Python TTP
 	// Python TTP requires Cerberus library to be installed for validation
@@ -275,9 +267,7 @@ interface Vlan100
 
 // TestGroupFunctionChain tests function chaining
 func TestGroupFunctionChain(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces" functions="contains('ip') | record('last_interface') | del('mask')">
 interface {{ interface }}
@@ -297,9 +287,7 @@ interface Vlan100
 
 // TestGroupFunctionMacro tests macro group function
 func TestGroupFunctionMacro(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<macro>
 def process_interface(data):
@@ -318,4 +306,3 @@ interface {{ interface }}
 
 	RunComparison(t, "macro", template, data, nil, nil)
 }
-

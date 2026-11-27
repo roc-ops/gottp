@@ -10,39 +10,79 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/roc-ops/gottp"
 )
 
-// pythonTTPAvailable checks if Python TTP is available
-func pythonTTPAvailable() bool {
-	// Get project root
+// pythonBin is the interpreter used to run Python TTP. Override with
+// GOTTP_PYTHON (e.g. a venv's python) when python3 on PATH is not the one
+// that has the pinned TTP installed.
+func pythonBin() string {
+	if p := os.Getenv("GOTTP_PYTHON"); p != "" {
+		return p
+	}
+	return "python3"
+}
+
+var pythonTTPCheck struct {
+	once sync.Once
+	err  error
+}
+
+// pinnedTTPVersion returns the version pinned as "ttp==X" in requirements.txt.
+func pinnedTTPVersion(root string) (string, error) {
+	path := filepath.Join(root, "test", "comparison", "requirements.txt")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("reading %s: %w", path, err)
+	}
+	for _, line := range strings.Split(string(content), "\n") {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "ttp=="); ok {
+			return strings.TrimSpace(v), nil
+		}
+	}
+	return "", fmt.Errorf("%s has no ttp==<version> line", path)
+}
+
+// checkPythonTTP reports why the pinned Python TTP is unusable, or nil.
+func checkPythonTTP() error {
 	root, err := getProjectRoot()
 	if err != nil {
-		return false
+		return fmt.Errorf("finding project root: %w", err)
 	}
-
-	// Check if python_runner.py exists
-	scriptPath := filepath.Join(root, "test", "comparison", "python_runner.py")
-	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-		return false
+	want, err := pinnedTTPVersion(root)
+	if err != nil {
+		return err
 	}
-
-	// Try to run Python to check if it's available
-	cmd := exec.Command("python3", "--version")
-	if err := cmd.Run(); err != nil {
-		return false
+	install := fmt.Sprintf("install it with: %s -m pip install -r test/comparison/requirements.txt", pythonBin())
+	out, err := exec.Command(pythonBin(), "-c",
+		"import importlib.metadata as m, ttp; print(m.version('ttp'))").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Python TTP %s is not importable with %s (%v: %s); %s",
+			want, pythonBin(), err, strings.TrimSpace(string(out)), install)
 	}
-
-	// Try to import TTP (with working directory set)
-	cmd = exec.Command("python3", "-c", "import sys; sys.path.insert(0, 'ttp-original'); from ttp import ttp")
-	cmd.Dir = root
-	if err := cmd.Run(); err != nil {
-		return false
+	if got := strings.TrimSpace(string(out)); got != want {
+		return fmt.Errorf("Python TTP %s found with %s, but the comparison suite is pinned to %s; %s",
+			got, pythonBin(), want, install)
 	}
+	return nil
+}
 
-	return true
+// requirePythonTTP fails the test unless the pinned Python TTP version is
+// installed. Comparison tests never skip silently: set GOTTP_SKIP_PYTHON_TTP=1
+// to skip them on purpose.
+func requirePythonTTP(tb testing.TB) {
+	tb.Helper()
+	pythonTTPCheck.once.Do(func() { pythonTTPCheck.err = checkPythonTTP() })
+	if pythonTTPCheck.err == nil {
+		return
+	}
+	if os.Getenv("GOTTP_SKIP_PYTHON_TTP") == "1" {
+		tb.Skipf("GOTTP_SKIP_PYTHON_TTP=1: %v", pythonTTPCheck.err)
+	}
+	tb.Fatalf("%v (set GOTTP_SKIP_PYTHON_TTP=1 to skip comparison tests on purpose)", pythonTTPCheck.err)
 }
 
 // runPythonTTP executes Python TTP with the given template and data
@@ -56,7 +96,7 @@ func runPythonTTP(template, data string, vars map[string]interface{}, lookups ma
 	scriptPath := filepath.Join(root, "test", "comparison", "python_runner.py")
 
 	// Build command with working directory set to project root
-	cmd := exec.Command("python3", scriptPath, "--template", template)
+	cmd := exec.Command(pythonBin(), scriptPath, "--template", template)
 	cmd.Dir = root
 
 	// Add data if provided
@@ -65,7 +105,7 @@ func runPythonTTP(template, data string, vars map[string]interface{}, lookups ma
 	}
 
 	// Add vars if provided
-	if vars != nil && len(vars) > 0 {
+	if len(vars) > 0 {
 		varsJSON, err := json.Marshal(vars)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal vars: %w", err)
@@ -74,7 +114,7 @@ func runPythonTTP(template, data string, vars map[string]interface{}, lookups ma
 	}
 
 	// Add lookups if provided
-	if lookups != nil && len(lookups) > 0 {
+	if len(lookups) > 0 {
 		lookupsJSON, err := json.Marshal(lookups)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal lookups: %w", err)
@@ -242,7 +282,7 @@ func compareResults(pythonResult, goResult interface{}) (bool, string) {
 
 	// Add type information for debugging
 	typeInfo := fmt.Sprintf("\n\nType info:\nPython type: %T\nGo type: %T", normalizedPython, normalizedGo)
-	
+
 	// Try to find the first difference
 	diff := findFirstDifference(normalizedPython, normalizedGo, "")
 	if diff != "" {
@@ -272,7 +312,7 @@ func findFirstDifference(a, b interface{}, path string) string {
 		if !ok {
 			return fmt.Sprintf("Type mismatch at %s: map vs %T", path, b)
 		}
-		
+
 		// Check all keys in a
 		for k, v := range av {
 			newPath := path + "." + k
@@ -282,7 +322,7 @@ func findFirstDifference(a, b interface{}, path string) string {
 				return diff
 			}
 		}
-		
+
 		// Check for extra keys in b
 		for k := range bv {
 			if _, exists := av[k]; !exists {
@@ -295,11 +335,11 @@ func findFirstDifference(a, b interface{}, path string) string {
 		if !ok {
 			return fmt.Sprintf("Type mismatch at %s: slice vs %T", path, b)
 		}
-		
+
 		if len(av) != len(bv) {
 			return fmt.Sprintf("Length mismatch at %s: %d vs %d", path, len(av), len(bv))
 		}
-		
+
 		for i := range av {
 			newPath := fmt.Sprintf("%s[%d]", path, i)
 			if diff := findFirstDifference(av[i], bv[i], newPath); diff != "" {
@@ -317,22 +357,22 @@ func findFirstDifference(a, b interface{}, path string) string {
 // skipIfKnownDifference skips a test if it's a known difference
 func skipIfKnownDifference(t *testing.T, feature string) {
 	knownDiffs := map[string]bool{
-		"geoip_lookup":     true, // Requires external GeoIP2 database
-		"database_loader":  true, // Requires database drivers
-		"url_loader":       true, // May have network dependencies
-		"dns":              true, // May have network dependencies
-		"rdns":             true, // May have network dependencies
-		"directory_loader": true, // May have file system differences
-		"javascript_macro": true, // Python TTP has issues parsing JavaScript macros
-		"cerberus_validation": true, // Requires Cerberus library to be installed in Python TTP
+		"geoip_lookup":              true, // Requires external GeoIP2 database
+		"database_loader":           true, // Requires database drivers
+		"url_loader":                true, // May have network dependencies
+		"dns":                       true, // May have network dependencies
+		"rdns":                      true, // May have network dependencies
+		"directory_loader":          true, // May have file system differences
+		"javascript_macro":          true, // Python TTP has issues parsing JavaScript macros
+		"cerberus_validation":       true, // Requires Cerberus library to be installed in Python TTP
 		"text_loader_with_patterns": true, // Complex feature - Python TTP splits input by lines when patterns are in input tag
 		"file_loader_with_patterns": true, // Similar to text loader with patterns
-		"yaml_formatter":   true, // Requires pyyaml library
-		"table_formatter":  true, // Complex nested list structure differences
-		"tabulate_formatter": true, // Requires tabulate library
-		"excel_formatter":   true, // Requires openpyxl library
-		"jinja2_formatter":  true, // Requires jinja2 library
-		"n2g_formatter":     true, // Requires n2g library
+		"yaml_formatter":            true, // Requires pyyaml library
+		"table_formatter":           true, // Complex nested list structure differences
+		"tabulate_formatter":        true, // Requires tabulate library
+		"excel_formatter":           true, // Requires openpyxl library
+		"jinja2_formatter":          true, // Requires jinja2 library
+		"n2g_formatter":             true, // Requires n2g library
 	}
 
 	if knownDiffs[feature] {
@@ -343,9 +383,7 @@ func skipIfKnownDifference(t *testing.T, feature string) {
 // RunComparison is a helper function to run a comparison test
 func RunComparison(t *testing.T, testName, template, data string, vars map[string]interface{}, lookups map[string]map[string]interface{}) {
 	// Skip if Python TTP not available
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available - skipping comparison test")
-	}
+	requirePythonTTP(t)
 
 	// Run Python TTP
 	pythonResult, err := runPythonTTP(template, data, vars, lookups)
@@ -430,15 +468,15 @@ func fixturePath(parts ...string) (string, error) {
 
 // gottpConfig represents the structure of a gottp-config.json file exported from the editor
 type gottpConfig struct {
-	Template      string                            `json:"template"`
-	Inputs        map[string]string                 `json:"inputs"`
-	Variables     map[string]interface{}            `json:"variables"`
-	Lookups       map[string]map[string]interface{} `json:"lookups"`
-	YANGModules   map[string]string                 `json:"yangModules,omitempty"`
-	SourceMaps    bool                              `json:"sourceMapsEnabled,omitempty"`
-	SourceMapColors map[string]interface{}          `json:"sourceMapColors,omitempty"`
-	WordWrap      map[string]bool                   `json:"wordWrap,omitempty"`
-	Version       string                            `json:"version,omitempty"`
+	Template        string                            `json:"template"`
+	Inputs          map[string]string                 `json:"inputs"`
+	Variables       map[string]interface{}            `json:"variables"`
+	Lookups         map[string]map[string]interface{} `json:"lookups"`
+	YANGModules     map[string]string                 `json:"yangModules,omitempty"`
+	SourceMaps      bool                              `json:"sourceMapsEnabled,omitempty"`
+	SourceMapColors map[string]interface{}            `json:"sourceMapColors,omitempty"`
+	WordWrap        map[string]bool                   `json:"wordWrap,omitempty"`
+	Version         string                            `json:"version,omitempty"`
 }
 
 // RunComparisonWithConfig loads a gottp-config.json file and runs a comparison test

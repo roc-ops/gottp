@@ -408,24 +408,6 @@ func joinmatches(value interface{}, args []string, kwargs map[string]interface{}
 	return value, nil
 }
 
-// re applies regex substitution
-func re(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	str := fmt.Sprintf("%v", value)
-	if len(args) < 2 {
-		return str, nil
-	}
-
-	pattern := args[0]
-	replacement := args[1]
-
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return str, fmt.Errorf("invalid regex pattern: %w", err)
-	}
-
-	return re.ReplaceAllString(str, replacement), nil
-}
-
 // toStr converts value to string
 func toStr(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
 	return fmt.Sprintf("%v", value), nil
@@ -1734,10 +1716,8 @@ func chainFunc(value interface{}, args []string, kwargs map[string]interface{}) 
 
 		// Merge function-specific kwargs with existing kwargs (function kwargs override)
 		chainKwargs := make(map[string]interface{})
-		if kwargs != nil {
-			for k, v := range kwargs {
-				chainKwargs[k] = v
-			}
+		for k, v := range kwargs {
+			chainKwargs[k] = v
 		}
 		for k, v := range funcKwargs {
 			chainKwargs[k] = v

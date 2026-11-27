@@ -14,16 +14,19 @@ func NewPythonEngineStub() *PythonEngineStub {
 
 // RegisterMacro returns an error indicating Python support is not enabled
 func (e *PythonEngineStub) RegisterMacro(name, source string) error {
+	//lint:ignore ST1005 starts with a proper noun
 	return fmt.Errorf("Python macro support is not enabled. Build with -tags python and ensure Python development headers are installed")
 }
 
 // RegisterMacroSource returns an error indicating Python support is not enabled
 func (e *PythonEngineStub) RegisterMacroSource(source string) error {
+	//lint:ignore ST1005 starts with a proper noun
 	return fmt.Errorf("Python macro support is not enabled. Build with -tags python and ensure Python development headers are installed")
 }
 
 // ExecuteMacro returns an error indicating Python support is not enabled
 func (e *PythonEngineStub) ExecuteMacro(name string, data interface{}, ttpContext map[string]interface{}) (interface{}, error) {
+	//lint:ignore ST1005 starts with a proper noun
 	return nil, fmt.Errorf("Python macro support is not enabled. Build with -tags python and ensure Python development headers are installed")
 }
 

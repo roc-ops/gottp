@@ -1,0 +1,57 @@
+name: Test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: go test (Python TTP comparison)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: test/comparison/requirements.txt
+
+      # The comparison suite fails (not skips) unless this exact Python TTP is installed.
+      - name: Install pinned Python TTP
+        run: python3 -m pip install -r test/comparison/requirements.txt
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test -count=1 ./...
+
+      - name: Build WASM editor target
+        run: GOOS=js GOARCH=wasm go build ./...
+
+  staticcheck:
+    name: staticcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...

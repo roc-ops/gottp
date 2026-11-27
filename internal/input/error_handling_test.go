@@ -3,6 +3,7 @@ package input
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -54,11 +55,21 @@ func TestLoader_LoadFile_ErrorHandling(t *testing.T) {
 func TestLoader_LoadDirectory_ErrorHandling(t *testing.T) {
 	loader := NewLoader()
 
+	// A directory the test owns: listing a shared one such as /tmp fails on
+	// hosts where it contains entries the test user cannot read.
+	validDir := t.TempDir()
+	for _, name := range []string{"a.txt", "b.log", "c.md"} {
+		if err := os.WriteFile(filepath.Join(validDir, name), []byte("x\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	tests := []struct {
 		name       string
 		dirPath    string
 		extensions []string
 		wantErr    bool
+		wantFiles  int
 	}{
 		{
 			name:       "non-existent directory",
@@ -80,9 +91,10 @@ func TestLoader_LoadDirectory_ErrorHandling(t *testing.T) {
 		},
 		{
 			name:       "valid directory with extensions",
-			dirPath:    "/tmp",
+			dirPath:    validDir,
 			extensions: []string{"txt", "log"},
 			wantErr:    false,
+			wantFiles:  2,
 		},
 	}
 
@@ -93,8 +105,8 @@ func TestLoader_LoadDirectory_ErrorHandling(t *testing.T) {
 				t.Errorf("LoadDirectory() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if err == nil {
-				t.Logf("LoadDirectory() found %d files", len(result))
+			if err == nil && len(result) != tt.wantFiles {
+				t.Errorf("LoadDirectory() found %d files, want %d: %v", len(result), tt.wantFiles, result)
 			}
 		})
 	}

@@ -11,15 +11,11 @@ import json
 import argparse
 import io
 from contextlib import redirect_stdout
-from pathlib import Path
-
-# Add ttp-original to path if running from project root
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "ttp-original"))
 
 try:
     from ttp import ttp
 except ImportError:
-    print("ERROR: Python TTP not found. Please install it or ensure ttp-original is available.", file=sys.stderr)
+    print("ERROR: Python TTP not found. Install it with: python3 -m pip install -r test/comparison/requirements.txt", file=sys.stderr)
     sys.exit(1)
 
 

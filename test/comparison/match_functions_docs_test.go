@@ -6,9 +6,7 @@ import (
 
 // TestMatchFunctionChainExample1 tests chain function (Example-1 from docs)
 func TestMatchFunctionChainExample1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 vlans = "unrange(rangechar='-', joinchar=',') | split(',') | join(':') | joinmatches(':')"
@@ -33,9 +31,7 @@ interface {{ interface }}
 
 // TestMatchFunctionRecordExample tests record function from docs
 func TestMatchFunctionRecordExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces" input="in1">
 interface {{ interface }}
@@ -71,9 +67,7 @@ interface Vlan780
 
 // TestMatchFunctionLetExample tests let function from docs
 func TestMatchFunctionLetExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -92,9 +86,7 @@ interface {{ interface }}
 
 // TestMatchFunctionJoinExample1 tests join function (Example-1 from docs)
 func TestMatchFunctionJoinExample1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `description {{ description | join('.') }}`
 
@@ -106,9 +98,7 @@ func TestMatchFunctionJoinExample1(t *testing.T) {
 
 // TestMatchFunctionJoinExample2 tests join function with split (Example-2 from docs)
 func TestMatchFunctionJoinExample2(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `interface {{ interface }}
  switchport trunk allowed vlan add {{ trunk_vlans | split(',') | join(':') }}
@@ -123,9 +113,7 @@ func TestMatchFunctionJoinExample2(t *testing.T) {
 
 // TestMatchFunctionAppendExample tests append function from docs
 func TestMatchFunctionAppendExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `interface {{ interface | append(' - non production') }}
 `
@@ -138,9 +126,7 @@ func TestMatchFunctionAppendExample(t *testing.T) {
 
 // TestMatchFunctionUnrangeExample tests unrange function from docs
 func TestMatchFunctionUnrangeExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `interface {{ interface }}
  switchport trunk allowed vlan add {{ trunk_vlans | unrange(rangechar='-', joinchar=',') }}
@@ -155,9 +141,7 @@ func TestMatchFunctionUnrangeExample(t *testing.T) {
 
 // TestMatchFunctionSetExample1 tests set function (Example-1 from docs)
 func TestMatchFunctionSetExample1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 mys_set_var = "my_set_value"
@@ -195,9 +179,7 @@ interface GigabitEthernet3/7
 
 // TestMatchFunctionReplaceallExample1 tests replaceall (Example-1 from docs)
 func TestMatchFunctionReplaceallExample1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="ifs">
 interface {{ interface | replaceall('GE', 'GigabitEthernet', 'GigEthernet', 'GeEthernet') }}
@@ -213,9 +195,7 @@ interface GeEthernet1/5
 
 // TestMatchFunctionReplaceallExample2_1 tests replaceall with list variable (Example-2.1 from docs)
 func TestMatchFunctionReplaceallExample2_1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 intf_replace = ['GigabitEthernet', 'GigEthernet', 'GeEthernet']
@@ -239,9 +219,7 @@ interface GeEthernet1/5
 
 // TestMatchFunctionReplaceallExample2_2 tests replaceall with list variable and empty replacement (Example-2.2 from docs)
 func TestMatchFunctionReplaceallExample2_2(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 intf_replace = ['GigabitEthernet', 'GigEthernet', 'GeEthernet']
@@ -265,9 +243,7 @@ interface GeEthernet1/5
 
 // TestMatchFunctionResuballExample tests resuball function from docs
 func TestMatchFunctionResuballExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 intf_replace = {
@@ -293,4 +269,3 @@ interface TenGigabitEthernet3/3
 
 	RunComparison(t, "match_function_resuball_example", template, data, vars, nil)
 }
-

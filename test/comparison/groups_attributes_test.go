@@ -6,9 +6,7 @@ import (
 
 // TestGroupAttributeName tests the name attribute
 func TestGroupAttributeName(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -26,9 +24,7 @@ interface Vlan100
 
 // TestGroupAttributeInput tests the input attribute (Example-1 from docs)
 func TestGroupAttributeInputExample1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<input name="test1" load="text">
 interface GigabitEthernet3/3
@@ -49,9 +45,7 @@ interface {{ interface }}
 
 // TestGroupAttributeInputExample2 tests the input attribute with multiple inputs (Example-2 from docs)
 func TestGroupAttributeInputExample2(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<input name="input_1" load="text">
 interface GigabitEthernet3/11
@@ -101,9 +95,7 @@ interface GigabitEthernet3/22
 
 // TestGroupAttributeDefaultExample1 tests default attribute with string value (Example-1 from docs)
 func TestGroupAttributeDefaultExample1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Note: Removed <input> tag since data is passed separately via RunComparison
 	template := `<group name="interfaces" default="some_default_value">
@@ -122,9 +114,7 @@ interface {{ interface }}
 
 // TestGroupAttributeDefaultExample2 tests default attribute with no matches (Example-2 from docs)
 func TestGroupAttributeDefaultExample2(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Note: Removed <input> tag since data is passed separately via RunComparison
 	template := `<group name="uptime**">
@@ -148,9 +138,7 @@ Default domain is {{ fqdn }}
 // Note: This example uses two separate <input> tags, which Python TTP processes separately
 // For now, we test with a single input to verify the default attribute works
 func TestGroupAttributeDefaultExample3(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Simplified version with single input to test default attribute
 	// Note: Removed <input> tag since data is passed separately via RunComparison
@@ -188,9 +176,7 @@ interface Lo1
 
 // TestGroupAttributeMethod tests the method attribute (table vs group)
 func TestGroupAttributeMethod(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="arp" method="table">
 Internet  {{ ip }}  {{ age | DIGIT }}   {{ mac }}  ARPA   {{ interface }}
@@ -208,9 +194,7 @@ Internet  10.1.13.3               -   0050.5685.14d5  ARPA   GigabitEthernet2.13
 
 // TestGroupAttributeVoid tests the void attribute
 func TestGroupAttributeVoid(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -233,9 +217,7 @@ interface Vlan100
 
 // TestGroupAttributeFunctions tests the functions attribute
 func TestGroupAttributeFunctions(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Skip this test - Python TTP has issues parsing functions attribute with nested quotes
 	// The template uses functions="contains('ip'), record('last_interface')" which causes
@@ -261,9 +243,7 @@ interface Vlan100
 // without an inner group produces separate records for each pattern match,
 // matching Python TTP behavior where method="table" overrides _start_.
 func TestGroupAttributeMethodTableWithStart(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="entries*" method="table">
 ID: {{ id | _start_ }}
@@ -287,9 +267,7 @@ Value: 200
 // records, matching Python TTP behavior where the inner group uses default
 // method="group" and _start_ works normally.
 func TestGroupAttributeMethodTableWithStartInnerGroup(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="entries*" method="table">
 <group>
@@ -309,4 +287,3 @@ ifMtu: 9000
 
 	RunComparison(t, "group_attribute_method_table_with_start_inner_group", template, data, nil, nil)
 }
-

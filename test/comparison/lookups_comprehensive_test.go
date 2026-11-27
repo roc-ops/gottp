@@ -6,9 +6,7 @@ import (
 
 // TestLookupCSVExample tests CSV lookup from docs
 func TestLookupCSVExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="aux_csv" load="csv">
 ASN,as_name,as_description,prefix_num
@@ -28,9 +26,7 @@ router bgp {{ bgp_as | lookup("aux_csv", add_field="as_details") }}
 
 // TestLookupINIExample tests INI lookup from docs
 func TestLookupINIExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="locations" load="ini">
 [cities]
@@ -59,9 +55,7 @@ router bgp {{ bgp_as }}
 
 // TestLookupYAMLExample tests YAML lookup from docs
 func TestLookupYAMLExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<lookup name="yaml_look" load="yaml">
 '65100':
@@ -83,4 +77,3 @@ router bgp {{ bgp_as | lookup("yaml_look", add_field="as_details") }}
 
 	RunComparison(t, "lookup_yaml_example", template, data, nil, nil)
 }
-

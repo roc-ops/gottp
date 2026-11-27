@@ -160,11 +160,6 @@ func (e *Engine) ExtractVariablesWithVars(line string, vars map[string]interface
 	return variables
 }
 
-// parseVariable parses a variable string into a MatchVariable
-func (e *Engine) parseVariable(variableStr string) *MatchVariable {
-	return e.parseVariableWithVars(variableStr, nil)
-}
-
 // parseVariableWithVars parses a variable string into a MatchVariable with access to template variables
 func (e *Engine) parseVariableWithVars(variableStr string, vars map[string]interface{}) *MatchVariable {
 	variable := &MatchVariable{

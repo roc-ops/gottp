@@ -8,9 +8,7 @@ import (
 
 // TestInputLoaderText tests text input loader
 func TestInputLoaderText(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Skip - Python TTP splits input by lines when load="text" is used with patterns
 	// This is a complex feature that requires pattern matching inside input tags
@@ -35,9 +33,7 @@ interface {{ interface }}
 
 // TestInputLoaderYAML tests YAML input loader
 func TestInputLoaderYAML(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<input load="yaml" name="test_input">
 interface: {{ interface }}
@@ -58,9 +54,7 @@ ip: 192.168.0.1/24
 
 // TestInputLoaderJSON tests JSON input loader
 func TestInputLoaderJSON(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<input load="json" name="test_input">
 {"interface": "{{ interface }}", "ip": "{{ ip }}"}
@@ -78,9 +72,7 @@ func TestInputLoaderJSON(t *testing.T) {
 
 // TestInputLoaderCSV tests CSV input loader
 func TestInputLoaderCSV(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<input load="csv" name="test_input">
 interface,ip
@@ -102,9 +94,7 @@ Vlan100,10.0.0.1/24
 
 // TestInputLoaderFile tests file input loader
 func TestInputLoaderFile(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Skip - Similar to text loader, file loader with patterns has complex behavior
 	skipIfKnownDifference(t, "file_loader_with_patterns")
@@ -132,15 +122,13 @@ interface {{ interface }}
 
 // TestInputLoaderDirectory tests directory input loader
 func TestInputLoaderDirectory(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Create temporary directory with files
 	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
-	
+
 	os.WriteFile(file1, []byte(`interface Loopback0
  ip address 192.168.0.1/24
 `), 0644)
@@ -163,24 +151,19 @@ interface {{ interface }}
 
 // TestInputLoaderURL tests URL input loader
 func TestInputLoaderURL(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	skipIfKnownDifference(t, "url_loader")
-	
+
 	// Skip actual URL test as it requires network access
 	t.Skip("URL loader test requires network access and may have timing differences")
 }
 
 // TestInputLoaderDatabase tests database input loader
 func TestInputLoaderDatabase(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	skipIfKnownDifference(t, "database_loader")
-	
+
 	t.Skip("Database loader test requires database setup and drivers")
 }
-

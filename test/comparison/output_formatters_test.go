@@ -6,9 +6,7 @@ import (
 
 // TestOutputFormatterJSON tests JSON output formatter
 func TestOutputFormatterJSON(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -31,9 +29,7 @@ interface Vlan100
 
 // TestOutputFormatterYAML tests YAML output formatter
 func TestOutputFormatterYAML(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	skipIfKnownDifference(t, "yaml_formatter")
 
@@ -54,9 +50,7 @@ interface {{ interface }}
 
 // TestOutputFormatterRaw tests raw output formatter
 func TestOutputFormatterRaw(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -75,9 +69,7 @@ interface {{ interface }}
 
 // TestOutputFormatterCSV tests CSV output formatter
 func TestOutputFormatterCSV(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -98,9 +90,7 @@ interface Vlan100
 
 // TestOutputFormatterTable tests table output formatter
 func TestOutputFormatterTable(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	skipIfKnownDifference(t, "table_formatter")
 
@@ -123,9 +113,7 @@ interface Vlan100
 
 // TestOutputFormatterPPrint tests pprint output formatter
 func TestOutputFormatterPPrint(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -144,9 +132,7 @@ interface {{ interface }}
 
 // TestOutputFormatterTabulate tests tabulate output formatter
 func TestOutputFormatterTabulate(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	skipIfKnownDifference(t, "tabulate_formatter")
 
@@ -169,9 +155,7 @@ interface Vlan100
 
 // TestOutputFormatterExcel tests Excel output formatter
 func TestOutputFormatterExcel(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	skipIfKnownDifference(t, "excel_formatter")
 
@@ -195,9 +179,7 @@ interface Vlan100
 
 // TestOutputFormatterJinja2 tests Jinja2 output formatter
 func TestOutputFormatterJinja2(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	skipIfKnownDifference(t, "jinja2_formatter")
 
@@ -224,9 +206,7 @@ interface Vlan100
 
 // TestOutputFormatterN2G tests N2G output formatter
 func TestOutputFormatterN2G(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	skipIfKnownDifference(t, "n2g_formatter")
 
@@ -250,9 +230,7 @@ interface Vlan100
 
 // TestOutputFormatterWithPath tests output formatter with path
 func TestOutputFormatterWithPath(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces.{{ interface }}">
 interface {{ interface }}
@@ -273,9 +251,7 @@ interface Vlan100
 
 // TestOutputFormatterWithFunctions tests output formatter with functions
 func TestOutputFormatterWithFunctions(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -291,4 +267,3 @@ interface {{ interface }}
 
 	RunComparison(t, "formatter_with_functions", template, data, nil, nil)
 }
-

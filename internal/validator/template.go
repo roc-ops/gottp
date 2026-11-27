@@ -10,6 +10,7 @@ import (
 	"github.com/roc-ops/gottp/internal/functions/match"
 	"github.com/roc-ops/gottp/internal/parser"
 	"go.starlark.net/starlark"
+	"go.starlark.net/syntax"
 )
 
 // Validator validates TTP templates
@@ -300,7 +301,7 @@ func ValidateMacroSource(source, language string) []string {
 	// See https://github.com/roc-ops/gottp/issues/26.
 	thread := &starlark.Thread{Name: "macro-validation"}
 	predeclared := starlark.StringDict{"_ttp_": starlark.NewDict(0)}
-	if _, err := starlark.ExecFile(thread, "<macro>", source, predeclared); err != nil {
+	if _, err := starlark.ExecFileOptions(syntax.LegacyFileOptions(), thread, "<macro>", source, predeclared); err != nil {
 		warnings = append(warnings, fmt.Sprintf("macro failed to compile as Starlark and will not be available at parse time: %v", err))
 	}
 

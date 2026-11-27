@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"go.starlark.net/starlark"
+	"go.starlark.net/syntax"
 )
 
 // StarlarkEngine executes Starlark macros
@@ -49,7 +50,7 @@ func (e *StarlarkEngine) RegisterMacro(name, source string) error {
 
 	// Parse and compile the Starlark code to validate it
 	thread := &starlark.Thread{Name: "macro"}
-	globals, err := starlark.ExecFile(thread, name, source, e.predeclared)
+	globals, err := starlark.ExecFileOptions(syntax.LegacyFileOptions(), thread, name, source, e.predeclared)
 	if err != nil {
 		return fmt.Errorf("failed to compile Starlark macro %s: %w", name, err)
 	}
@@ -117,7 +118,7 @@ func (e *StarlarkEngine) RegisterMacroSource(source string) error {
 
 	// Validate the source
 	thread := &starlark.Thread{Name: "macro"}
-	globals, err := starlark.ExecFile(thread, "<macro>", source, e.predeclared)
+	globals, err := starlark.ExecFileOptions(syntax.LegacyFileOptions(), thread, "<macro>", source, e.predeclared)
 	if err != nil {
 		return fmt.Errorf("failed to validate Starlark macro source: %w", err)
 	}
@@ -226,7 +227,7 @@ func (e *StarlarkEngine) ExecuteMacroStarlark(name string, dataVal starlark.Valu
 		var globals starlark.StringDict
 		
 		// Execute the macro source (Starlark compiles on-the-fly with ExecFile)
-		globals, err = starlark.ExecFile(thread, "<macro>", source, e.predeclared)
+		globals, err = starlark.ExecFileOptions(syntax.LegacyFileOptions(), thread, "<macro>", source, e.predeclared)
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute Starlark macro: %w", err)
 		}
@@ -316,7 +317,7 @@ func (e *StarlarkEngine) ExecuteMacroStarlarkBatch(names []string, dataVal starl
 		
 		// Compile and cache
 		thread := &starlark.Thread{Name: "macro"}
-		globals, err := starlark.ExecFile(thread, "<macro>", source, e.predeclared)
+		globals, err := starlark.ExecFileOptions(syntax.LegacyFileOptions(), thread, "<macro>", source, e.predeclared)
 		if err != nil {
 			e.mu.RUnlock()
 			return nil, fmt.Errorf("failed to execute Starlark macro %s: %w", name, err)
@@ -451,7 +452,7 @@ func (e *StarlarkEngine) ExecuteMacro(name string, data interface{}, ttpContext 
 		var globals starlark.StringDict
 		
 		// Execute the macro source (Starlark compiles on-the-fly with ExecFile)
-		globals, err = starlark.ExecFile(thread, "<macro>", source, e.predeclared)
+		globals, err = starlark.ExecFileOptions(syntax.LegacyFileOptions(), thread, "<macro>", source, e.predeclared)
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute Starlark macro: %w", err)
 		}
@@ -718,12 +719,14 @@ func (r *MacroRegistry) ExecuteMacro(language, name string, data interface{}, tt
 		// Convert data to map[string]interface{} if needed
 		dataMap, ok := data.(map[string]interface{})
 		if !ok {
+			//lint:ignore ST1005 starts with a proper noun
 			return nil, fmt.Errorf("Go macro %s requires map[string]interface{} data", name)
 		}
 
 		// Execute native Go macro (no conversion overhead!)
 		result, keep, err := goMacro(dataMap, nil, ttpContext)
 		if err != nil {
+			//lint:ignore ST1005 starts with a proper noun
 			return nil, fmt.Errorf("Go macro %s failed: %w", name, err)
 		}
 

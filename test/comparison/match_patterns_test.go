@@ -6,9 +6,7 @@ import (
 
 // TestMatchPatternsRe tests the re pattern with template variable
 func TestMatchPatternsRe(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 GE_INTF = "GigabitEthernet\S+"
@@ -30,4 +28,3 @@ Internet  10.12.13.4       198   0950.5C8A.5c41  ARPA   GigabitEthernet2.17
 
 	RunComparison(t, "match_patterns_re", template, data, vars, nil)
 }
-

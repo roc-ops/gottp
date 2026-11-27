@@ -6,9 +6,7 @@ import (
 
 // TestGroupFunctionContainsAllExample tests containsall function from docs
 func TestGroupFunctionContainsAllExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces" containsall="ip, vrf">
 interface {{ interface }}
@@ -35,9 +33,7 @@ interface Vlan777
 
 // TestGroupFunctionContainsExample tests contains function from docs
 func TestGroupFunctionContainsExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces" contains="ip, vrf">
 interface {{ interface }}
@@ -64,9 +60,7 @@ interface Vlan777
 
 // TestGroupFunctionDelExample tests del function from docs
 func TestGroupFunctionDelExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces-test1-31" del="description, ip">
 interface {{ interface }}
@@ -92,9 +86,7 @@ interface Vlan780
 
 // TestGroupFunctionSformatExample tests sformat function from docs
 func TestGroupFunctionSformatExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 domain = "com"
@@ -117,9 +109,7 @@ Default domain is lab.local
 
 // TestGroupFunctionItemizeExample tests itemize function from docs
 func TestGroupFunctionItemizeExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces_list" itemize="interface">
 interface {{ interface }}
@@ -144,9 +134,7 @@ interface Vlan780
 
 // TestGroupFunctionContainsValExample1 tests contains_val function (Example-1 from docs)
 func TestGroupFunctionContainsValExample1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces" contains_val="'ip', '2.2.2.2/24'">
 interface {{ interface }}
@@ -166,9 +154,7 @@ interface Vlan780
 
 // TestGroupFunctionContainsValExample2 tests contains_val function with variable (Example-2 from docs)
 func TestGroupFunctionContainsValExample2(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 ip_in_question="1.1.1.1"
@@ -195,9 +181,7 @@ ip address 1.1.1.1 32
 
 // TestGroupFunctionExcludeValExample tests exclude_val function from docs
 func TestGroupFunctionExcludeValExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 ip_in_question="1.1.1.1"
@@ -224,9 +208,7 @@ ip address 1.1.1.1 32
 
 // TestGroupFunctionSetExample tests set function with default value from docs
 func TestGroupFunctionSetExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="bgp_config">
 router bgp {{ bgp_asn }}
@@ -260,9 +242,7 @@ router bgp {{ bgp_asn }}
 
 // TestGroupFunctionExpandExample tests expand function from docs
 func TestGroupFunctionExpandExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="cdp*" expand="">
 Device ID: {{ target.id }}
@@ -292,9 +272,7 @@ Interface: GigabitEthernet1/1,  Port ID (outgoing port): GigabitEthernet0/1
 
 // TestGroupFunctionToIntIntlistExample tests to_int with intlist from docs
 func TestGroupFunctionToIntIntlistExample(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group to_int="trunk_vlan, intlist=True">
 interface {{ name }}
@@ -316,4 +294,3 @@ interface GigabitEthernet1/4
 
 	RunComparison(t, "group_function_to_int_intlist_example", template, data, nil, nil)
 }
-

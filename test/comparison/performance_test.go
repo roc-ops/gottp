@@ -1,3 +1,5 @@
+//lint:file-ignore SA1019 benchmarks Go macros through the deprecated RegisterGoMacro API, which is still supported
+
 package comparison
 
 import (
@@ -69,9 +71,7 @@ interface GigabitEthernet0/1
 
 // BenchmarkPythonTTPCompile benchmarks Python TTP compilation
 func BenchmarkPythonTTPCompile(b *testing.B) {
-	if !pythonTTPAvailable() {
-		b.Skip("Python TTP not available")
-	}
+	requirePythonTTP(b)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -87,7 +87,6 @@ interface {{ interface }}
 	scriptPath := fmt.Sprintf(`
 import sys
 import time
-sys.path.insert(0, '%s/ttp-original')
 from ttp import ttp
 
 template = """%s"""
@@ -97,9 +96,9 @@ for i in range(%d):
     parser = ttp(template=template)
     end = time.perf_counter()
     print(f"{end - start:.6f}")
-`, root, template, b.N)
+`, template, b.N)
 
-	cmd := exec.Command("python3", "-c", scriptPath)
+	cmd := pythonScriptCmd(b, scriptPath)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -113,9 +112,7 @@ for i in range(%d):
 
 // BenchmarkPythonTTPParse benchmarks Python TTP parsing
 func BenchmarkPythonTTPParse(b *testing.B) {
-	if !pythonTTPAvailable() {
-		b.Skip("Python TTP not available")
-	}
+	requirePythonTTP(b)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -143,7 +140,6 @@ interface GigabitEthernet0/1
 	scriptPath := fmt.Sprintf(`
 import sys
 import time
-sys.path.insert(0, '%s/ttp-original')
 from ttp import ttp
 
 template = """%s"""
@@ -159,9 +155,9 @@ for i in range(%d):
     parser.parse()
     end = time.perf_counter()
     print(f"{end - start:.6f}")
-`, root, template, data, b.N)
+`, template, data, b.N)
 
-	cmd := exec.Command("python3", "-c", scriptPath)
+	cmd := pythonScriptCmd(b, scriptPath)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -174,9 +170,7 @@ for i in range(%d):
 
 // TestPerformanceComparison runs a performance comparison and prints results
 func TestPerformanceComparison(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -236,7 +230,6 @@ vlan 300
 	script := fmt.Sprintf(`
 import sys
 import time
-sys.path.insert(0, '%s/ttp-original')
 from ttp import ttp
 
 template = """%s"""
@@ -250,9 +243,9 @@ total = end - start
 avg = total / iterations
 print(f"{total:.6f}")
 print(f"{avg:.9f}")
-`, root, template, iterations)
+`, template, iterations)
 
-	cmd := exec.Command("python3", "-c", script)
+	cmd := pythonScriptCmd(t, script)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -297,7 +290,6 @@ print(f"{avg:.9f}")
 	script = fmt.Sprintf(`
 import sys
 import time
-sys.path.insert(0, '%s/ttp-original')
 from ttp import ttp
 
 template = """%s"""
@@ -314,9 +306,9 @@ total = end - start
 avg = total / iterations
 print(f"{total:.6f}")
 print(f"{avg:.9f}")
-`, root, template, data, iterations)
+`, template, data, iterations)
 
-	cmd = exec.Command("python3", "-c", script)
+	cmd = pythonScriptCmd(t, script)
 	cmd.Dir = root
 	output, err = cmd.CombinedOutput()
 	if err != nil {
@@ -349,9 +341,7 @@ print(f"{avg:.9f}")
 // TestPerformanceComparisonLargeInput tests performance with a large input dataset
 // This helps validate performance with many matches, especially after sorting algorithm improvements
 func TestPerformanceComparisonLargeInput(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface {{ interface }}
@@ -426,7 +416,6 @@ vlan {{ vlan_id }}
 	script := fmt.Sprintf(`
 import sys
 import time
-sys.path.insert(0, '%s/ttp-original')
 from ttp import ttp
 
 template = """%s"""
@@ -443,9 +432,9 @@ total = end - start
 avg = total / iterations
 print(f"{total:.6f}")
 print(f"{avg:.9f}")
-`, root, template, escapedData, iterations)
+`, template, escapedData, iterations)
 
-	cmd := exec.Command("python3", "-c", script)
+	cmd := pythonScriptCmd(t, script)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -473,9 +462,7 @@ print(f"{avg:.9f}")
 // TestPerformanceComparisonCableModem tests performance with a large cable modem dataset
 // This uses real-world cable modem data to test performance with many matches
 func TestPerformanceComparisonCableModem(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<macro>
 def ds_bonded(data):
@@ -576,10 +563,10 @@ def us_bonded(data):
 	// Test GoTTP Parsing with Native Go Macros
 	fmt.Println("\n2. Cable Modem Input Parsing Performance (Native Go Macros):")
 	fmt.Println("   Running GoTTP parsing benchmark with native Go macros...")
-	
+
 	// Create runtime and register native Go macros
 	runtime := compiled.NewRuntime()
-	
+
 	// Register ds_bonded macro
 	runtime.GetMacroRegistry().RegisterGoMacro("ds_bonded", func(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error) {
 		dsIntf, ok := data["ds-intf"].(string)
@@ -638,7 +625,7 @@ def us_bonded(data):
 	goParseTimeGo := time.Since(start)
 	goParseAvgGo := goParseTimeGo / time.Duration(iterations)
 	fmt.Printf("   GoTTP (Native Go):    %v total, %v per operation (avg)\n", goParseTimeGo, goParseAvgGo)
-	
+
 	goMacroSpeedup := float64(goParseTimeStarlark) / float64(goParseTimeGo)
 	fmt.Printf("   Native Go macros:     %.2fx faster than Starlark\n", goMacroSpeedup)
 
@@ -653,7 +640,6 @@ def us_bonded(data):
 	script := fmt.Sprintf(`
 import sys
 import time
-sys.path.insert(0, '%s/ttp-original')
 from ttp import ttp
 
 template = """%s"""
@@ -670,9 +656,9 @@ total = end - start
 avg = total / iterations
 print(f"{total:.6f}")
 print(f"{avg:.9f}")
-`, root, template, escapedData, iterations)
+`, template, escapedData, iterations)
 
-	cmd := exec.Command("python3", "-c", script)
+	cmd := pythonScriptCmd(t, script)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -701,3 +687,14 @@ print(f"{avg:.9f}")
 	fmt.Println()
 }
 
+// pythonScriptCmd runs a Python script from a file rather than "python3 -c".
+// Scripts that embed large inputs exceed Linux's 128 KB per-argument limit
+// (MAX_ARG_STRLEN) when passed with -c; macOS allows far more.
+func pythonScriptCmd(tb testing.TB, script string) *exec.Cmd {
+	tb.Helper()
+	path := filepath.Join(tb.TempDir(), "script.py")
+	if err := os.WriteFile(path, []byte(script), 0o600); err != nil {
+		tb.Fatalf("writing Python script: %v", err)
+	}
+	return exec.Command(pythonBin(), path)
+}

@@ -6,9 +6,7 @@ import (
 
 // TestMatchIndicatorExact tests the _exact_ indicator
 func TestMatchIndicatorExact(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	// Example from docs: capturing IPv4 configuration with _exact_
 	template := `<group name="vrfs">
@@ -34,9 +32,7 @@ vrf {{ vrf }}
 
 // TestMatchIndicatorStartExample1 tests _start_ indicator (Example-1 from docs)
 func TestMatchIndicatorStartExample1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="cdp_peers">
 ------------------------- {{ _start_ }}
@@ -62,9 +58,7 @@ Entry address(es):
 
 // TestMatchIndicatorStartExample2 tests _start_ indicator with multiple start patterns (Example-2 from docs)
 func TestMatchIndicatorStartExample2(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group name="interfaces">
 interface Tunnel{{ if_id }}
@@ -84,9 +78,7 @@ interface GigabitEthernet1/1
 
 // TestMatchIndicatorLine tests the _line_ indicator
 func TestMatchIndicatorLine(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<group>
 interface {{ interface }}
@@ -114,9 +106,7 @@ interface Gi0/37
 
 // TestMatchIndicatorIgnoreExample1 tests ignore indicator (Example-1 from docs)
 func TestMatchIndicatorIgnoreExample1(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `{{ interface }} is up, line protocol is up
   Hardware is Gt96k FE, address is {{ ignore }} (bia {{MAC}})
@@ -135,9 +125,7 @@ FastEthernet0/1 is up, line protocol is up
 
 // TestMatchIndicatorIgnoreExample2 tests ignore indicator with template variable pattern
 func TestMatchIndicatorIgnoreExample2(t *testing.T) {
-	if !pythonTTPAvailable() {
-		t.Skip("Python TTP not available")
-	}
+	requirePythonTTP(t)
 
 	template := `<vars>
 pattern_var = "c201\\.1d00\\.0000|b20a\\.1e00\\.8777"
@@ -161,4 +149,3 @@ FastEthernet0/1 is up, line protocol is up
 
 	RunComparison(t, "match_indicator_ignore_example2", template, data, vars, nil)
 }
-

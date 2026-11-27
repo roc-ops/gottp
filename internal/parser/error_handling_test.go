@@ -2,7 +2,6 @@ package parser
 
 import (
 	"encoding/xml"
-	"fmt"
 	"testing"
 )
 
@@ -282,10 +281,3 @@ func TestParseOutput_ErrorHandling(t *testing.T) {
 }
 
 // Helper functions
-
-func createDeepNestedXML(depth int) string {
-	if depth == 0 {
-		return "<group name=\"leaf\"></group>"
-	}
-	return "<group name=\"level" + fmt.Sprintf("%d", depth) + "\">" + createDeepNestedXML(depth-1) + "</group>"
-}
