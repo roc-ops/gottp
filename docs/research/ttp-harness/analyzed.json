@@ -1,0 +1,3539 @@
+[
+ [
+  "test/pytest/test_N2G_formatter.py::test_n2g_formatter",
+  "error",
+  "parse: failed to parse with template: failed to process output functions: unknown output format: n2g",
+  [
+   "output",
+   "input-tag",
+   "vars",
+   "ttp-getter"
+  ]
+ ],
+ [
+  "test/pytest/test_anonymous_group.py::test_simple_anonymous_template",
+  "pass-normalized",
+  null,
+  []
+ ],
+ [
+  "test/pytest/test_anonymous_group.py::test_anonymous_group_with_vars",
+  "fail",
+  [
+   "$.len",
+   3,
+   2
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_anonymous_group.py::test_anonymous_group_with_child_group_empty_absolute_path",
+  "fail",
+  [
+   "$[0].ip",
+   "10.123.89.55",
+   "<missing>"
+  ],
+  [
+   "input-tag",
+   "per_template"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_docs_ttp_dictionary_usage_example",
+  "error",
+  "parse: failed to parse with template: failed to parse group : failed to process group macro: group macro [add_last_host] failed: failed to call macro function add_last_host: key \"match\" not in dict",
+  [
+   "macro",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_github_issue_22",
+  "fail",
+  [
+   "$.len",
+   2,
+   0
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_reddit_answer_1",
+  "fail",
+  [
+   "$[0]",
+   "\"Hostname\",\"Port_Number\",\"Untagged_VLAN\",\"Tagged_VLAN\"\n\"SWITCH\",\"2/11\",\"101\",\"60 70 105 116 117\"\n\"SWITCH\",\"2/12\",\"103\",\"61 71\"",
+   {
+    "vlans": [
+     {
+      "Hostname": "gethostname",
+      "Port_Number": "2/11",
+      "Tagged_VLAN": "60 70 105 116 117",
+      "Untagged_VLAN": "101"
+     },
+     {
+      "Hostname": "gethostname",
+      "Port_Number": "2/12",
+      "Tagged_VLAN": "61 71",
+      "Untagged_VLAN": "103"
+     }
+    ]
+   }
+  ],
+  [
+   "output",
+   "vars",
+   "joinmatches",
+   "ttp-getter"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_reddit_answer_2",
+  "fail",
+  [
+   "$[0].ospf.areas",
+   [
+    {
+     "nssa_redis": "enable",
+     "nssa_default_metric_type": "2",
+     "nssa_default_metric": "10",
+     "area_type": "nssa",
+     "stub_type": "summary",
+     "area": "0.0.0.1"
+    }
+   ],
+   "<missing>"
+  ],
+  [
+   "macro",
+   "vars",
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_group_default_docs",
+  "pass-strict",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_github_issue_34_answer",
+  "fail",
+  [
+   "$[0].demo",
+   {
+    "audiences": [
+     {
+      "audience": []
+     }
+    ]
+   },
+   "<missing>"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_github_issue_33_answer_1",
+  "fail",
+  [
+   "$[0].servers",
+   [
+    {
+     "server": "1.1.1.1",
+     "servers_number": 1
+    },
+    {
+     "server": "2.2.2.2 3.3.3.3",
+     "servers_number": 2
+    },
+    {
+     "server": "4.4.4.4 5.5.5.5 6.6.6.6",
+     "servers_number": 3
+    }
+   ],
+   "<missing>"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_36",
+  "pass-strict",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_github_issue_37_original_data_template",
+  "fail",
+  [
+   "$[0].service",
+   {
+    "epipe": {
+     "103076": {
+      "service_name": "EPIPE service-103076 DKTN08a-D0105 (63.130.108.41)",
+      "service_mtu": "1588",
+      "description": "vf=EWL:cn=TATA_COM:tl=2C02495918:st=act:",
+      "customer_id": "160",
+      "state": "enabled",
+      "sap": {
+       "1/2/12:20.qinq": {
+        "mss_name": "TATA_VSNL_STRAT_A206_LAN10",
+        "description": "vf=EWL:cn=TATA_COM:tl=2C02495890:st=act:",
+        "state": "enabled",
+        "ingress": {
+         "sap_ingress": "1",
+         "scheduler_policy": "none"
+        },
+        "egress": {
+         "scheduler_policy": "none",
+         "sap_egress": "1)"
+        }
+       }
+      },
+      "regular_sdp": {
+       "8051": {
+        "state": "enabled",
+        "vc_id": "103076"
+       }
+      }
+     },
+     "103206": {
+      "service_name": "EPIPE service-103206 DKTN08a-D0105 (63.130.108.41)",
+      "service_mtu": "1988",
+      "description": "vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'",
+      "customer_id": "1904",
+      "state": "enabled",
+      "sap": {
+       "2/2/3:401.100": {
+        "mss_name": "SKANSKA_E13DG_A825_LAN1",
+        "description": "vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'",
+        "state": "enabled",
+        "ingress": {
+         "sap_ingress": "11010",
+         "scheduler_policy": "none"
+        },
+        "egress": {
+         "sap_egress": "11010",
+         "scheduler_policy": "none"
+        }
+       }
+      },
+      "regular_sdp": {
+       "8035": {
+        "state": "enabled",
+        "vc_id": "103206"
+       }
+      }
+     },
+     "103256": {
+      "service_name": "EPIPE service-103256 DKTN08a-D0105 (63.130.108.41)",
+      "service_mtu": "1988",
+      "description": "vf=EWL:cn=TATA_COMM:tl=2C02490189:st=act:",
+      "customer_id": "160",
+      "state": "enabled",
+      "sap": {
+       "1/2/12:15.qinq": {
+        "mss_name": "TATA_VSNL_STRAT_A206_LAN5",
+        "description": "vf=EWL:cn=TATA_COMM:tl=2C02490171:st=act:",
+        "state": "enabled",
+        "ingress": {
+         "sap_ingress": "11000",
+         "scheduler_policy": "none"
+        },
+        "egress": {
+         "sap_egress": "11000",
+         "scheduler_policy": "none"
+        }
+       }
+      },
+      "regular_sdp": {
+       "8139": {
+        "state": "enabled",
+        "vc_id": "103256"
+       }
+      }
+     },
+     "103742": {
+      "service_name": "EPIPE service-103742 DKTN08a-D0105 (63.130.108.41)",
+      "service_mtu": "1588",
+      "description": "vf=EWL:cn=TATA_COM:tl=2C02410363:st=act:",
+      "customer_id": "160",
+      "state": "enabled",
+      "sap": {
+       "5/2/50:20.qinq": {
+        "mss_name": "TATA_STRAT_LON_A206_LANA",
+        "description": "vf=EWL:cn=TATA_COM:tl=2C02410338:st=act:",
+        "state": "enabled",
+        "ingress": {
+         "sap_ingress": "11000",
+         "scheduler_policy": "none"
+        },
+        "egress": {
+         "sap_egress": "11000",
+         "scheduler_policy": "none"
+        }
+       }
+      },
+      "regular_sdp": {
+       "8061": {
+        "state": "enabled",
+        "vc_id": "103742"
+       }
+      }
+     },
+     "55517673": {
+      "service_name": "epipe service-64585 DKTN08a-D0105 (63.130.108.41)",
+      "service_mtu": "1526",
+      "description": "vf=EAGG:cn=Bulldog:tl=2C01291821:st=act:no=NGA EPIPE#BAACTQ#VLAN 901",
+      "customer_id": "4",
+      "state": "enabled",
+      "endpoint": {
+       "revert_time": "infinite",
+       "endpoint": "\"SDP\""
+      },
+      "sap": {
+       "2/2/3:901.qinq": {
+        "description": "2_2_3,H0505824A,Bulldog,VLAN 901",
+        "mss_name": "none",
+        "state": "enabled",
+        "ingress": {
+         "sap_ingress": "20010",
+         "scheduler_policy": "\"NGA-LLU-300M\""
+        },
+        "egress": {
+         "sap_egress": "20010",
+         "scheduler_policy": "\"NGA-LLU-300M\""
+        }
+       }
+      },
+      "pwr_sdp": {
+       "8243": {
+        "state": "enabled",
+        "precedence": "1",
+        "vc_id": "55517673",
+        "endpoint": "\"SDP\""
+       },
+       "8245": {
+        "state": "enabled",
+        "precedence": "primary",
+        "vc_id": "55517673",
+        "endpoint": "\"SDP\""
+       }
+      }
+     }
+    }
+   },
+   "<missing>"
+  ],
+  [
+   "macro"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_github_issue_37_cleaned_up_data",
+  "fail",
+  [
+   "$[0].service",
+   {
+    "epipe": {
+     "103076": {
+      "customer_id": "160",
+      "regular_sdp": {
+       "8051": {
+        "state": "enabled",
+        "vc_id": "103076"
+       }
+      }
+     },
+     "103206": {
+      "customer_id": "1904",
+      "regular_sdp": {
+       "8035": {
+        "state": "enabled",
+        "vc_id": "103206"
+       }
+      }
+     }
+    }
+   },
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_github_issue_37_cleaned_data_template",
+  "fail",
+  [
+   "$[0].service",
+   {
+    "epipe": {
+     "103076": {
+      "service_name": "EPIPE service-103076 DKTN08a-D0105 (63.130.108.41)",
+      "service_mtu": "1588",
+      "description": "vf=EWL:cn=TATA_COM:tl=2C02495918:st=act:",
+      "customer_id": "160",
+      "state": "enabled",
+      "sap": {
+       "1/2/12:20.qinq": {
+        "mss_name": "TATA_VSNL_STRAT_A206_LAN10",
+        "description": "vf=EWL:cn=TATA_COM:tl=2C02495890:st=act:",
+        "state": "enabled",
+        "ingress": {
+         "sap_ingress": "1",
+         "scheduler_policy": "none"
+        },
+        "egress": {
+         "scheduler_policy": "none",
+         "sap_egress": "1)"
+        }
+       }
+      },
+      "regular_sdp": {
+       "8051": {
+        "state": "enabled",
+        "vc_id": "103076"
+       }
+      }
+     },
+     "103206": {
+      "service_name": "EPIPE service-103206 DKTN08a-D0105 (63.130.108.41)",
+      "service_mtu": "1988",
+      "description": "vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'",
+      "customer_id": "1904",
+      "state": "enabled",
+      "sap": {
+       "2/2/3:401.100": {
+        "mss_name": "SKANSKA_E13DG_A825_LAN1",
+        "description": "vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'",
+        "state": "enabled",
+        "ingress": {
+         "sap_ingress": "11010",
+         "scheduler_policy": "none"
+        },
+        "egress": {
+         "sap_egress": "11010",
+         "scheduler_policy": "none"
+        }
+       }
+      },
+      "regular_sdp": {
+       "8035": {
+        "state": "enabled",
+        "vc_id": "103206"
+       }
+      }
+     },
+     "103256": {
+      "service_name": "EPIPE service-103256 DKTN08a-D0105 (63.130.108.41)",
+      "service_mtu": "1988",
+      "description": "vf=EWL:cn=TATA_COMM:tl=2C02490189:st=act:",
+      "customer_id": "160",
+      "state": "enabled",
+      "sap": {
+       "1/2/12:15.qinq": {
+        "mss_name": "TATA_VSNL_STRAT_A206_LAN5",
+        "description": "vf=EWL:cn=TATA_COMM:tl=2C02490171:st=act:",
+        "state": "enabled",
+        "ingress": {
+         "sap_ingress": "11000",
+         "scheduler_policy": "none"
+        },
+        "egress": {
+         "sap_egress": "11000",
+         "scheduler_policy": "none"
+        }
+       }
+      },
+      "regular_sdp": {
+       "8139": {
+        "state": "enabled",
+        "vc_id": "103256"
+       }
+      }
+     },
+     "103742": {
+      "service_name": "EPIPE service-103742 DKTN08a-D0105 (63.130.108.41)",
+      "service_mtu": "1588",
+      "description": "vf=EWL:cn=TATA_COM:tl=2C02410363:st=act:",
+      "customer_id": "160",
+      "state": "enabled",
+      "sap": {
+       "5/2/50:20.qinq": {
+        "mss_name": "TATA_STRAT_LON_A206_LANA",
+        "description": "vf=EWL:cn=TATA_COM:tl=2C02410338:st=act:",
+        "state": "enabled",
+        "ingress": {
+         "sap_ingress": "11000",
+         "scheduler_policy": "none"
+        },
+        "egress": {
+         "sap_egress": "11000",
+         "scheduler_policy": "none"
+        }
+       }
+      },
+      "regular_sdp": {
+       "8061": {
+        "state": "enabled",
+        "vc_id": "103742"
+       }
+      }
+     },
+     "55517673": {
+      "service_name": "epipe service-64585 DKTN08a-D0105 (63.130.108.41)",
+      "service_mtu": "1526",
+      "description": "vf=EAGG:cn=Bulldog:tl=2C01291821:st=act:no=NGA EPIPE#BAACTQ#VLAN 901",
+      "customer_id": "4",
+      "state": "enabled",
+      "endpoint": {
+       "revert_time": "infinite",
+       "endpoint": "\"SDP\""
+      },
+      "sap": {
+       "2/2/3:901.qinq": {
+        "description": "2_2_3,H0505824A,Bulldog,VLAN 901",
+        "mss_name": "none",
+        "state": "enabled",
+        "ingress": {
+         "sap_ingress": "20010",
+         "scheduler_policy": "\"NGA-LLU-300M\""
+        },
+        "egress": {
+         "sap_egress": "20010",
+         "scheduler_policy": "\"NGA-LLU-300M\""
+        }
+       }
+      },
+      "pwr_sdp": {
+       "8243": {
+        "state": "enabled",
+        "precedence": "1",
+        "vc_id": "55517673",
+        "endpoint": "\"SDP\""
+       },
+       "8245": {
+        "state": "enabled",
+        "precedence": "primary",
+        "vc_id": "55517673",
+        "endpoint": "\"SDP\""
+       }
+      }
+     }
+    }
+   },
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_github_issue_42",
+  "fail",
+  [
+   "$[0].vrfs.route-targets",
+   [
+    {
+     "import": [
+      "65000:3507",
+      "65000:3511",
+      "65000:5453",
+      "65000:5535"
+     ]
+    },
+    {
+     "export": [
+      "65000:5453",
+      "65000:5535"
+     ]
+    }
+   ],
+   {
+    "export": [
+     "65000:5453",
+     "65000:5535",
+     "!",
+     "!"
+    ]
+   }
+  ],
+  [
+   "joinmatches"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_github_issue_42_answer",
+  "fail",
+  [
+   "$[0].vrfs.export_rts[0].export_rt",
+   "65000:5453",
+   "65000:3507"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_45",
+  "fail",
+  [
+   "$[0].vrfs[0].forwarding_options",
+   {
+    "dhcp_relay": {
+     "server_group": {
+      "dhcp": [
+       {
+        "server_group_name1": "IN_MEDIA_SIGNALING",
+        "helper_addresses": [
+         {
+          "helper_address": "10.154.6.147"
+         }
+        ]
+       },
+       {
+        "server_group_name1": "DHCP-NGN-SIG",
+        "helper_addresses": [
+         {
+          "helper_address": "10.154.6.147"
+         }
+        ]
+       }
+      ]
+     },
+     "groups": [
+      {
+       "server_group_name2": "IN_MEDIA_SIGNALING",
+       "group_name": "group2"
+      },
+      {
+       "server_group_name2": "DHCP-NGN-SIG",
+       "group_name": "NGN-SIG"
+      }
+     ]
+    }
+   },
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_45_1",
+  "fail",
+  [
+   "$[0].vrfs[0].forwarding_options",
+   {
+    "dhcp_relay": {
+     "server_group": {
+      "dhcp": [
+       {
+        "server_group_name": "IN_MEDIA_SIGNALING"
+       },
+       {
+        "server_group_name": "overrides"
+       }
+      ]
+     },
+     "groups": [
+      {
+       "group_name": "NGN-SIG"
+      }
+     ]
+    }
+   },
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_45_filtering_fix",
+  "fail",
+  [
+   "$[0].vrfs[0].forwarding_options",
+   {
+    "dhcp_relay": {
+     "server_group": {
+      "dhcp": [
+       {
+        "server_group_name1": "IN_MEDIA_SIGNALING",
+        "helper_addresses": [
+         {
+          "helper_address": "10.154.6.147"
+         }
+        ]
+       },
+       {
+        "server_group_name1": "DHCP-NGN-SIG",
+        "helper_addresses": [
+         {
+          "helper_address": "10.154.6.147"
+         }
+        ]
+       }
+      ]
+     },
+     "groups": [
+      {
+       "server_group_name2": "IN_MEDIA_SIGNALING",
+       "group_name": "group2"
+      },
+      {
+       "server_group_name2": "DHCP-NGN-SIG",
+       "group_name": "NGN-SIG"
+      }
+     ]
+    }
+   },
+   "<missing>"
+  ],
+  [
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_47_answer",
+  "pass-normalized",
+  null,
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_48_answer",
+  "fail",
+  [
+   "$[0].description",
+   "In this course, we examine the economics of personnel management in organizations.\nUsing mainstream microeconomic and behavioural economic theory, we will consider\nsuch issues as recruitment, promotion, financial and non-financial incentives,\ncompensation, job performance, performance evaluation, and investment in personnel.\nThe interplay between theoretical models and empirical evidence will be emphasized in\nconsidering different approaches to the management of personnel.",
+   "<missing>"
+  ],
+  [
+   "vars",
+   "joinmatches",
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_48_answer_more",
+  "fail",
+  [
+   "$[0].description",
+   "This course is the first part of the two-semester course IBIO*4521/2. This course is\na two-semester (F,W) undergraduate project in which students conduct a comprehensive,\nindependent research project in organismal biology under the supervision of a faculty\nmember in the Department of Integrative Biology. Projects involve a thorough literature\nreview, a research proposal, original research communicated in oral and poster\npresentations, and in a written, publication quality document. This two-semester course\noffers students the opportunity to pursue research questions and experimental designs\nthat cannot be completed in the single semester research courses. Students must make\narrangements with both a faculty supervisor and the course coordinator at least one\nsemester in advance. A departmental registration form must be obtained from the course\ncoordinator and submitted no later than the second class day of the fall semester. This is\na twosemester course offered over consecutive semesters F-W. When you select this\ncourse, you must select IBIO*4521 in the Fall semester and IBIO*4522 in the Winter\nsemester.A grade will not be assigned to IBIO*4521 until IBIO*4522 has been completed.",
+   "coordinator."
+  ],
+  [
+   "vars",
+   "joinmatches",
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_slack_answer_2",
+  "fail",
+  [
+   "$[0].system.ports[0].admin_enabled",
+   true,
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_slack_answer_3",
+  "fail",
+  [
+   "$[0].service.vprns[0].4.name",
+   "ospf_version3_vprn",
+   "\"ospf_version3_vprn\""
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_slack_answer_3_full",
+  "fail",
+  [
+   "$[0].service.vprns[0].1.1",
+   "<missing>",
+   [
+    {
+     "interfaces": [
+      {
+       "\"loopback\"": {}
+      }
+     ],
+     "name": "\"vprn1\""
+    },
+    {
+     "interfaces": [
+      {
+       "\"loopback\"": {
+        "address": "10.10.10.1",
+        "mask": "32"
+       }
+      }
+     ],
+     "name": "\"vprn1\""
+    }
+   ]
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_45_for_junos_cfg",
+  "fail",
+  [
+   "$[0].system_level.default_address_selection",
+   true,
+   "True"
+  ],
+  [
+   "line"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_faq_multiline_output_matching",
+  "fail",
+  [
+   "$[0].peer_system_description.sys_description",
+   "Cisco IOS Software, Catalyst 1234 L3 Switch Software (cat1234e-ENTSERVICESK9-M), Version 1534.1(1)SG, RELEASE SOFTWARE (fc3) Technical Support: http://www.cisco.com/techsupport Copyright (c) 1986-2012 by Cisco Systems, Inc. Compiled Sun 15-Apr-12 02:35 by p",
+   "System Description: Cisco IOS Software, Catalyst 1234 L3 Switch Software (cat1234e-ENTSERVICESK9-M), Version 1534.1(1)SG, RELEASE SOFTWARE (fc3) Technical Support: http://www.cisco.com/techsupport Copyright (c) 1986-2012 by Cisco Systems, Inc. Compiled Sun 15-Apr-12 02:35 by p Time remaining: 92 seconds"
+  ],
+  [
+   "line",
+   "joinmatches"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_52_answer",
+  "fail",
+  [
+   "$[0].origin[0].address",
+   "Example Address, example number, example city",
+   "Some random name"
+  ],
+  [
+   "macro",
+   "line",
+   "joinmatches"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_51_answer",
+  "pass-strict",
+  null,
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_50",
+  "fail",
+  [
+   "$[0].ifaces.BNG-RH201-CORE.description",
+   "BNG-RH201-CORE",
+   "\"BNG-RH201-CORE\""
+  ],
+  [
+   "input-tag",
+   "joinmatches"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_start_with_set",
+  "fail",
+  [
+   "$[0].inactive",
+   false,
+   "False"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_ios_bgp_pers_pars",
+  "fail",
+  [
+   "$[0].bgp_peers",
+   {
+    "65100": {
+     "1.1.1.1": {
+      "password": "12345678",
+      "inherit_peer-session": "session_1",
+      "shutdown": "yes",
+      "description": "Some Description here",
+      "remote-as": "1234",
+      "update-source": ""
+     },
+     "1.1.1.2": {
+      "inherit_peer-session": "session_1",
+      "remote-as": "1234",
+      "description": "",
+      "shutdown": "no",
+      "update-source": "",
+      "password": ""
+     }
+    }
+   },
+   "<missing>"
+  ],
+  [
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_ip_address_parsing",
+  "fail",
+  [
+   "$[0].interface[0].ipv4_addr",
+   "10.99.10.1/24",
+   "10.99.10.1 255.255.255.0"
+  ],
+  [
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_vlans_parsing",
+  "fail",
+  [
+   "$[0].vlans_active",
+   {
+    "interfaces": [
+     {
+      "port": "Gi0",
+      "vlans": [
+       "1",
+       "8",
+       "999"
+      ]
+     },
+     {
+      "port": "Gi7",
+      "vlans": [
+       "1",
+       "100",
+       "120",
+       "1000"
+      ]
+     }
+    ]
+   },
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_asa_acls_issue_55_uses_itemize_with_dynamic_path",
+  "fail",
+  [
+   "$[0].object-network-groups.Space-Users.network-objects",
+   [
+    "ab",
+    "ac",
+    "ad",
+    "ae",
+    "af",
+    "ag",
+    "ah",
+    "ai",
+    "aj"
+   ],
+   "<missing>"
+  ],
+  [
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_asa_acls_issue_55",
+  "fail",
+  [
+   "$[0].object-network-groups.Space-Users.network-objects",
+   [
+    "ab",
+    "ac",
+    "ad",
+    "ae",
+    "af",
+    "ag",
+    "ah",
+    "ai",
+    "aj"
+   ],
+   "<missing>"
+  ],
+  [
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_57_headers_parsing",
+  "fail",
+  [
+   "$[0].interfaces",
+   {
+    "routed": {
+     "Link: ADM - administr": {
+      "Link": "ative",
+      "Protocol": "ly down;",
+      "Primary_IP": "Stby - standby",
+      "Description": ""
+     },
+     "InLoop0": {
+      "Link": "UP",
+      "Protocol": "UP(s)",
+      "Primary_IP": "--",
+      "Description": ""
+     },
+     "REG0": {
+      "Link": "UP",
+      "Protocol": "--",
+      "Primary_IP": "--",
+      "Description": ""
+     },
+     "Vlan401": {
+      "Link": "UP",
+      "Protocol": "UP",
+      "Primary_IP": "10.251.147.36",
+      "Description": "HSSBC_to_inband_mgmt_r4"
+     }
+    },
+    "bridged": {
+     "Link: ADM - administr": {
+      "Link": "ative",
+      "Speed": "ly down;",
+      "Duplex": "Stby -",
+      "Type": "stan",
+      "PVID": "dby",
+      "Description": ""
+     },
+     "BAGG1": {
+      "Link": "UP",
+      "Speed": "20G(a)",
+      "Duplex": "F(a)",
+      "Type": "T",
+      "PVID": "1",
+      "Description": "to-KDC-R4.10-Core-1"
+     },
+     "BAGG14": {
+      "Link": "UP",
+      "Speed": "10G(a)",
+      "Duplex": "F(a)",
+      "Type": "T",
+      "PVID": "1",
+      "Description": "KDC-R429-E1 BackUp Chassis"
+     },
+     "BAGG22": {
+      "Link": "UP",
+      "Speed": "20G(a)",
+      "Duplex": "F(a)",
+      "Type": "T",
+      "PVID": "1",
+      "Description": "HSSBC-NS-01"
+     },
+     "FGE1/0/49": {
+      "Link": "DOWN",
+      "Speed": "auto",
+      "Duplex": "A",
+      "Type": "A",
+      "PVID": "1",
+      "Description": ""
+     },
+     "XGE1/0/1": {
+      "Link": "UP",
+      "Speed": "10G(a)",
+      "Duplex": "F(a)",
+      "Type": "T",
+      "PVID": "1",
+      "Description": "KDC-R402-E1 Backup Chassis"
+     }
+    }
+   },
+   "<missing>"
+  ],
+  [
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_57_headers_parsing_using_columns",
+  "fail",
+  [
+   "$[0].interfaces",
+   {
+    "routed": {
+     "InLoop0": {
+      "Link": "UP",
+      "Protocol": "UP(s)",
+      "Primary_IP": "--",
+      "Description": ""
+     },
+     "REG0": {
+      "Link": "UP",
+      "Protocol": "--",
+      "Primary_IP": "--",
+      "Description": ""
+     },
+     "Vlan401": {
+      "Link": "UP",
+      "Protocol": "UP",
+      "Primary_IP": "10.251.147.36",
+      "Description": "HSSBC_to_inband_mgmt_r4"
+     }
+    },
+    "bridged": {
+     "BAGG1": {
+      "Link": "UP",
+      "Speed": "20G(a)",
+      "Duplex": "F(a)",
+      "Type": "T",
+      "PVID": "1",
+      "Description": "to-KDC-R4.10-Core-1"
+     },
+     "BAGG14": {
+      "Link": "UP",
+      "Speed": "10G(a)",
+      "Duplex": "F(a)",
+      "Type": "T",
+      "PVID": "1",
+      "Description": "KDC-R429-E1 BackUp Chassis"
+     },
+     "BAGG22": {
+      "Link": "UP",
+      "Speed": "20G(a)",
+      "Duplex": "F(a)",
+      "Type": "T",
+      "PVID": "1",
+      "Description": "HSSBC-NS-01"
+     },
+     "FGE1/0/49": {
+      "Link": "DOWN",
+      "Speed": "auto",
+      "Duplex": "A",
+      "Type": "A",
+      "PVID": "1",
+      "Description": ""
+     },
+     "XGE1/0/1": {
+      "Link": "UP",
+      "Speed": "10G(a)",
+      "Duplex": "F(a)",
+      "Type": "T",
+      "PVID": "1",
+      "Description": "KDC-R402-E1 Backup Chassis"
+     }
+    }
+   },
+   "<missing>"
+  ],
+  [
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_interface_template_not_collecting_all_data_solution",
+  "fail",
+  [
+   "$[0].interfaces[0].disabled",
+   false,
+   "intf_defaults"
+  ],
+  [
+   "macro",
+   "vars",
+   "doc",
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_interface_template_not_collecting_all_data_reduced",
+  "fail",
+  [
+   "$[0].interfaces",
+   [
+    {
+     "interface": "TenGigE0/0/0/5.100"
+    },
+    {
+     "interface": "BVI101",
+     "ipv4": [
+      {
+       "ipv4": "192.168.101.1 255.255.255.0"
+      }
+     ],
+     "mac_address": "200.b19.4321"
+    }
+   ],
+   {
+    "interface": "BVI101",
+    "ipv4": [
+     {
+      "ipv4": "192.168.101.1 255.255.255.0"
+     }
+    ],
+    "mac_address": "200.b19.4321"
+   }
+  ],
+  [
+   "line",
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_fortigate_intf_parsing",
+  "fail",
+  [
+   "$[0].interfaces",
+   [
+    {
+     "snmp_index": "1",
+     "description": "mgmt1",
+     "fgt_int_type": "physical",
+     "allowaccess": "ping",
+     "vdom": "root",
+     "interface": "mgmt1"
+    },
+    {
+     "snmp_index": "2",
+     "fgt_int_type": "physical",
+     "allowaccess": "ping",
+     "vdom": "internal",
+     "interface": "port1"
+    }
+   ],
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_57_one_more",
+  "fail",
+  [
+   "$[0].portchannel.1.local_members",
+   [
+    {
+     "interface": "GE6/0/1",
+     "status": "U",
+     "priority": "32768",
+     "oper_key": "1",
+     "flag": "{ACG}"
+    },
+    {
+     "interface": "GE6/0/2",
+     "status": "U",
+     "priority": "32768",
+     "oper_key": "1",
+     "flag": "{ACG}"
+    }
+   ],
+   "<missing>"
+  ],
+  [
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_57_one_more_answer",
+  "pass-strict",
+  null,
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_57_one_more_empty_dict_in_res",
+  "fail",
+  [
+   "$[0].portchannel.1.local_members",
+   [
+    {
+     "interface": "GE6/0/1",
+     "status": "U",
+     "priority": "32768",
+     "oper_key": "1",
+     "flag": "{ACG}"
+    },
+    {
+     "interface": "GE6/0/2",
+     "status": "U",
+     "priority": "32768",
+     "oper_key": "1",
+     "flag": "{ACG}"
+    }
+   ],
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_62",
+  "fail",
+  [
+   "$[0].security.rpps",
+   "3",
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_62_fix",
+  "pass-strict",
+  null,
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_answer_hpe_bgp",
+  "fail",
+  [
+   "$[0].bgp_af.FHA",
+   {
+    "ipv4": {
+     "router_id": "10.251.0.15",
+     "bgp_peer": {
+      "10.251.64.113": {
+       "peer_as_number": "64991",
+       "peer_export_policy": "fha_to_fhaimz",
+       "peer_import_policy": "fhaimz_to_fha",
+       "ebgp_max_hop": "5",
+       "timet_keepalive": "1",
+       "timer_hold": "5",
+       "timer_route_update": "1",
+       "source_interface": "LoopBack101",
+       "local_as": "64881"
+      },
+      "10.251.64.97": {
+       "peer_as_number": "64991",
+       "peer_import_policy": "fhadmz_to_fha",
+       "ebgp_max_hop": "5",
+       "timet_keepalive": "1",
+       "timer_hold": "5",
+       "timer_route_update": "1",
+       "source_interface": "LoopBack101",
+       "local_as": "64881"
+      }
+     },
+     "aggregate": [
+      {
+       "network": "10.251.64.0",
+       "mask": "255.255.248.0",
+       "detail_suppressed": "detail-suppressed",
+       "attribute_policy": "IGP_into_FHA"
+      },
+      {
+       "network": "10.251.160.0",
+       "mask": "255.255.248.0",
+       "detail_suppressed": "detail-suppressed",
+       "attribute_policy": "IGP_into_FHA"
+      }
+     ],
+     "pref_internal": "75",
+     "pref_external": "80",
+     "pref_local": "90",
+     "networks": [
+      {
+       "network": "10.248.128.0",
+       "mask": "255.255.255.0",
+       "route_policy": "IGP_into_FHA"
+      },
+      {
+       "network": "10.248.137.160",
+       "mask": "255.255.255.224",
+       "route_policy": "IGP_into_FHA"
+      }
+     ]
+    }
+   },
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_stackoverflow_62421344_python_parse_text",
+  "pass-normalized",
+  null,
+  []
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_same_config_different_contexts",
+  "fail",
+  [
+   "$[0].vrfs[0].main_vrf.name_servers.len",
+   1,
+   3
+  ],
+  [
+   "joinmatches"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_77",
+  "pass-strict",
+  null,
+  [
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_94",
+  "fail",
+  [
+   "$[0].routing",
+   {
+    "isis": {
+     "LAB": {
+      "fa128": {
+       "priority": "MISSING",
+       "metric_type": "delay",
+       "advertise_definition": "true",
+       "prefix_metric": "true"
+      },
+      "LEFTOVER": [
+       {
+        "LEFTOVER": " priority 100"
+       },
+       {
+        "LEFTOVER": "address-family ipv4 unicast"
+       },
+       {
+        "LEFTOVER": " metric-style wide"
+       }
+      ]
+     }
+    }
+   },
+   "<missing>"
+  ],
+  [
+   "line",
+   "joinmatches"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_94_1",
+  "fail",
+  [
+   "$[0].routing",
+   {
+    "isis": {
+     "LAB": {
+      "fa128": {
+       "prefix_metric": "true",
+       "advertise_definition": "true",
+       "metric_type": "delay",
+       "LEFTOVER": "priority 100",
+       "priority": "MISSING"
+      },
+      "LEFTOVER": [
+       {
+        "LEFTOVER": "address-family ipv4 unicast"
+       },
+       {
+        "LEFTOVER": " metric-style wide"
+       },
+       {
+        "LEFTOVER": " advertise passive-only"
+       },
+       {
+        "LEFTOVER": " mpls traffic-eng level-2-only"
+       },
+       {
+        "LEFTOVER": "interface Loopback0"
+       },
+       {
+        "LEFTOVER": " passive"
+       }
+      ]
+     }
+    }
+   },
+   "<missing>"
+  ],
+  [
+   "line",
+   "joinmatches"
+  ]
+ ],
+ [
+  "test/pytest/test_answers_and_docs.py::test_issue_89",
+  "fail",
+  [
+   "$[0].interfaces.Bundle-Ether801",
+   "<missing>",
+   {
+    "101": {
+     "description": "TTP MACRO TEST INTERFACE",
+     "dot1q": "101",
+     "ipv4_mask": " 192.168.1.1 255.255.255.0",
+     "mtu": "9104",
+     "secondary": {
+      "ipv4_addr": "None",
+      "ipv4_mask": " 10.50.45.1 255.255.255.128"
+     },
+     "trunk": true
+    }
+   }
+  ],
+  [
+   "macro",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_empty_group_results.py::test_empty_group_results",
+  "pass-strict",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file",
+  "pass-strict",
+  null,
+  [
+   "extend"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file_anonymous",
+  "pass-normalized",
+  null,
+  [
+   "extend"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file_with_template_tag",
+  "pass-strict",
+  null,
+  [
+   "extend"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file_vars_and_lookup",
+  "fail",
+  [
+   "$[0].bgp_config.var_1_value",
+   "value_1",
+   "var_1"
+  ],
+  [
+   "extend",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_within_group",
+  "fail",
+  [
+   "$[0].bgp_config.config",
+   {
+    "rid": "1.1.1.1"
+   },
+   "<missing>"
+  ],
+  [
+   "extend",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_within_group_with_child_groups_above",
+  "fail",
+  [
+   "$[0].bgp_config.config",
+   {
+    "rid": "1.1.1.1"
+   },
+   "<missing>"
+  ],
+  [
+   "extend",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_within_group_with_non_hierarch_template",
+  "fail",
+  [
+   "$[0].bgp_config.config",
+   {
+    "rid": "1.1.1.1"
+   },
+   "<missing>"
+  ],
+  [
+   "extend",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_within_group_with_anonymous_group",
+  "fail",
+  [
+   "$[0].bgp_config.config",
+   {
+    "rid": "1.1.1.1"
+   },
+   "<missing>"
+  ],
+  [
+   "extend",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_within_group_with_multiple_groups",
+  "fail",
+  [
+   "$[0].bgp_config.config",
+   {
+    "rid": "1.1.1.1"
+   },
+   "<missing>"
+  ],
+  [
+   "extend",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file_group_name_filter",
+  "fail",
+  [
+   "$[0].vlans",
+   {
+    "1234": {
+     "name": "some_vlan"
+    },
+    "910": {
+     "name": "one_more"
+    }
+   },
+   "<missing>"
+  ],
+  [
+   "extend"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file_group_index_filter",
+  "fail",
+  [
+   "$[0].vlans",
+   {
+    "1234": {
+     "name": "some_vlan"
+    },
+    "910": {
+     "name": "one_more"
+    }
+   },
+   "<missing>"
+  ],
+  [
+   "extend"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file_vars_filter",
+  "fail",
+  [
+   "$[0].common_vars",
+   {
+    "c": 3,
+    "d": 4
+   },
+   "<missing>"
+  ],
+  [
+   "extend",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file_with_vars_inputs_filter",
+  "fail",
+  [
+   "$[0].some",
+   {
+    "a": 1,
+    "b": 2
+   },
+   "<missing>"
+  ],
+  [
+   "extend"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file_lookups_filter",
+  "fail",
+  [
+   "$[0].bgp_config.var_1_value",
+   "value_1",
+   "var_1"
+  ],
+  [
+   "extend",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file_output_filter",
+  "fail",
+  [
+   "$[0]",
+   "\"name\",\"vlan\"\n\"some_vlan\",\"1234\"\n\"one_more\",\"910\"",
+   "\"name\",\"vlan\"\n\"some_vlan\",\"1234\""
+  ],
+  [
+   "extend"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file_nested_group_filter",
+  "fail",
+  [
+   "$[0].interfaces[0].ip_primary",
+   {
+    "ip": "1.1.1.1",
+    "mask": "255.255.255.0"
+   },
+   "<missing>"
+  ],
+  [
+   "extend"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_extend_tag_from_file_with_macro",
+  "fail",
+  [
+   "$[0].vlans",
+   {
+    "1234": {
+     "name": "some_vlan"
+    },
+    "910": {
+     "name": "one_more"
+    }
+   },
+   "<missing>"
+  ],
+  [
+   "macro",
+   "extend"
+  ]
+ ],
+ [
+  "test/pytest/test_extend_tag.py::test_ttp_templates_dir_env_variable_with_extend",
+  "error",
+  "template: failed to compile template: failed to resolve extends: failed to load extended template test_ttp_templates_dir_env_variable.txt: failed to load template from test_ttp_templates_dir_env_variable.txt: open test_ttp_templates_dir_env_variable.txt: no such file or directory",
+  [
+   "extend"
+  ]
+ ],
+ [
+  "test/pytest/test_group_chain_attribute.py::test_group_chain_attribute_list",
+  "fail",
+  [
+   "$[0].description",
+   "test loopback0",
+   "<missing>"
+  ],
+  [
+   "input-tag",
+   "vars",
+   "chain"
+  ]
+ ],
+ [
+  "test/pytest/test_group_chain_attribute.py::test_group_chain_attribute_list_multi_func",
+  "fail",
+  [
+   "$[0].description",
+   "test loopback0",
+   "<missing>"
+  ],
+  [
+   "macro",
+   "input-tag",
+   "vars",
+   "chain"
+  ]
+ ],
+ [
+  "test/pytest/test_group_chain_attribute.py::test_group_chain_attribute_string_var",
+  "fail",
+  [
+   "$[0].test_macro",
+   "DONE",
+   "<missing>"
+  ],
+  [
+   "macro",
+   "input-tag",
+   "vars",
+   "chain"
+  ]
+ ],
+ [
+  "test/pytest/test_group_chain_attribute.py::test_group_chain_attribute_string_inline",
+  "fail",
+  [
+   "$[0].test_macro",
+   "DONE",
+   "<missing>"
+  ],
+  [
+   "macro",
+   "input-tag",
+   "chain"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_validate_function",
+  "fail",
+  [
+   "$[0]",
+   [
+    {
+     "interface": "Lo0",
+     "hostname": "device-1",
+     "validation_result": false,
+     "info": "Lo0 has description",
+     "err_details": {
+      "description": [
+       "required field"
+      ]
+     }
+    },
+    {
+     "description": "this interface has description",
+     "interface": "Lo1",
+     "hostname": "device-1",
+     "validation_result": true,
+     "info": "Lo1 has description",
+     "err_details": {}
+    }
+   ],
+   {
+    "hostname": "gethostname",
+    "interface": "Lo0"
+   }
+  ],
+  [
+   "input-tag",
+   "vars",
+   "ttp-getter"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_default_referencing_variable_parent_group_no_re_two_inputs",
+  "fail",
+  [
+   "$[0].demo",
+   {
+    "audiences": []
+   },
+   "<missing>"
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_default_referencing_variable_parent_group_no_re_one_input",
+  "fail",
+  [
+   "$[0].demo",
+   {
+    "audiences": []
+   },
+   "<missing>"
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_top_group_default_referencing_variable_dictionary",
+  "fail",
+  [
+   "$.len",
+   2,
+   1
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_default",
+  "pass-strict",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_child_group_default_referencing_variable",
+  "fail",
+  [
+   "$.len",
+   2,
+   1
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_set_function_source_from_global_vars",
+  "fail",
+  [
+   "$[0]",
+   [
+    {
+     "hostname": "router_1"
+    }
+   ],
+   {
+    "hostname": "router_1"
+   }
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_macro_returns_false",
+  "fail",
+  [
+   "$[0].description",
+   "this interface has description",
+   "<missing>"
+  ],
+  [
+   "macro",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_macro_returns_true",
+  "pass-normalized",
+  null,
+  [
+   "macro",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_macro_returns_none",
+  "pass-normalized",
+  null,
+  [
+   "macro",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_macro_chaining",
+  "error",
+  "parse: failed to parse with template: failed to parse group : failed to process group macro: group macro [check_1 check_2] failed: failed to call macro function check_2: unhandled index operation NoneType[string]",
+  [
+   "macro",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_macro_chaining_returns_dictionary",
+  "error",
+  "parse: failed to parse with template: failed to parse group : failed to process group macro: group macro [check_1 check_2] failed: failed to call macro function check_2: NoneType has no .get field or method",
+  [
+   "macro",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_itemize",
+  "fail",
+  [
+   "$[0].bla",
+   [
+    {
+     "ip": "2002:fd37::91/124",
+     "description": "some description 1",
+     "interface": "Vlan778"
+    },
+    {
+     "ip": "192.168.1.1/124",
+     "interface": "Vlan780"
+    },
+    {
+     "ip": "192.168.190.1/124",
+     "description": "some description 790",
+     "interface": "Vlan790"
+    }
+   ],
+   "<missing>"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_itemize_dynamic_path",
+  "pass-strict",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_itemize_dynamic_path_attribute",
+  "fail",
+  [
+   "$[0].interfaces[0]",
+   {
+    "interface": "Vlan779"
+   },
+   "Vlan779"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_items2dict_function",
+  "pass-strict",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_expand",
+  "pass-strict",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_expand_issue_65",
+  "pass-strict",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_to_int_for_non_integer",
+  "fail",
+  [
+   "$[1].mtu",
+   8000,
+   "8000"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_to_int_missing_key_issue_109",
+  "fail",
+  [
+   "$[2].mtu",
+   9200,
+   "9200.0"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_to_int_with_intlist_true_issue_109",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_to_int_with_intlist_false_issue_109",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_functions.py::test_group_to_int_with_intlist_with_not_all_integers",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_lookup.py::test_group_lookup_using_lookup_table_action_replace",
+  "fail",
+  [
+   "$[0].arp[0].ip",
+   "app_1",
+   "10.12.13.2"
+  ],
+  [
+   "lookup",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_lookup.py::test_group_lookup_using_lookup_table_action_add_field",
+  "fail",
+  [
+   "$[0].arp[0].APP",
+   "app_1",
+   "<missing>"
+  ],
+  [
+   "lookup",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_lookup.py::test_group_lookup_using_lookup_table_action_update",
+  "fail",
+  [
+   "$[0].arp[0].app_name",
+   "app_1",
+   "<missing>"
+  ],
+  [
+   "lookup",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_lookup.py::test_group_lookup_using_group_in_same_input_action_update",
+  "fail",
+  [
+   "$[0].arp[0].description",
+   "Customer CPE interface",
+   "<missing>"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_lookup.py::test_group_lookup_using_group_from_another_input_action_update",
+  "fail",
+  [
+   "$[0].interfaces.FastEthernet2",
+   "<missing>",
+   {
+    "13": {
+     "description": "Customer CPE interface",
+     "subnet": "10.12.13.1 255.255.255.0",
+     "vrf": "CPE-VRF"
+    }
+   }
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_lookup.py::test_group_lookup_in_template_results_per_input_action_update",
+  "fail",
+  [
+   "$.len",
+   2,
+   0
+  ],
+  [
+   "nested-template",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_group_lookup.py::test_group_lookup_in_template_results_per_template_action_add_field",
+  "fail",
+  [
+   "$.len",
+   2,
+   0
+  ],
+  [
+   "nested-template",
+   "input-tag",
+   "per_template"
+  ]
+ ],
+ [
+  "test/pytest/test_group_name_attribute.py::test_group_same_null_path_for_several_groups",
+  "fail",
+  [
+   "$[0].vrfs.export.len",
+   2,
+   4
+  ],
+  [
+   "joinmatches"
+  ]
+ ],
+ [
+  "test/pytest/test_headers_indicator.py::test_headers_indicator_left_aligned",
+  "fail",
+  [
+   "$.len",
+   16,
+   0
+  ],
+  [
+   "input-tag",
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_headers_indicator.py::test_headers_indicator_space_indented_header",
+  "fail",
+  [
+   "$.len",
+   3,
+   0
+  ],
+  [
+   "input-tag",
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_headers_indicator.py::test_headers_indicator_multiline_header",
+  "fail",
+  [
+   "$.len",
+   16,
+   0
+  ],
+  [
+   "macro",
+   "input-tag",
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_headers_indicator.py::test_headers_indicator_columns_merged",
+  "fail",
+  [
+   "$.len",
+   5,
+   0
+  ],
+  [
+   "input-tag",
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_headers_indicator.py::test_headers_indicator_tab_indented_header",
+  "fail",
+  [
+   "$.len",
+   3,
+   0
+  ],
+  [
+   "input-tag",
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_headers_indicator.py::test_headers_docs_example",
+  "fail",
+  [
+   "$.len",
+   3,
+   0
+  ],
+  [
+   "input-tag",
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_headers_indicator.py::test_headers_shorter_lines",
+  "fail",
+  [
+   "$.len",
+   3,
+   0
+  ],
+  [
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_headers_indicator.py::test_headers_last_column_empty",
+  "fail",
+  [
+   "$.len",
+   3,
+   0
+  ],
+  [
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_headers_indicator.py::test_with_garbage",
+  "fail",
+  [
+   "$.len",
+   3,
+   0
+  ],
+  [
+   "input-tag",
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_headers_indicator.py::test_headers_with_column",
+  "fail",
+  [
+   "$[0].columns_0",
+   [
+    {
+     "Port": "Gi0/1",
+     "Name": "",
+     "Status": "",
+     "Vlan": "",
+     "Duplex": "",
+     "Speed": "",
+     "Type": ""
+    },
+    {
+     "Port": "Gi0/2",
+     "Name": "PIT-VDU212",
+     "Status": "",
+     "Vlan": "",
+     "Duplex": "",
+     "Speed": "",
+     "Type": ""
+    },
+    {
+     "Port": "Gi0/3",
+     "Name": "PIT-VDU212",
+     "Status": "notconnect",
+     "Vlan": "",
+     "Duplex": "",
+     "Speed": "",
+     "Type": ""
+    },
+    {
+     "Port": "Gi0/4",
+     "Name": "PIT-VDU212",
+     "Status": "notconnect",
+     "Vlan": "18",
+     "Duplex": "",
+     "Speed": "",
+     "Type": ""
+    },
+    {
+     "Port": "Gi0/5",
+     "Name": "PIT-VDU212",
+     "Status": "notconnect",
+     "Vlan": "18",
+     "Duplex": "auto",
+     "Speed": "",
+     "Type": ""
+    },
+    {
+     "Port": "Gi0/6",
+     "Name": "PIT-VDU212",
+     "Status": "notconnect",
+     "Vlan": "18",
+     "Duplex": "auto",
+     "Speed": "auto",
+     "Type": ""
+    },
+    {
+     "Port": "Gi0/7",
+     "Name": "PIT-VDU212",
+     "Status": "notconnect",
+     "Vlan": "18",
+     "Duplex": "auto",
+     "Speed": "auto",
+     "Type": "10/100/1000BaseTX"
+    }
+   ],
+   "<missing>"
+  ],
+  [
+   "input-tag",
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_headers_indicator.py::test_headers_on_tabular_output",
+  "fail",
+  [
+   "$.len",
+   24,
+   0
+  ],
+  [
+   "headers"
+  ]
+ ],
+ [
+  "test/pytest/test_inputs.py::test_inputs_url_filters_extensions",
+  "fail",
+  [
+   "$.len",
+   3,
+   0
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_inputs.py::test_group_inputs",
+  "fail",
+  [
+   "$.len",
+   3,
+   0
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_inputs.py::test_inputs_with_template_base_path",
+  "fail",
+  [
+   "$.len",
+   3,
+   0
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_inputs.py::test_input_to_groups_mapping",
+  "pass-strict",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_lookups.py::test_lookup_include_csv",
+  "fail",
+  [
+   "$[0].bgp_config.as_info",
+   {
+    "as_name": "CPEs",
+    "as_description": "Private ASN for FTTB CPEs"
+   },
+   "<missing>"
+  ],
+  [
+   "lookup",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_lookups.py::test_lookup_include_yaml",
+  "pass-strict",
+  null,
+  [
+   "lookup",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_contains_re_inline",
+  "fail",
+  [
+   "$[0].description",
+   "<missing>",
+   "RID"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_contains_re_from_vars",
+  "fail",
+  [
+   "$[0].is_lag",
+   true,
+   "True"
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_startswith_re_inline",
+  "fail",
+  [
+   "$.len",
+   1,
+   0
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_startswith_re_from_vars",
+  "fail",
+  [
+   "$[0].is_lag",
+   true,
+   "True"
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_endswith_re_inline",
+  "fail",
+  [
+   "$.len",
+   1,
+   0
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_endswith_re_from_vars",
+  "fail",
+  [
+   "$.len",
+   1,
+   0
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_notstartswith_re_inline",
+  "fail",
+  [
+   "$[0].is_lag",
+   true,
+   "True"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_notstartswith_re_from_vars",
+  "fail",
+  [
+   "$[0].is_lag",
+   true,
+   "True"
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_notendswith_re_inline",
+  "fail",
+  [
+   "$[0].is_lag",
+   true,
+   "True"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_notendswith_re_from_vars",
+  "fail",
+  [
+   "$[0].is_lag",
+   true,
+   "True"
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_exclude_re_inline",
+  "fail",
+  [
+   "$[1].description",
+   "Management",
+   "RID"
+  ],
+  [
+   "input-tag",
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_exclude_re_from_vars",
+  "fail",
+  [
+   "$.len",
+   1,
+   2
+  ],
+  [
+   "input-tag",
+   "vars",
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_exclude_inline",
+  "fail",
+  [
+   "$[0].description",
+   "<missing>",
+   "RID"
+  ],
+  [
+   "input-tag",
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_exclude_from_vars",
+  "fail",
+  [
+   "$[0].description",
+   "<missing>",
+   "RID"
+  ],
+  [
+   "input-tag",
+   "vars",
+   "containsall/exclude"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_contains_inline",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_contains_from_vars",
+  "pass-normalized",
+  null,
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_contains_multi",
+  "pass-normalized",
+  null,
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_equal_inline",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_equal_from_vars",
+  "pass-normalized",
+  null,
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_notequal_inline",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_condition_fun.py::test_notequal_from_vars",
+  "pass-normalized",
+  null,
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_sformat_inline",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_sformat_from_vars",
+  "pass-normalized",
+  null,
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_to_list_with_joinmatches",
+  "pass-normalized",
+  null,
+  [
+   "input-tag",
+   "joinmatches"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_multiple_joinmatches",
+  "fail",
+  [
+   "$[0].vlans[0].Hostname",
+   "SWITCH",
+   "gethostname"
+  ],
+  [
+   "vars",
+   "joinmatches",
+   "ttp-getter"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_joinmatches_with_ignore",
+  "fail",
+  [
+   "$[0].vlans[0].Hostname",
+   "SWITCH",
+   "gethostname"
+  ],
+  [
+   "vars",
+   "joinmatches",
+   "ttp-getter"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_match_variable_default_set_to_list",
+  "fail",
+  [
+   "$[0].ip",
+   "1.1.1.1/24",
+   " 1.1.1.1/24"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_match_variable_default_set_to_string",
+  "fail",
+  [
+   "$[0].ip",
+   "1.1.1.1/24",
+   " 1.1.1.1/24"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_match_variable_default_for_start_regex",
+  "pass-strict",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_match_variable_default_set_to_dictionary",
+  "fail",
+  [
+   "$[0].ip",
+   "1.1.1.1/24",
+   " 1.1.1.1/24"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_match_variable_set_and_let_for_same_variable_with_special_chars",
+  "fail",
+  [
+   "$[0].ip",
+   "1.1.1.1/24",
+   " 1.1.1.1/24"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_let_and_set",
+  "fail",
+  [
+   "$[0].admin-status",
+   "down",
+   "up"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_line_with_joinmatches",
+  "fail",
+  [
+   "$[0].system-description",
+   "Cisco Nexus Operating System (NX-OS) Software 21.324(3)N2(3.12b) TAC support: http://www.cisco.com/tac Copyright (c) 2002-2099, Cisco Systems, Inc. All rights reserved.",
+   "Cisco Nexus Operating System (NX-OS) Software 21.324(3)N2(3.12b) System Description: Cisco Nexus Operating System (NX-OS) Software 21.324(3)N2(3.12b) TAC support: http://www.cisco.com/tac Copyright (c) 2002-2099, Cisco Systems, Inc. All rights reserved. Time remaining: 333 seconds System Capabilities: B, R Enabled Capabilities: B, R Management Address: 1.1.1.1 Vlan ID: 111"
+  ],
+  [
+   "line",
+   "joinmatches"
+  ]
+ ],
+ [
+  "test/pytest/test_match_functions.py::test_copy",
+  "fail",
+  [
+   "$[0].ip_address",
+   "1.1.1.123",
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_misc.py::test_match_vars_with_hyphen",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_misc.py::test_match_vars_with_dot",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_misc.py::test_match_vars_starts_with_digit",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_misc.py::test_match_vars_multiple_non_alpha_chars",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_misc.py::test_match_vars_set_with_hyphen",
+  "fail",
+  [
+   "$[0].description-bla",
+   "Storage",
+   " Storage"
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_misc.py::test_newline_with_carriage_return",
+  "pass-strict",
+  null,
+  []
+ ],
+ [
+  "test/pytest/test_misc.py::test_groups_with_defaults_only_and_with_children_with_defaults_only",
+  "fail",
+  [
+   "$[0].ntp-1.another_child_grp_with_default",
+   {
+    "val2": "None",
+    "deeper_child_with_defaults": {
+     "val5": "something",
+     "val4": "something"
+    }
+   },
+   "<missing>"
+  ],
+  [
+   "output",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_misc.py::test_hierarch_template",
+  "fail",
+  [
+   "$[0].gethostname",
+   "<missing>",
+   {
+    "bgp_config": {
+     "AS_{{ loca_as }}": {
+      "bgp_as": "65000",
+      "rid": "10.1.2.2",
+      "vrfs": [
+       {
+        "cust1": {
+         "hostname": "gethostname",
+         "local_as": "65000"
+        },
+        "cust2": {
+         "hostname": "gethostname",
+         "local_as": "65000"
+        },
+        "cust3": {
+         "hostname": "gethostname",
+         "local_as": "65000"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  [
+   "vars",
+   "joinmatches",
+   "ttp-getter"
+  ]
+ ],
+ [
+  "test/pytest/test_misc.py::test_child_group_do_not_start_if_no_parent_started",
+  "fail",
+  [
+   "$[0].ospf_processes.1.router_lsa[0].age",
+   "406",
+   "1604"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_misc.py::test_group_end_indicator_when_last_start_is_bigger_than_last_end",
+  "fail",
+  [
+   "$[0].ospf_processes.1.router_lsa[0].area",
+   "100",
+   "<missing>"
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_misc.py::test_inner_group_strange_parsing_results",
+  "error",
+  "parse: failed to parse with template: failed to parse group {{ local_hostname }}.interfaces.{{ interface }}: failed to process group macro: group macro [add_network] failed: failed to call macro function add_network: key \"match\" not in dict",
+  [
+   "macro",
+   "per_template"
+  ]
+ ],
+ [
+  "test/pytest/test_misc.py::test_ttp_templates_dir_env_variable",
+  "fail",
+  [
+   "$.len",
+   1,
+   0
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_misc.py::test_nested_group_processing_order",
+  "pass-strict",
+  null,
+  []
+ ],
+ [
+  "test/pytest/test_misc.py::test_asterisk_issue_97",
+  "fail",
+  [
+   "$[0].interfaces.lag-4:1629",
+   "<missing>",
+   {
+    "*": {
+     "interface": "port lag-4:1629"
+    }
+   }
+  ],
+  []
+ ],
+ [
+  "test/pytest/test_misc.py::test_issue_98_special_char_in_match_path",
+  "pass-strict",
+  null,
+  []
+ ],
+ [
+  "test/pytest/test_misc.py::test_tail_match_no_group_functions_processing",
+  "fail",
+  [
+   "$[0].interfaces[0].description",
+   "ELO ISP FCS1234456#",
+   " ELO ISP FCS1234456#"
+  ],
+  [
+   "macro",
+   "per_template"
+  ]
+ ],
+ [
+  "test/pytest/test_misc.py::test_issue_95",
+  "fail",
+  [
+   "$[0].results[0].interface",
+   "PORT-CHANEL11",
+   "Port-Chanel11"
+  ],
+  [
+   "macro"
+  ]
+ ],
+ [
+  "test/pytest/test_output_formatters.py::test_csv_formatter_simple",
+  "fail",
+  [
+   "$[0]",
+   "\"interface\",\"vlan\"\n\"Port-Chanel11\",\"10\"\n\"Loopback0\",\"20\"",
+   "\"interface\",\"vlan\"\n\"Port-Chanel11\",\"10\""
+  ],
+  [
+   "output",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_output_formatters.py::test_csv_formatter_simple_empty_tag",
+  "fail",
+  [
+   "$[0]",
+   "\"interface\",\"vlan\"\n\"Port-Chanel11\",\"10\"\n\"Loopback0\",\"20\"",
+   "\"interface\",\"vlan\"\n\"Port-Chanel11\",\"10\""
+  ],
+  [
+   "output",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_output_formatters.py::test_csv_formatter_with_is_equal",
+  "fail",
+  [
+   "$[0].interfaces2",
+   "<missing>",
+   {
+    "trunks2": [
+     {
+      "description": "some description",
+      "interface": "GigabitEthernet3/3",
+      "trunk_vlans": "138,166-173"
+     },
+     {
+      "interface": "GigabitEthernet3/4",
+      "trunk_vlans": "100-105"
+     },
+     {
+      "interface": "GigabitEthernet3/5",
+      "ip": "1.1.1.1",
+      "mask": "255.255.255.255",
+      "trunk_vlans": "459,531,704-707",
+      "vrf": "ABC_VRF"
+     }
+    ]
+   }
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_output_formatters.py::test_tabulate_formatter",
+  "fail",
+  [
+   "$[0]",
+   "\u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2564\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555\n\u2502 description   \u2502 peer          \u2502\n\u255e\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u256a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2561\n\u2502 vic-mel-core1 \u2502 10.145.1.9    \u2502\n\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n\u2502 qld-bri-core1 \u2502 192.168.101.1 \u2502\n\u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2567\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b",
+   "description    peer         \n-------------  -------------\nvic-mel-core1  10.145.1.9   \nqld-bri-core1  192.168.101.1\n"
+  ],
+  [
+   "output",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_output_formatters.py::test_table_formatter",
+  "pass-normalized",
+  null,
+  [
+   "output",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_output_formatters.py::test_table_formatter_with_key",
+  "pass-normalized",
+  null,
+  [
+   "output",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_output_formatters.py::test_table_formatter_multiple_input",
+  "fail",
+  [
+   "$.len",
+   5,
+   3
+  ],
+  [
+   "output",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_output_formatters.py::test_jinja2_formatter",
+  "error",
+  "parse: failed to parse with template: failed to process output functions: output format jinja2 failed: jinja2 formatter requires template content",
+  [
+   "output",
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_output_functions.py::test_cerberus_validate_per_input",
+  "fail",
+  [
+   "$[0]._",
+   "<missing>",
+   {
+    "host_name": "csw1"
+   }
+  ],
+  [
+   "output",
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_output_functions.py::test_cerberus_validate_per_template",
+  "fail",
+  [
+   "$[0].errors",
+   {
+    "ntp_peers": [
+     {
+      "3": [
+       {
+        "peer": [
+         "unallowed value 3.3.3.3"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "<missing>"
+  ],
+  [
+   "output",
+   "input-tag",
+   "vars",
+   "per_template",
+   "ttp-getter"
+  ]
+ ],
+ [
+  "test/pytest/test_output_functions.py::test_global_output_deepdiff_with_var_before",
+  "fail",
+  [
+   "$[0].description",
+   "<missing>",
+   "some info"
+  ],
+  [
+   "output",
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_output_functions.py::test_group_specific_output_deepdiff_with_var_before",
+  "fail",
+  [
+   "$[0].interfaces",
+   "<missing>",
+   [
+    {
+     "description": "some info",
+     "interface": "GigabitEthernet1",
+     "ip": "10.123.89.56",
+     "mask": "255.255.255.0"
+    },
+    {
+     "interface": "GigabitEthernet2",
+     "ip": "10.123.89.55",
+     "mask": "255.255.255.0"
+    }
+   ]
+  ],
+  [
+   "output",
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_output_functions.py::test_group_specific_output_deepdiff_with_var_before_with_add_field",
+  "fail",
+  [
+   "$[0].interfaces",
+   "<missing>",
+   [
+    {
+     "description": "some info",
+     "interface": "GigabitEthernet1",
+     "ip": "10.123.89.56",
+     "mask": "255.255.255.0"
+    },
+    {
+     "interface": "GigabitEthernet2",
+     "ip": "10.123.89.55",
+     "mask": "255.255.255.0"
+    }
+   ]
+  ],
+  [
+   "output",
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_output_functions.py::test_yangson_validate",
+  "fail",
+  [
+   "$[0].comment",
+   "",
+   "<missing>"
+  ],
+  [
+   "macro",
+   "output"
+  ]
+ ],
+ [
+  "test/pytest/test_output_functions.py::test_yangson_validate_yang_lib_in_output_tag_data",
+  "fail",
+  [
+   "$[0].comment",
+   "",
+   "<missing>"
+  ],
+  [
+   "macro",
+   "output"
+  ]
+ ],
+ [
+  "test/pytest/test_output_functions.py::test_yangson_validate_metadata_false_validation_successful",
+  "fail",
+  [
+   "$[0].ietf-interfaces:interfaces.interface[0].admin-status",
+   "down",
+   "up"
+  ],
+  [
+   "macro",
+   "output"
+  ]
+ ],
+ [
+  "test/pytest/test_output_functions.py::test_yangson_validate_metadata_false_validation_unsuccessful",
+  "fail",
+  [
+   "$[0]",
+   false,
+   {
+    "ietf-interfaces:interfaces": {
+     "interface": [
+      {
+       "admin-status": "1",
+       "description": "Customer #32148",
+       "enabled": "True",
+       "ietf-ip:ipv4": {
+        "address": [
+         {
+          "ip": "172.16.33.10",
+          "netmask": "255.255.255.128",
+          "origin": "static"
+         }
+        ]
+       },
+       "if-index": "1",
+       "link-up-down-trap-enable": "enabled",
+       "name": "(\"GigabitEthernet1/3.251\", {\"type\": \"iana-if-type:ethernetCsmacd\"})",
+       "oper-status": "unknown",
+       "statistics": "{discontinuity-time:1970-01-01T00:00:00+00:00}"
+      },
+      {
+       "admin-status": "1",
+       "description": "vCPEs access control",
+       "enabled": "True",
+       "ietf-ip:ipv4": {
+        "address": [
+         {
+          "ip": "172.16.33.10",
+          "netmask": "255.255.255.128",
+          "origin": "static"
+         }
+        ]
+       },
+       "if-index": "1",
+       "link-up-down-trap-enable": "enabled",
+       "name": "(\"GigabitEthernet1/4\", {\"type\": \"iana-if-type:ethernetCsmacd\"})",
+       "oper-status": "unknown",
+       "statistics": "{discontinuity-time:1970-01-01T00:00:00+00:00}"
+      },
+      {
+       "admin-status": "1",
+       "description": "Works data",
+       "enabled": "True",
+       "ietf-ip:ipv4": {
+        "mtu": 9000
+       },
+       "if-index": "1",
+       "link-up-down-trap-enable": "enabled",
+       "name": "(\"GigabitEthernet1/5\", {\"type\": \"iana-if-type:ethernetCsmacd\"})",
+       "oper-status": "unknown",
+       "statistics": "{discontinuity-time:1970-01-01T00:00:00+00:00}"
+      },
+      {
+       "admin-status": "1",
+       "description": "Works data v6",
+       "enabled": "True",
+       "ietf-ip:ipv6": {
+        "address": [
+         {
+          "ip": "2001::1",
+          "origin": "static",
+          "prefix-length": 64
+         },
+         {
+          "ip": "2001:1::1",
+          "origin": "static",
+          "prefix-length": 64
+         }
+        ]
+       },
+       "if-index": "1",
+       "link-up-down-trap-enable": "enabled",
+       "name": "(\"GigabitEthernet1/7\", {\"type\": \"iana-if-type:ethernetCsmacd\"})",
+       "oper-status": "unknown",
+       "statistics": "{discontinuity-time:1970-01-01T00:00:00+00:00}"
+      }
+     ]
+    }
+   }
+  ],
+  [
+   "macro",
+   "output"
+  ]
+ ],
+ [
+  "test/pytest/test_regexes.py::test_pipe_separated_regexes",
+  "fail",
+  [
+   "$[0].arp_test",
+   [
+    {
+     "ip": "10.12.13.1",
+     "age": "98",
+     "mac": "0950.5785.5cd1",
+     "interface": "FastEthernet2.13"
+    },
+    {
+     "ip": "10.12.13.3",
+     "age": "131",
+     "mac": "0150.7685.14d5",
+     "interface": "GigabitEthernet2.13"
+    },
+    {
+     "ip": "10.12.13.4",
+     "age": "198",
+     "mac": "0950.5C8A.5c41",
+     "interface": "GigabitEthernet2.17"
+    }
+   ],
+   "<missing>"
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_regexes.py::test_multiple_inline_regexes",
+  "fail",
+  [
+   "$[0].arp_test",
+   [
+    {
+     "ip": "10.12.13.1",
+     "age": "98",
+     "mac": "0950.5785.5cd1",
+     "interface": "FastEthernet2.13"
+    },
+    {
+     "ip": "10.12.13.3",
+     "age": "131",
+     "mac": "0150.7685.14d5",
+     "interface": "GigabitEthernet2.13"
+    },
+    {
+     "ip": "10.12.13.4",
+     "age": "198",
+     "mac": "0950.5C8A.5c41",
+     "interface": "GigabitEthernet2.17"
+    }
+   ],
+   "<missing>"
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_regexes.py::test_MAC_regex_formatter",
+  "pass-strict",
+  null,
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_structure.py::test_list_structure",
+  "fail",
+  [
+   "$[0]",
+   [
+    {
+     "ip": "192.168.0.1",
+     "mask": "32",
+     "interface": "Lo0"
+    },
+    {
+     "ip": "1.1.1.1",
+     "mask": "32",
+     "interface": "Lo1"
+    }
+   ],
+   {
+    "interface": "Lo0",
+    "ip": "192.168.0.1",
+    "mask": "32"
+   }
+  ],
+  [
+   "input-tag"
+  ]
+ ],
+ [
+  "test/pytest/test_template_variables.py::test_include_attribute_with_yaml_loader",
+  "fail",
+  [
+   "$[0].arp_test",
+   [
+    {
+     "ip": "10.12.13.1",
+     "age": "98",
+     "mac": "0950.5785.5cd1",
+     "interface": "FastEthernet2.13"
+    },
+    {
+     "ip": "10.12.13.3",
+     "age": "131",
+     "mac": "0150.7685.14d5",
+     "interface": "GigabitEthernet2.13"
+    },
+    {
+     "ip": "10.12.13.4",
+     "age": "198",
+     "mac": "0950.5C8A.5c41",
+     "interface": "GigabitEthernet2.17"
+    }
+   ],
+   "<missing>"
+  ],
+  [
+   "input-tag",
+   "vars"
+  ]
+ ],
+ [
+  "test/pytest/test_ttp_parser_methods.py::test_quick_parse_function",
+  "pass-normalized",
+  null,
+  []
+ ],
+ [
+  "test/pytest/test_ttp_parser_methods.py::test_quick_parse_function_template_only",
+  "pass-normalized",
+  null,
+  [
+   "input-tag"
+  ]
+ ]
+]
