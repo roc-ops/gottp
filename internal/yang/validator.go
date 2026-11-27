@@ -377,7 +377,7 @@ func (v *Validator) validateConstraints(data map[string]interface{}, schemaEntry
 		}
 
 		// Validate pattern constraints for string types
-		if childEntry.Type.Pattern != nil && len(childEntry.Type.Pattern) > 0 {
+		if len(childEntry.Type.Pattern) > 0 {
 			// Pattern validation would require regex matching
 			// For now, we'll skip this as it requires more complex implementation
 			// TODO: Implement pattern validation

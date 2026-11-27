@@ -569,10 +569,8 @@ func sformat(data map[string]interface{}, args []string, kwargs map[string]inter
 	// Order: 1) kwargs (template vars and recorded vars), 2) data (match results override)
 	formatData := make(map[string]interface{})
 	// First add kwargs (template vars and recorded vars)
-	if kwargs != nil {
-		for k, v := range kwargs {
-			formatData[k] = v
-		}
+	for k, v := range kwargs {
+		formatData[k] = v
 	}
 	// Then add data (match results override template vars)
 	for k, v := range data {

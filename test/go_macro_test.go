@@ -1,3 +1,5 @@
+//lint:file-ignore SA1019 tests the deprecated RegisterGoMacro API on purpose (backward compatibility)
+
 package test
 
 import (

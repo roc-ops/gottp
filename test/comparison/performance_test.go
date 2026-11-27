@@ -1,3 +1,5 @@
+//lint:file-ignore SA1019 benchmarks Go macros through the deprecated RegisterGoMacro API, which is still supported
+
 package comparison
 
 import (

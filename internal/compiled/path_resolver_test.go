@@ -180,18 +180,3 @@ func TestPathResolverEdgeCases(t *testing.T) {
 
 // Helper functions
 
-func createDeepNestedMap(depth int) map[string]interface{} {
-	if depth == 0 {
-		return map[string]interface{}{"value": "leaf"}
-	}
-	return map[string]interface{}{"level": createDeepNestedMap(depth - 1)}
-}
-
-func createLongPath(length int) []string {
-	path := make([]string, length)
-	for i := 0; i < length; i++ {
-		path[i] = "level"
-	}
-	return path
-}
-

@@ -2,7 +2,6 @@ package test
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
 
 	"github.com/roc-ops/gottp"
@@ -56,7 +55,6 @@ interface Vlan100
 
 	t.Logf("Result: %s", string(jsonData))
 }
-
 
 // TestAnswer1 tests a Stack Overflow answer example
 func TestAnswer1(t *testing.T) {
@@ -146,22 +144,3 @@ vlan 910
 		t.Error("Result is nil")
 	}
 }
-
-// compareResults compares two results for equality
-func compareResults(got, want interface{}) bool {
-	// Convert both to JSON and compare
-	gotJSON, err1 := json.Marshal(got)
-	wantJSON, err2 := json.Marshal(want)
-
-	if err1 != nil || err2 != nil {
-		return false
-	}
-
-	// Unmarshal both to compare structure
-	var gotVal, wantVal interface{}
-	json.Unmarshal(gotJSON, &gotVal)
-	json.Unmarshal(wantJSON, &wantVal)
-
-	return reflect.DeepEqual(gotVal, wantVal)
-}
-

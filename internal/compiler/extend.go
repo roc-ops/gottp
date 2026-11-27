@@ -33,11 +33,9 @@ func NewFileTemplateLoader(basePath string) *FileTemplateLoader {
 // LoadTemplate loads a template from the filesystem
 func (l *FileTemplateLoader) LoadTemplate(path string) (string, error) {
 	// Handle TTP template repository paths (ttp://...)
-	if strings.HasPrefix(path, "ttp://") {
-		// For now, treat as relative path after removing prefix
-		// In production, this would resolve from TTP_TEMPLATES_DIR
-		path = strings.TrimPrefix(path, "ttp://")
-	}
+	// For now, treat as relative path after removing prefix
+	// In production, this would resolve from TTP_TEMPLATES_DIR
+	path = strings.TrimPrefix(path, "ttp://")
 
 	// Resolve path relative to basePath
 	var fullPath string
@@ -292,7 +290,7 @@ func (r *ExtendResolver) filterExtendedTemplate(tmpl *parser.Template, ext *pars
 
 // shouldInclude checks if a name should be included based on filter
 func shouldInclude(name string, filter []string) bool {
-	if filter == nil || len(filter) == 0 {
+	if len(filter) == 0 {
 		return true
 	}
 	for _, f := range filter {

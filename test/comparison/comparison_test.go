@@ -105,7 +105,7 @@ func runPythonTTP(template, data string, vars map[string]interface{}, lookups ma
 	}
 
 	// Add vars if provided
-	if vars != nil && len(vars) > 0 {
+	if len(vars) > 0 {
 		varsJSON, err := json.Marshal(vars)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal vars: %w", err)
@@ -114,7 +114,7 @@ func runPythonTTP(template, data string, vars map[string]interface{}, lookups ma
 	}
 
 	// Add lookups if provided
-	if lookups != nil && len(lookups) > 0 {
+	if len(lookups) > 0 {
 		lookupsJSON, err := json.Marshal(lookups)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal lookups: %w", err)

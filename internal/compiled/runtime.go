@@ -4917,7 +4917,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 				if match != nil {
 					// Find character positions for the match
 					matchIndices := compiledPattern.Regex.FindStringSubmatchIndex(matchLine)
-					if matchIndices == nil || len(matchIndices) < 2 {
+					if len(matchIndices) < 2 {
 						continue
 					}
 
@@ -5629,7 +5629,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 							match := compiledPattern.Regex.FindStringSubmatch(line)
 							if match != nil {
 								matchIndices := compiledPattern.Regex.FindStringSubmatchIndex(line)
-								if matchIndices == nil || len(matchIndices) < 2 {
+								if len(matchIndices) < 2 {
 									continue
 								}
 								lineMapping := inputSourceMap.Lines[absoluteLineIdx]
@@ -5843,7 +5843,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 									match := compiledPattern.Regex.FindStringSubmatch(line)
 									if match != nil {
 										matchIndices := compiledPattern.Regex.FindStringSubmatchIndex(line)
-										if matchIndices == nil || len(matchIndices) < 2 {
+										if len(matchIndices) < 2 {
 											continue
 										}
 										lineMapping.Matched = true
@@ -6004,78 +6004,6 @@ func (r *Runtime) nestedGroupExistsInResult(parentMatch map[string]interface{}, 
 	}
 
 	return false
-}
-
-// findNestedGroupPath searches for a nested group in the result map and returns its full path
-func (r *Runtime) findNestedGroupPath(resultMap map[string]interface{}, nestedGroupName string, parentPath string) string {
-	// First, try direct lookup: parentPath.nestedGroupName
-	if parentPath != "" && parentPath != "_anonymous_" {
-		directPath := parentPath + "." + nestedGroupName
-		if r.pathExistsInMap(resultMap, directPath) {
-			return directPath
-		}
-	}
-
-	// Search recursively in the result map for the nested group
-	// This handles cases where the path might be resolved differently
-	return r.searchNestedGroupInMap(resultMap, nestedGroupName, parentPath, "")
-}
-
-// pathExistsInMap checks if a dot-separated path exists in the map
-func (r *Runtime) pathExistsInMap(m map[string]interface{}, path string) bool {
-	parts := strings.Split(path, ".")
-	current := m
-	for i, part := range parts {
-		if i == len(parts)-1 {
-			// Last part - check if key exists
-			_, exists := current[part]
-			return exists
-		}
-		// Navigate deeper
-		if next, ok := current[part].(map[string]interface{}); ok {
-			current = next
-		} else {
-			return false
-		}
-	}
-	return false
-}
-
-// searchNestedGroupInMap recursively searches for a nested group in the map
-func (r *Runtime) searchNestedGroupInMap(m map[string]interface{}, nestedGroupName string, parentPath string, currentPath string) string {
-	for key, value := range m {
-		var fullPath string
-		if currentPath == "" {
-			fullPath = key
-		} else {
-			fullPath = currentPath + "." + key
-		}
-
-		// Check if this key matches the nested group name
-		if key == nestedGroupName {
-			// Check if this path starts with the parent path (for nested groups)
-			if parentPath == "" || parentPath == "_anonymous_" || strings.HasPrefix(fullPath, parentPath+".") {
-				return fullPath
-			}
-		}
-
-		// Recursively search in nested maps
-		if nestedMap, ok := value.(map[string]interface{}); ok {
-			if found := r.searchNestedGroupInMap(nestedMap, nestedGroupName, parentPath, fullPath); found != "" {
-				return found
-			}
-		} else if nestedList, ok := value.([]interface{}); ok {
-			// Check first element if it's a map (for arrays of objects)
-			if len(nestedList) > 0 {
-				if firstMap, ok := nestedList[0].(map[string]interface{}); ok {
-					if found := r.searchNestedGroupInMap(firstMap, nestedGroupName, parentPath, fullPath); found != "" {
-						return found
-					}
-				}
-			}
-		}
-	}
-	return ""
 }
 
 // processFunctions applies function pipeline to a value
@@ -7236,7 +7164,7 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 					fmt.Print(string(formattedBytes))
 				} else {
 					// Convert to string and output
-					fmt.Print(fmt.Sprintf("%v", result))
+					fmt.Printf("%v", result)
 				}
 				// Return original parsed data structure (not formatted)
 				result = originalResult
