@@ -98,7 +98,7 @@ for i in range(%d):
     print(f"{end - start:.6f}")
 `, template, b.N)
 
-	cmd := exec.Command(pythonBin(), "-c", scriptPath)
+	cmd := pythonScriptCmd(b, scriptPath)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -157,7 +157,7 @@ for i in range(%d):
     print(f"{end - start:.6f}")
 `, template, data, b.N)
 
-	cmd := exec.Command(pythonBin(), "-c", scriptPath)
+	cmd := pythonScriptCmd(b, scriptPath)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -245,7 +245,7 @@ print(f"{total:.6f}")
 print(f"{avg:.9f}")
 `, template, iterations)
 
-	cmd := exec.Command(pythonBin(), "-c", script)
+	cmd := pythonScriptCmd(t, script)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -308,7 +308,7 @@ print(f"{total:.6f}")
 print(f"{avg:.9f}")
 `, template, data, iterations)
 
-	cmd = exec.Command(pythonBin(), "-c", script)
+	cmd = pythonScriptCmd(t, script)
 	cmd.Dir = root
 	output, err = cmd.CombinedOutput()
 	if err != nil {
@@ -434,7 +434,7 @@ print(f"{total:.6f}")
 print(f"{avg:.9f}")
 `, template, escapedData, iterations)
 
-	cmd := exec.Command(pythonBin(), "-c", script)
+	cmd := pythonScriptCmd(t, script)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -658,7 +658,7 @@ print(f"{total:.6f}")
 print(f"{avg:.9f}")
 `, template, escapedData, iterations)
 
-	cmd := exec.Command(pythonBin(), "-c", script)
+	cmd := pythonScriptCmd(t, script)
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -685,4 +685,16 @@ print(f"{avg:.9f}")
 	fmt.Printf("Input size:        ~%d KB (%d lines)\n", len(data)/1024, lineCount)
 	fmt.Printf("File:              %s\n", dataPath)
 	fmt.Println()
+}
+
+// pythonScriptCmd runs a Python script from a file rather than "python3 -c".
+// Scripts that embed large inputs exceed Linux's 128 KB per-argument limit
+// (MAX_ARG_STRLEN) when passed with -c; macOS allows far more.
+func pythonScriptCmd(tb testing.TB, script string) *exec.Cmd {
+	tb.Helper()
+	path := filepath.Join(tb.TempDir(), "script.py")
+	if err := os.WriteFile(path, []byte(script), 0o600); err != nil {
+		tb.Fatalf("writing Python script: %v", err)
+	}
+	return exec.Command(pythonBin(), path)
 }
