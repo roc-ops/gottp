@@ -237,11 +237,11 @@ func (f *formatter) lookup(name string) (interface{}, error) {
 			if attr == "" {
 				return nil, raise("ValueError", "Empty attribute in format string")
 			}
-			t, self := typeOf(v)
+			t := typeOf(v)
 			if t == nil || !t.methods[attr].attr {
 				return nil, attributeError(v, attr)
 			}
-			r, err := t.methods[attr].fn(self, &args{typ: t.name, name: attr})
+			r, err := t.methods[attr].fn(selfOf(v), &args{typ: t.name, name: attr})
 			if err != nil {
 				return nil, err
 			}

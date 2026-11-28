@@ -56,10 +56,12 @@ type table map[string]method
 
 // Call runs value's method or attribute name with args and kwargs. found
 // is false on Python's AttributeError, which TTP catches and logs, keeping
-// the value: value's type has no such method, or the method raised it. err is a Python exception (*Error). A bool result
-// is a filter, any other result the new value.
+// the value: value's type has no such method, or the method raised it.
+// err is a Python exception (*Error). A bool result is a filter, any other
+// result the new value. A miss allocates nothing: the value is converted
+// only once the method is found.
 func Call(value interface{}, name string, pos []interface{}, kwargs []call.Kwarg) (result interface{}, found bool, err error) {
-	t, self := typeOf(value)
+	t := typeOf(value)
 	if t == nil {
 		return nil, false, nil
 	}
@@ -68,7 +70,7 @@ func Call(value interface{}, name string, pos []interface{}, kwargs []call.Kwarg
 		return nil, false, nil
 	}
 	a := &args{typ: t.name, name: name, pos: pos, kw: kwargs}
-	r, err := m.fn(self, a)
+	r, err := m.fn(selfOf(value), a)
 	if e, ok := err.(*Error); ok && e.Type == "AttributeError" {
 		// TTP catches an AttributeError raised inside the method too.
 		return nil, false, nil
@@ -111,30 +113,36 @@ func init() {
 	}
 }
 
-// typeOf returns value's Python type and value in that type's Go form (an
-// int or bool as a *big.Int).
-func typeOf(value interface{}) (*pyType, interface{}) {
-	switch v := value.(type) {
+// typeOf returns value's Python type; nil for a value of no ported type.
+func typeOf(value interface{}) *pyType {
+	switch value.(type) {
 	case string:
-		return strType, v
+		return strType
 	case bool:
-		if v {
-			return boolType, intOf(1)
-		}
-		return boolType, intOf(0)
+		return boolType
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		n, _ := toInt(v)
-		return intType, n
-	case float64:
-		return floatType, v
-	case float32:
-		return floatType, float64(v)
+		return intType
+	case float64, float32:
+		return floatType
 	case []interface{}:
-		return listType, v
+		return listType
 	case map[string]interface{}:
-		return dictType, v
+		return dictType
 	}
-	return nil, nil
+	return nil
+}
+
+// selfOf returns value in its type's Go form for the methods: an int or
+// bool as a *big.Int, a float32 as a float64, anything else as it is.
+func selfOf(value interface{}) interface{} {
+	switch v := value.(type) {
+	case float32:
+		return float64(v)
+	case bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		n, _ := toInt(v)
+		return n
+	}
+	return value
 }
 
 // namesByType maps each ported name to the types that have it, e.g.

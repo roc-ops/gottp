@@ -194,8 +194,6 @@ func toInt(v interface{}) (*big.Int, bool) {
 	return nil, false
 }
 
-func intOf(n int64) *big.Int { return big.NewInt(n) }
-
 // fromBig returns n as an int when it fits, else a uint64, else n itself.
 func fromBig(n *big.Int) interface{} {
 	if n.IsInt64() && n.Int64() >= math.MinInt && n.Int64() <= math.MaxInt {

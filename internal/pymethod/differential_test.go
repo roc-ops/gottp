@@ -189,7 +189,7 @@ func TestMethodsMatchPython(t *testing.T) {
 func TestDiffCasesCoverEveryMethod(t *testing.T) {
 	seen := map[string]bool{}
 	for _, c := range diffCases {
-		typ, _ := typeOf(goValue(t, c.Self))
+		typ := typeOf(goValue(t, c.Self))
 		if typ == nil {
 			continue
 		}
