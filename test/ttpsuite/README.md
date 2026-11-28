@@ -9,10 +9,10 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 122 / skipped-by-issue 72 / design 6 of 200
-gottp repros: pass 167 / skipped-by-issue 4 / design 2 of 173
-source-map parity: same 376 / diverge 0 of 376
-stream snapshots: 184 streamable of 376 cases
+TTP 0.10.1 suite: pass 123 / skipped-by-issue 71 / design 6 of 200
+gottp repros: pass 180 / skipped-by-issue 2 / design 3 of 185
+source-map parity: same 388 / diverge 0 of 388
+stream snapshots: 195 streamable of 388 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
