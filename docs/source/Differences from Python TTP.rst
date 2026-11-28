@@ -200,6 +200,13 @@ Template Syntax
 
 GoTTP templates use the exact same syntax as Python TTP. Templates written for Python TTP should work with GoTTP without modification.
 
+Function calls are read as Python TTP reads them (see :doc:`Match Variables/Functions`, "Function call syntax"). The differences:
+
+* Python TTP evaluates arguments with ``eval``; gottp reads Python literals and bare names only. An expression such as ``1 + 2`` or a name of a Python built-in (``str``, ``int``) isn't evaluated: the first is a compile error, the second is the text ``"str"``.
+* A tuple argument is a list, and a dict argument's keys are not kept in the order written.
+* Where Python TTP stops with ``SystemExit`` or raises ``TypeError`` for a call it can't read (``macro(name='m')``, ``<output macro=""/>``), gottp returns a compile error.
+* Python TTP logs an unknown function name (with its ``guess`` suggestions) when it meets it; gottp adds a ``GetWarnings()`` entry when the template compiles.
+
 Performance
 -----------
 

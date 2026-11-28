@@ -467,16 +467,12 @@ func initSourceMapInputs(sourceMap *SourceMap, inputs map[string]string, inputOr
 }
 
 // builtinAttrGroupFunctions are the group functions parseGroup applies when
-// given as group attributes. A group whose attribute order is unknown runs
-// them in this order.
-var builtinAttrGroupFunctions = []string{"record", "containsall", "contains", "del", "delete", "exclude", "excludeall", "equal", "to_int", "contains_val", "exclude_val", "sformat", "itemize", "set", "expand", "items2dict", "to_ip"}
+// given as group attributes (compiler.BuiltinAttrGroupFunctions).
+var builtinAttrGroupFunctions = compiler.BuiltinAttrGroupFunctions
 
 // nonFunctionGroupAttrs are group attributes parseGroup never treats as a
 // custom group function.
-var nonFunctionGroupAttrs = map[string]bool{
-	"name": true, "input": true, "method": true, "output": true, "default": true,
-	"chain": true, "functions": true, "macro": true,
-}
+var nonFunctionGroupAttrs = compiler.NonFunctionGroupAttrs
 
 func isBuiltinAttrGroupFunc(name string) bool {
 	for _, b := range builtinAttrGroupFunctions {

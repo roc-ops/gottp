@@ -1,6 +1,0 @@
-{
- "records": [
-  {"group_path":"ports_summary","src_range":[77,143],"record":{"encap":"802.1q","mode":"on","native_vlan":"1","port":"Gi0","satus":"trunking"}},
-  {"group_path":"ports_summary","src_range":[143,627],"record":{"encap":"802.1q","mode":"on","native_vlan":"1","port":"Gi7","satus":"trunking"}}
- ]
-}

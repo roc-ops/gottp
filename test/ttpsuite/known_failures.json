@@ -9,25 +9,6 @@
    "issue": 136,
    "reason": "a \"text {{ _start_ }}\" line also matches lines with more text after it, so it splits the record"
   },
-  "gottp-repros/issue151_re_double_backslash_argument": {
-   "issue": 151,
-   "reason": "inline re(\"\\\\d+\") isn't read as a Python string, so \\\\d stays two characters"
-  },
-  "gottp-repros/issue151_re_raw_string_argument": {
-   "issue": 151,
-   "reason": "inline re(r\"\\d+\") isn't read as a Python raw string",
-   "also": [
-    67
-   ]
-  },
-  "gottp-repros/issue23_sformat_equals_in_quotes": {
-   "issue": 23,
-   "reason": "sformat(\"v={}\"): the \"=\" inside the quoted argument is read as a keyword argument"
-  },
-  "gottp-repros/issue23_sformat_pipe_in_quotes": {
-   "issue": 23,
-   "reason": "sformat(\"a|{}\"): TTP splits the chain at the \"|\" and both halves fail, keeping the value; gottp formats with the broken-off half"
-  },
   "gottp-repros/issue33_trailing_ignore_with_trailing_whitespace": {
    "issue": 33,
    "reason": "trailing {{ ignore(\".*\") }} fails when the data line has trailing whitespace"
@@ -99,16 +80,12 @@
   "test_answers_and_docs/test_docs_ttp_dictionary_usage_example": {
    "reason": "design: python macro (uses _ttp_[\"match\"][\"to_ip\"] and the ipaddress object API)"
   },
-  "test_answers_and_docs/test_github_issue_33_answer_1": {
-   "issue": 67,
-   "reason": "raw-string argument re(r\"\\S+\") matches nothing"
-  },
   "test_answers_and_docs/test_github_issue_37_cleaned_data_template": {
-   "issue": 67,
+   "issue": 64,
    "also": [
     65
    ],
-   "reason": "resub(r\"\\*\", \"qinq\") is a raw-string argument, so the sap path keeps the '*'; then ingress/egress lack their default() values"
+   "reason": "qos {{ sap_egress | default(\"1)\") }} captures the leading space (\" 11010\")"
   },
   "test_answers_and_docs/test_github_issue_37_original_data_template": {
    "issue": 67,
@@ -123,10 +100,6 @@
   "test_answers_and_docs/test_ip_address_parsing": {
    "issue": 92,
    "reason": "to_ip does not accept \"address netmask\""
-  },
-  "test_answers_and_docs/test_issue_45_for_junos_cfg": {
-   "issue": 63,
-   "reason": "set(True)/set(False) gives a string"
   },
   "test_answers_and_docs/test_issue_48_answer": {
    "issue": 112,
@@ -155,10 +128,6 @@
   "test_answers_and_docs/test_reddit_answer_2": {
    "reason": "design: python macro (the macro block uses \"import ipaddress\")"
   },
-  "test_answers_and_docs/test_slack_answer_2": {
-   "issue": 63,
-   "reason": "set(true) gives the string \"true\""
-  },
   "test_answers_and_docs/test_slack_answer_3": {
    "issue": 100,
    "reason": "sibling ospf/ospf3 groups: the ospf3 lines join the ospf record, nesting an extra ospf level; root cause not isolated"
@@ -166,22 +135,6 @@
   "test_answers_and_docs/test_slack_answer_3_full": {
    "issue": 100,
    "reason": "vprn records nest an extra id level; root cause not isolated"
-  },
-  "test_answers_and_docs/test_start_with_set": {
-   "issue": 63,
-   "reason": "set(True)/set(False) gives a string"
-  },
-  "test_answers_and_docs/test_vlans_parsing": {
-   "issue": 27,
-   "reason": "without a <template> wrapper only the first top group is compiled, so vlans_active and vlans_forwarding are missing"
-  },
-  "test_extend_tag/test_extend_tag_from_file_group_index_filter": {
-   "issue": 93,
-   "reason": "<extend groups=\"1\"> filter: the selected group is not loaded"
-  },
-  "test_extend_tag/test_extend_tag_from_file_group_name_filter": {
-   "issue": 93,
-   "reason": "<extend groups=\"vlans.{{ vlan }}\"> filter: the selected group is not loaded"
   },
   "test_extend_tag/test_extend_tag_from_file_lookups_filter": {
    "issue": 93,
@@ -365,50 +318,6 @@
    "issue": 96,
    "reason": "<lookup load=\"csv\" include=...> is not loaded"
   },
-  "test_match_condition_fun/test_contains_re_from_vars": {
-   "issue": 63,
-   "reason": "set(True)/set(False) gives a string"
-  },
-  "test_match_condition_fun/test_contains_re_inline": {
-   "issue": 63,
-   "reason": "set(True) / set(False) is a string"
-  },
-  "test_match_condition_fun/test_endswith_re_from_vars": {
-   "issue": 63,
-   "reason": "set(True)/set(False) gives a string"
-  },
-  "test_match_condition_fun/test_endswith_re_inline": {
-   "issue": 67,
-   "reason": "raw-string argument endswith_re(r\"Channel\\d+\") matches nothing"
-  },
-  "test_match_condition_fun/test_exclude_re_inline": {
-   "issue": 67,
-   "reason": "raw-string argument r\"…\" matches nothing"
-  },
-  "test_match_condition_fun/test_notendswith_re_from_vars": {
-   "issue": 63,
-   "reason": "set(True)/set(False) gives a string"
-  },
-  "test_match_condition_fun/test_notendswith_re_inline": {
-   "issue": 63,
-   "reason": "set(True)/set(False) gives a string"
-  },
-  "test_match_condition_fun/test_notstartswith_re_from_vars": {
-   "issue": 63,
-   "reason": "set(True)/set(False) gives a string"
-  },
-  "test_match_condition_fun/test_notstartswith_re_inline": {
-   "issue": 63,
-   "reason": "set(True)/set(False) gives a string"
-  },
-  "test_match_condition_fun/test_startswith_re_from_vars": {
-   "issue": 63,
-   "reason": "set(True)/set(False) gives a string"
-  },
-  "test_match_condition_fun/test_startswith_re_inline": {
-   "issue": 67,
-   "reason": "raw-string argument startswith_re(r\"Por\\S\") matches nothing"
-  },
   "test_match_functions/test_copy": {
    "issue": 66,
    "reason": "copy() is a stub"
@@ -541,8 +450,11 @@
    "reason": "output function validate_yangson is not registered"
   },
   "test_output_functions/test_yangson_validate_metadata_false_validation_successful": {
-   "issue": 80,
-   "reason": "output function validate_yangson is not registered"
+   "issue": 146,
+   "also": [
+    80
+   ],
+   "reason": "a tuple returned from the Starlark macro becomes a string; then output function validate_yangson is not registered"
   },
   "test_output_functions/test_yangson_validate_metadata_false_validation_unsuccessful": {
    "issue": 80,
@@ -551,14 +463,6 @@
   "test_output_functions/test_yangson_validate_yang_lib_in_output_tag_data": {
    "issue": 80,
    "reason": "output function validate_yangson is not registered"
-  },
-  "test_regexes/test_multiple_inline_regexes": {
-   "issue": 67,
-   "reason": "raw-string argument re(r\"GigabitEthernet\\S+\") matches nothing"
-  },
-  "test_regexes/test_pipe_separated_regexes": {
-   "issue": 67,
-   "reason": "raw-string argument re(r\"\\d+\") matches nothing"
   },
   "test_structure/test_list_structure": {
    "issue": 70,

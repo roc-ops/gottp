@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/roc-ops/gottp/internal/call"
 	"github.com/roc-ops/gottp/internal/compiler"
 	"github.com/roc-ops/gottp/internal/parser"
 )
@@ -198,23 +199,26 @@ func TestParseArguments(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := parseArguments(tt.argStr, nil)
+			c, err := call.Parse("f(" + tt.argStr + ")")
+			if err != nil {
+				t.Fatal(err)
+			}
+			result := c.Strs
 			if len(result) != len(tt.expected) {
-				t.Errorf("parseArguments() returned %d arguments, want %d", len(result), len(tt.expected))
+				t.Errorf("call.Parse().Strs returned %d arguments, want %d", len(result), len(tt.expected))
 				t.Errorf("Got: %v", result)
 				t.Errorf("Want: %v", tt.expected)
 				return
 			}
 			for i, expected := range tt.expected {
 				if i >= len(result) {
-					t.Errorf("parseArguments() missing argument at index %d", i)
+					t.Errorf("call.Parse().Strs missing argument at index %d", i)
 					continue
 				}
 				if result[i] != expected {
-					t.Errorf("parseArguments() argument[%d] = %q, want %q", i, result[i], expected)
+					t.Errorf("call.Parse().Strs argument[%d] = %q, want %q", i, result[i], expected)
 				}
 			}
 		})
 	}
 }
-

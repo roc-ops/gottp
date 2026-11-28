@@ -2,6 +2,7 @@ package compiled
 
 import (
 	"fmt"
+	"github.com/roc-ops/gottp/internal/call"
 	"strings"
 
 	"github.com/roc-ops/gottp/internal/compiler"
@@ -118,9 +119,9 @@ func buildAsmGroup(group *compiler.CompiledGroup, id, parentID int, name, path s
 			if v == nil {
 				continue
 			}
-			for _, f := range v.Functions {
-				if functionNameOf(f) == "joinmatches" {
-					ap.joinVars = append(ap.joinVars, asmJoinVar{name: name, char: joinMatchesCharOf(f)})
+			for _, c := range v.Calls().All {
+				if c.Name == "joinmatches" {
+					ap.joinVars = append(ap.joinVars, asmJoinVar{name: name, char: joinMatchesCharOf(c)})
 					break
 				}
 			}
@@ -594,26 +595,12 @@ func (a *assembler) emitRecord(rec *asmCurrent, end int) error {
 	return a.emit(asmRecord{group: rec.group, result: rec.result, mergeWithLast: rec.mergeWithLast, used: rec.used, srcRange: [2]int{rec.start, end}})
 }
 
-// functionNameOf returns the name of a match function call such as
-// `joinmatches(",")`.
-func functionNameOf(f string) string {
-	f = strings.TrimSpace(f)
-	if i := strings.IndexByte(f, '('); i >= 0 {
-		f = f[:i]
-	}
-	return strings.TrimSpace(f)
-}
-
 // joinMatchesCharOf is the join character of a joinmatches call: its first
 // argument, or "" when it has none (join then keeps the character already in
 // effect, a newline by default).
-func joinMatchesCharOf(f string) string {
-	start := strings.Index(f, "(")
-	end := strings.LastIndex(f, ")")
-	if start >= 0 && end > start {
-		if arg := strings.Trim(strings.TrimSpace(f[start+1:end]), "'\""); arg != "" {
-			return arg
-		}
+func joinMatchesCharOf(c *call.Call) string {
+	if len(c.Strs) > 0 {
+		return c.Strs[0]
 	}
 	return ""
 }

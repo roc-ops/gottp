@@ -1,3 +1,7 @@
 {
- "records": []
+ "records": [
+  {"group_path":"arp_test","src_range":[67,206],"record":{"age":"98","interface":"FastEthernet2.13","ip":"10.12.13.1","mac":"0950.5785.5cd1"}},
+  {"group_path":"arp_test","src_range":[206,282],"record":{"age":"131","interface":"GigabitEthernet2.13","ip":"10.12.13.3","mac":"0150.7685.14d5"}},
+  {"group_path":"arp_test","src_range":[282,358],"record":{"age":"198","interface":"GigabitEthernet2.17","ip":"10.12.13.4","mac":"0950.5C8A.5c41"}}
+ ]
 }

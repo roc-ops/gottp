@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/roc-ops/gottp/internal/call"
 )
 
 // streamableGroupFunctions lists the group-level functions (the ones in
@@ -49,47 +51,17 @@ var attributeGroupFunctions = []string{
 	"expand", "items2dict", "to_ip", "record",
 }
 
-// parseGroupFunctionNames extracts function names from a group's
-// functions= or chain= attribute. Functions are separated by "|" (what
-// the group pipeline splits on) or ",", e.g.
-// "containsall('mac-address', 'us-intf') | to_int". Returns the bare names
-// ("containsall", "to_int") with arguments stripped.
-//
-// Argument lists and quoted text are removed before splitting, so commas
-// and pipes inside them don't make names. A token that is not a function
-// name afterwards (for example the "[" of a list literal kept as a string)
-// is skipped: the group pipeline finds no function by that name and skips
-// it too.
+// parseGroupFunctionNames returns the names of the functions in a group's
+// functions= or chain= attribute, read as the group pipeline reads them
+// (package call): the chain is split on every "|", and a part that isn't a
+// call the pipeline can read is skipped, as the pipeline skips it. So is a
+// name no group function can have (the "[" of a <vars> list the loader
+// kept as a string): the pipeline finds no function by that name.
 func parseGroupFunctionNames(functions string) []string {
-	if functions == "" {
-		return nil
-	}
-	var b strings.Builder
-	depth := 0
-	var quote rune
-	for _, r := range functions {
-		switch {
-		case quote != 0:
-			if r == quote {
-				quote = 0
-			}
-		case r == '\'' || r == '"':
-			quote = r
-		case r == '(':
-			depth++
-		case r == ')':
-			if depth > 0 {
-				depth--
-			}
-		case depth == 0:
-			b.WriteRune(r)
-		}
-	}
 	var names []string
-	for _, part := range strings.FieldsFunc(b.String(), func(r rune) bool { return r == ',' || r == '|' }) {
-		part = strings.TrimSpace(part)
-		if isFunctionName(part) {
-			names = append(names, part)
+	for _, part := range call.Split(functions) {
+		if c, err := call.Parse(part); err == nil && isFunctionName(c.Name) {
+			names = append(names, c.Name)
 		}
 	}
 	return names

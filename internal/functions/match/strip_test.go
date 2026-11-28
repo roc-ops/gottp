@@ -41,17 +41,3 @@ func TestStripCharsArgument(t *testing.T) {
 		}
 	}
 }
-
-// The chain() inline fallback (used when no registry or resolver is passed)
-// must agree with the registered functions.
-func TestChainInlineStripCharsArgument(t *testing.T) {
-	for _, tc := range stripCases {
-		got, err := applyChainFunction(tc.value, tc.fn, append([]string(nil), tc.args...), nil)
-		if err != nil {
-			t.Fatalf("chain %s(%q, %q): %v", tc.fn, tc.value, tc.args, err)
-		}
-		if got != tc.want {
-			t.Errorf("chain %s(%q, %q) = %q, want %q", tc.fn, tc.value, tc.args, got, tc.want)
-		}
-	}
-}

@@ -196,11 +196,11 @@ Looks up match value in lookup table, other group or template results.
 Function Chaining
 -----------------
 
-Multiple functions can be chained using comma separation:
+Multiple functions are chained with ``|``:
 
 .. code-block:: xml
 
-   <group name="interfaces" functions="contains('ip'), record('last_interface'), delete('mask')">
+   <group name="interfaces" functions="contains('ip') | record('last_interface') | delete('mask')">
    interface {{ interface }}
     ip address {{ ip }}/{{ mask }}
    </group>

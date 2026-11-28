@@ -48,6 +48,30 @@ func PythonStringLiteral(s string) (string, bool) {
 type pyLiteralParser struct {
 	s string
 	i int
+	// names reads an identifier the way TTP's get_attributes evaluates it
+	// (_UndefSubst): true, false and none in any case are True, False and
+	// None, and any other name is the name as a string.
+	names bool
+	// depth is the nesting depth of lists, tuples and dicts, bounded by
+	// maxLiteralDepth.
+	depth int
+}
+
+// maxLiteralDepth bounds how deeply lists, tuples and dicts nest, so a
+// template can't exhaust the stack.
+const maxLiteralDepth = 100
+
+// PythonValueAt reads one Python value from s at byte offset i and returns
+// it with the offset just after it. With names, an identifier is read the
+// way TTP's get_attributes evaluates call arguments (_UndefSubst): true,
+// false and none in any case are True, False and None, and any other name
+// is its own text. Without names an identifier other than True, False and
+// None is an error.
+func PythonValueAt(s string, i int, names bool) (interface{}, int, error) {
+	p := &pyLiteralParser{s: s, i: i, names: names}
+	p.skipSpace()
+	v, err := p.value()
+	return v, p.i, err
 }
 
 func (p *pyLiteralParser) skipSpace() {
@@ -77,14 +101,19 @@ func (p *pyLiteralParser) value() (interface{}, error) {
 		return nil, fmt.Errorf("unexpected end")
 	}
 	switch c := p.s[p.i]; {
-	case c == '[':
+	case c == '[' || c == '(' || c == '{':
+		if p.depth >= maxLiteralDepth {
+			return nil, fmt.Errorf("literal nested more than %d deep", maxLiteralDepth)
+		}
+		p.depth++
+		defer func() { p.depth-- }()
 		p.i++
-		return p.sequence(']')
-	case c == '(':
-		p.i++
-		return p.sequence(')')
-	case c == '{':
-		p.i++
+		switch c {
+		case '[':
+			return p.sequence(']')
+		case '(':
+			return p.sequence(')')
+		}
 		return p.dict()
 	case c == '"' || c == '\'':
 		return p.stringLiterals()
@@ -106,19 +135,35 @@ func (p *pyLiteralParser) value() (interface{}, error) {
 		case "None":
 			return nil, nil
 		}
+		if p.names {
+			switch strings.ToLower(word) {
+			case "true":
+				return true, nil
+			case "false":
+				return false, nil
+			case "none":
+				return nil, nil
+			}
+			return word, nil
+		}
 		return nil, fmt.Errorf("name %q is not a literal", word)
 	default:
 		return p.number()
 	}
 }
 
-// sequence parses list or tuple items up to end.
+// sequence parses list or tuple items up to end. A parenthesized value
+// without a comma, (x), is the value itself, as in Python.
 func (p *pyLiteralParser) sequence(end byte) (interface{}, error) {
 	items := []interface{}{}
+	comma := false
 	for {
 		p.skipSpace()
 		if p.i < len(p.s) && p.s[p.i] == end {
 			p.i++
+			if end == ')' && len(items) == 1 && !comma {
+				return items[0], nil
+			}
 			return items, nil
 		}
 		v, err := p.value()
@@ -132,6 +177,7 @@ func (p *pyLiteralParser) sequence(end byte) (interface{}, error) {
 		}
 		if p.s[p.i] == ',' {
 			p.i++
+			comma = true
 			continue
 		}
 		if p.s[p.i] != end {

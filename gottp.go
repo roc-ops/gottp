@@ -110,9 +110,51 @@ func CompileTemplateWithOptions(templateText string, options *CompileOptions) (*
 	// Convert and store compile-time functions
 	if options != nil && options.Functions != nil {
 		result.compileFunctions = convertFunctions(options.Functions)
+		if err := compiler.CheckCustomAttrCalls(ct, func(name string) bool {
+			_, ok := result.compileFunctions.Group[name]
+			return ok
+		}); err != nil {
+			return nil, fmt.Errorf("failed to compile template: %w", err)
+		}
+		dropProvidedUnknownWarnings(ct, result.compileFunctions)
 	}
 
 	return result, nil
+}
+
+// dropProvidedUnknownWarnings removes the compile warnings about unknown
+// function names that fns provides.
+func dropProvidedUnknownWarnings(ct *compiler.CompiledTemplate, fns *compiled.RuntimeFunctions) {
+	provided := func(u compiler.UnknownCall) bool {
+		var ok bool
+		switch u.Scope {
+		case compiler.ScopeMatch:
+			_, ok = fns.Match[u.Name]
+		case compiler.ScopeGroup:
+			_, ok = fns.Group[u.Name]
+		case compiler.ScopeInput:
+			_, ok = fns.Input[u.Name]
+		case compiler.ScopeOutput:
+			_, ok = fns.Output[u.Name]
+		}
+		return ok
+	}
+	drop := make(map[string]bool)
+	for _, u := range ct.UnknownCalls() {
+		if provided(u) {
+			drop[u.Warning] = true
+		}
+	}
+	if len(drop) == 0 {
+		return
+	}
+	kept := ct.Warnings[:0]
+	for _, w := range ct.Warnings {
+		if !drop[w] {
+			kept = append(kept, w)
+		}
+	}
+	ct.Warnings = kept
 }
 
 // CompiledTemplate is a stateless, immutable compiled template.

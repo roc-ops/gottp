@@ -6,18 +6,18 @@
    {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":65,"GroupName":"ports_summary*","PatternIndex":0,"Variables":{"encap":{"StartCol":35,"EndCol":41},"mode":{"StartCol":22,"EndCol":24},"native_vlan":{"StartCol":64,"EndCol":65},"port":{"StartCol":12,"EndCol":15},"satus":{"StartCol":50,"EndCol":58}},"ResultPath":"ports_summary[0]"}]},
    {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":65,"GroupName":"ports_summary*","PatternIndex":0,"Variables":{"encap":{"StartCol":35,"EndCol":41},"mode":{"StartCol":22,"EndCol":24},"native_vlan":{"StartCol":64,"EndCol":65},"port":{"StartCol":12,"EndCol":15},"satus":{"StartCol":50,"EndCol":58}},"ResultPath":"ports_summary[1]"}]},
    {"LineNumber":4,"Matched":false,"Matches":[]},
-   {"LineNumber":5,"Matched":false,"Matches":[]},
-   {"LineNumber":6,"Matched":false,"Matches":[]},
-   {"LineNumber":7,"Matched":false,"Matches":[]},
-   {"LineNumber":8,"Matched":false,"Matches":[]},
-   {"LineNumber":9,"Matched":false,"Matches":[]},
-   {"LineNumber":10,"Matched":false,"Matches":[]},
-   {"LineNumber":11,"Matched":false,"Matches":[]},
-   {"LineNumber":12,"Matched":false,"Matches":[]},
-   {"LineNumber":13,"Matched":false,"Matches":[]},
-   {"LineNumber":14,"Matched":false,"Matches":[]},
-   {"LineNumber":15,"Matched":false,"Matches":[]},
-   {"LineNumber":16,"Matched":false,"Matches":[]}
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":44,"GroupName":"vlans_allowed","PatternIndex":0,"Variables":{},"ResultPath":"vlans_allowed"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":39,"GroupName":"interfaces*","PatternIndex":0,"Variables":{"port":{"StartCol":12,"EndCol":15},"vlans":{"StartCol":22,"EndCol":39}},"ResultPath":"vlans_allowed.interfaces[0]"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"interfaces*","PatternIndex":0,"Variables":{"port":{"StartCol":12,"EndCol":15},"vlans":{"StartCol":22,"EndCol":46}},"ResultPath":"vlans_allowed.interfaces[1]"}]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":0,"GroupName":"vlans_allowed","PatternIndex":2,"Variables":{},"ResultPath":"vlans_allowed"}]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":67,"GroupName":"vlans_active","PatternIndex":0,"Variables":{},"ResultPath":"vlans_active"}]},
+   {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interfaces*","PatternIndex":0,"Variables":{"port":{"StartCol":12,"EndCol":15},"vlans":{"StartCol":22,"EndCol":29}},"ResultPath":"vlans_active.interfaces[0]"}]},
+   {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":36,"GroupName":"interfaces*","PatternIndex":0,"Variables":{"port":{"StartCol":12,"EndCol":15},"vlans":{"StartCol":22,"EndCol":36}},"ResultPath":"vlans_active.interfaces[1]"}]},
+   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":0,"GroupName":"vlans_active","PatternIndex":2,"Variables":{},"ResultPath":"vlans_active"}]},
+   {"LineNumber":13,"Matched":true,"Matches":[{"StartCol":0,"EndCol":76,"GroupName":"vlans_forwarding","PatternIndex":0,"Variables":{},"ResultPath":"vlans_forwarding"}]},
+   {"LineNumber":14,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interfaces*","PatternIndex":0,"Variables":{"port":{"StartCol":12,"EndCol":15},"vlans":{"StartCol":22,"EndCol":29}},"ResultPath":"vlans_forwarding.interfaces[0]"}]},
+   {"LineNumber":15,"Matched":true,"Matches":[{"StartCol":0,"EndCol":36,"GroupName":"interfaces*","PatternIndex":0,"Variables":{"port":{"StartCol":12,"EndCol":15},"vlans":{"StartCol":22,"EndCol":36}},"ResultPath":"vlans_forwarding.interfaces[1]"}]},
+   {"LineNumber":16,"Matched":true,"Matches":[{"StartCol":0,"EndCol":0,"GroupName":"vlans_forwarding","PatternIndex":2,"Variables":{},"ResultPath":"vlans_forwarding"}]}
   ]
  }
 }

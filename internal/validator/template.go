@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/roc-ops/gottp/internal/call"
 	"github.com/roc-ops/gottp/internal/errors"
 	"github.com/roc-ops/gottp/internal/functions/group"
 	"github.com/roc-ops/gottp/internal/functions/match"
@@ -196,36 +197,21 @@ func (v *Validator) validateLookup(lookup *parser.Lookup, templateName string, r
 	}
 }
 
-// validateGroupFunctionString validates a group function string
+// validateGroupFunctionString validates a group function string, reading
+// it as the compiler does (package call).
 func (v *Validator) validateGroupFunctionString(funcStr, context, templateName string, result *ValidationResult) {
-	// Split by pipe
-	funcs := strings.Split(funcStr, "|")
-	for _, fn := range funcs {
-		fn = strings.TrimSpace(fn)
-		if fn == "" {
+	for _, part := range call.Split(funcStr) {
+		c, err := call.Parse(part)
+		if err != nil {
+			result.Errors = append(result.Errors, errors.NewTemplateError(
+				templateName, context, "functions", funcStr, err.Error(), 0, err,
+			))
 			continue
 		}
-
-		// Extract function name (before first '(')
-		funcName := fn
-		if idx := strings.Index(fn, "("); idx > 0 {
-			funcName = fn[:idx]
-		}
-
 		// Check if function exists in registry
-		if _, exists := v.groupRegistry.Get(funcName); !exists {
+		if _, exists := v.groupRegistry.Get(c.Name); !exists {
 			result.Warnings = append(result.Warnings, fmt.Sprintf(
-				"%s function '%s' not found in registry (may be a macro or custom function)", context, funcName,
-			))
-		}
-
-		// Basic syntax validation - check parentheses are balanced
-		openCount := strings.Count(fn, "(")
-		closeCount := strings.Count(fn, ")")
-		if openCount != closeCount {
-			result.Errors = append(result.Errors, errors.NewTemplateError(
-				templateName, context, "functions", funcStr,
-				fmt.Sprintf("unbalanced parentheses in function '%s'", fn), 0, nil,
+				"%s function '%s' not found in registry (may be a macro or custom function)", context, c.Name,
 			))
 		}
 	}
@@ -307,4 +293,3 @@ func ValidateMacroSource(source, language string) []string {
 
 	return warnings
 }
-

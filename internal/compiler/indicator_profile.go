@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/roc-ops/gottp/internal/call"
+
 	"github.com/roc-ops/gottp/internal/pattern"
 )
 
@@ -180,12 +182,12 @@ func BuildIndicatorProfile(method string, patterns []*pattern.CompiledPattern) *
 	for _, cp := range patterns {
 		for varName, v := range cp.Variables {
 			hasToList := false
-			for _, funcStr := range v.Functions {
-				if funcStr == "to_list" {
+			for _, c := range v.Calls().All {
+				if c.Name == "to_list" {
 					hasToList = true
 				}
-				if strings.HasPrefix(funcStr, "joinmatches") {
-					p.joinMatches[varName] = JoinMatchesSpec{Char: joinMatchesChar(funcStr), HasToList: hasToList}
+				if c.Name == "joinmatches" {
+					p.joinMatches[varName] = JoinMatchesSpec{Char: joinMatchesChar(c), HasToList: hasToList}
 					break
 				}
 			}
@@ -197,15 +199,11 @@ func BuildIndicatorProfile(method string, patterns []*pattern.CompiledPattern) *
 // variableSyntax matches one {{ variable }} on a template line.
 var variableSyntax = regexp.MustCompile(`\{\{([\S\s]+?)\}\}`)
 
-// joinMatchesChar extracts the join character from "joinmatches" or
-// "joinmatches(',')"; the default is a newline.
-func joinMatchesChar(funcStr string) string {
-	start := strings.Index(funcStr, "(")
-	end := strings.Index(funcStr, ")")
-	if start >= 0 && end > start {
-		if arg := strings.Trim(funcStr[start+1:end], "'\""); arg != "" {
-			return arg
-		}
+// joinMatchesChar is the join character of joinmatches(char); the default
+// is a newline.
+func joinMatchesChar(c *call.Call) string {
+	if len(c.Strs) > 0 && c.Strs[0] != "" {
+		return c.Strs[0]
 	}
 	return "\n"
 }
@@ -280,19 +278,9 @@ func variableAction(v *pattern.MatchVariable) (PatternAction, bool) {
 	}
 	apply(v.Name)
 	for _, f := range v.Functions {
-		apply(functionName(f))
+		apply(pattern.FunctionName(f))
 	}
 	return action, isLine
-}
-
-// functionName returns the name of a function call string such as
-// `joinmatches(",")`, following TTP's get_attributes.
-func functionName(f string) string {
-	f = strings.TrimSpace(f)
-	if i := strings.IndexByte(f, '('); i >= 0 {
-		f = f[:i]
-	}
-	return strings.TrimSpace(f)
 }
 
 // isUnconditionalSet reports whether the line is only set() variables with no
@@ -303,7 +291,7 @@ func isUnconditionalSet(cp *pattern.CompiledPattern) bool {
 	}
 	for _, v := range cp.Variables {
 		for _, f := range v.Functions {
-			if functionName(f) == "set" {
+			if pattern.FunctionName(f) == "set" {
 				return true
 			}
 		}

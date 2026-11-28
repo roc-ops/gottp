@@ -2,17 +2,17 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (refactor F0, #60):
+Current result (refactor F1, #36):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 84 / skipped-by-issue 111 / design 5 of 200
-gottp repros: pass 106 / skipped-by-issue 20 / design 0 of 126
+TTP 0.10.1 suite: pass 104 / skipped-by-issue 91 / design 5 of 200
+gottp repros: pass 110 / skipped-by-issue 16 / design 0 of 126
 source-map parity: same 329 / diverge 0 of 329
-stream snapshots: 147 streamable of 329 cases
+stream snapshots: 144 streamable of 329 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -149,7 +149,7 @@ Fixes from the review of E1 (#153), each recorded from TTP 0.10.1; all pass:
 | `issue149_sformat_keywords_in_functions` | `functions="sformat(string='{name}-{vrf}', add_field='nv')"` saves under `nv` |
 | `issue149_items2dict_missing_key_drops` | `items2dict=` drops a record without one of its keys |
 
-Function-call pins for refactor F (#36), recorded from TTP 0.10.1. F1 gives match, group, input and output functions one call module, with a quote-aware call parser; F2 ports the type-method fallback of TTP's `check_matches` (`ttp.py:2464`). When a match function isn't a TTP function, TTP runs `getattr(value, name)`: a callable is called with the arguments, `True`/`False` keeps or drops the match, and any other result replaces the value. The *Today* column says which ones fail on F0; those are in `known_failures.json`. `issue36_unknown_function_falls_back_to_str_method` (`swapcase`, above) belongs to this set too. What TTP only logs (unknown-name warnings, #144's hang and #146's `TypeError`) is pinned by skipped Go tests in `test/function_calls_test.go`.
+Function-call pins for refactor F (#36), recorded from TTP 0.10.1. F1 gives match, group, input and output functions one call module (`internal/call`), which splits a chain on every `|` as TTP does and reads arguments as Python literals; F2 ports the type-method fallback of TTP's `check_matches` (`ttp.py:2464`). When a match function isn't a TTP function, TTP runs `getattr(value, name)`: a callable is called with the arguments, `True`/`False` keeps or drops the match, and any other result replaces the value. The *Today* column says which ones fail after F1; those are in `known_failures.json`. `issue36_unknown_function_falls_back_to_str_method` (`swapcase`, above) belongs to this set too. What TTP only logs (unknown-name warnings, #144's hang and #146's `TypeError`) is pinned by Go tests in `test/function_calls_test.go`.
 
 | Repro | Rule | Today |
 |---|---|---|
@@ -174,11 +174,11 @@ Function-call pins for refactor F (#36), recorded from TTP 0.10.1. F1 gives matc
 | `issue36_builtin_join` | built-in `join("-")` after `split` | passes |
 | `issue23_re_pipe_splits_chain` | `re("UP\|DOWN")` is split at the `\|` as TTP splits it, so `--` matches too (decision on #23: keep the result, add a warning) | passes |
 | `issue23_re_noncapturing_pipe_splits_chain` | the same for `re("(?:UP\|DOWN)")` | passes |
-| `issue23_sformat_pipe_in_quotes` | `sformat("a\|{}")`: both halves fail in TTP, so the value is kept | fails |
+| `issue23_sformat_pipe_in_quotes` | `sformat("a\|{}")`: both halves fail in TTP, so the value is kept | passes (F1) |
 | `issue23_sformat_comma_in_quotes` | `sformat("{}, x")`: a comma inside quotes | passes |
-| `issue23_sformat_equals_in_quotes` | `sformat("v={}")`: an `=` inside quotes isn't a keyword argument | fails |
-| `issue151_re_double_backslash_argument` | inline `re("\\d+")` is a Python string, so it matches `\d+` | fails |
-| `issue151_re_raw_string_argument` | inline `re(r"\d+")` is a Python raw string (also #67) | fails |
+| `issue23_sformat_equals_in_quotes` | `sformat("v={}")`: an `=` inside quotes isn't a keyword argument | passes (F1) |
+| `issue151_re_double_backslash_argument` | inline `re("\\d+")` is a Python string, so it matches `\d+` | passes (F1) |
+| `issue151_re_raw_string_argument` | inline `re(r"\d+")` is a Python raw string (also #67) | passes (F1) |
 
 ## Source-map parity
 

@@ -58,7 +58,7 @@ Combine multiple filters:
 
 .. code-block:: xml
 
-   <group name="interfaces" functions="contains('ip'), contains('description')">
+   <group name="interfaces" functions="contains('ip') | contains('description')">
    interface {{ interface }}
     ip address {{ ip }}
     description {{ description }}

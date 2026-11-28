@@ -3,10 +3,12 @@ package pattern
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
-	pyvars "github.com/roc-ops/gottp/internal/variable"
+	"github.com/roc-ops/gottp/internal/call"
 )
 
 // Built-in pattern constants
@@ -74,8 +76,67 @@ type MatchVariable struct {
 
 	// Compile-time cached function flags. Populated by CompiledPattern.PopulateFlags
 	// to avoid per-match scans of Functions in the runtime hot path.
-	HasSet         bool // any function starts with "set("
-	HasJoinMatches bool // any function starts with "joinmatches"
+	HasSet         bool // a function is set()
+	HasJoinMatches bool // a function is joinmatches()
+
+	// calls is Functions read as calls (see Calls), built once.
+	calls atomic.Pointer[VariableCalls]
+}
+
+// VariableCalls are a variable's functions read as calls (package call).
+type VariableCalls struct {
+	// All are the variable's functions in order.
+	All []*call.Call
+	// NoJoin are All without joinmatches, which the record assembler
+	// applies instead.
+	NoJoin []*call.Call
+}
+
+// Calls returns the variable's functions read as calls. They are read once,
+// the first time Calls is called (the compiler calls it, so a compiled
+// template's calls are read at compile time). A function that can't be
+// read is left out: the compiler reports it as an error (CheckCalls).
+func (v *MatchVariable) Calls() *VariableCalls {
+	if c := v.calls.Load(); c != nil {
+		return c
+	}
+	c := &VariableCalls{}
+	for _, f := range v.Functions {
+		if strings.HasPrefix(f, ignorePatternPrefix) {
+			continue
+		}
+		parsed, err := call.Parse(f)
+		if err != nil {
+			continue
+		}
+		c.All = append(c.All, parsed)
+		if parsed.Name != "joinmatches" {
+			c.NoJoin = append(c.NoJoin, parsed)
+		}
+	}
+	if v.calls.CompareAndSwap(nil, c) {
+		return c
+	}
+	return v.calls.Load()
+}
+
+// ignorePatternPrefix marks the entry of Functions that holds the regex of
+// ignore("regex").
+const ignorePatternPrefix = "pattern:"
+
+// FunctionName returns the name of one of Functions (call.Name).
+func FunctionName(f string) string {
+	return call.Name(f)
+}
+
+// firstArg returns the first positional argument of function f as a
+// string (Python str()), read as Python TTP reads it.
+func firstArg(f string) (string, bool) {
+	c, err := call.Parse(f)
+	if err != nil || len(c.Strs) == 0 {
+		return "", false
+	}
+	return c.Strs[0], true
 }
 
 // CompiledPattern represents a compiled regex pattern with variable information
@@ -116,10 +177,11 @@ func (cp *CompiledPattern) PopulateFlags() {
 		varHasSet := false
 		varHasJoinMatches := false
 		for _, f := range v.Functions {
-			if !varHasSet && strings.HasPrefix(f, "set(") {
+			name := FunctionName(f)
+			if !varHasSet && name == "set" {
 				varHasSet = true
 			}
-			if !varHasJoinMatches && strings.HasPrefix(f, "joinmatches") {
+			if !varHasJoinMatches && name == "joinmatches" {
 				varHasJoinMatches = true
 			}
 			if varHasSet && varHasJoinMatches {
@@ -206,59 +268,33 @@ func (e *Engine) parseVariableWithVars(variableStr string, vars map[string]inter
 		Functions: []string{},
 	}
 
-	// Split by pipe to get name and functions
+	// Split on "|" as Python TTP does, quotes or not (#23): the first part
+	// is the variable name, the rest its functions.
 	parts := strings.Split(variableStr, "|")
 	varName := strings.TrimSpace(parts[0])
 
-	// Check if variable name has arguments (e.g., ignore("pattern"))
-	// This is special handling for ignore, which can take a pattern argument
-	if strings.HasPrefix(varName, "ignore(") && strings.HasSuffix(varName, ")") {
-		// Extract the pattern argument
-		argStr := varName[7 : len(varName)-1] // Remove "ignore(" and ")"
-		argStr = strings.TrimSpace(argStr)
-		// Python TTP evaluates the argument as a Python string, so
-		// ignore("\\d+") is the regex \d+.
-		if decoded, ok := pyvars.PythonStringLiteral(argStr); ok {
-			argStr = decoded
-		} else {
-			argStr = strings.Trim(argStr, `"'`)
-		}
-		variable.Name = "ignore"
-		// Store the pattern in Functions for now (we'll use it in getPatternForVariable)
-		if argStr != "" {
-			variable.Functions = append(variable.Functions, "pattern:"+argStr)
+	// ignore("regex") takes the regex to match, read as a Python string,
+	// so ignore("\\d+") is the regex \d+.
+	if call.Name(varName) == VarIgnore && varName != VarIgnore {
+		variable.Name = VarIgnore
+		if arg, ok := firstArg(varName); ok && arg != "" {
+			variable.Functions = append(variable.Functions, ignorePatternPrefix+arg)
 		}
 	} else {
 		variable.Name = varName
 	}
 
-	// Parse functions (after handling ignore arguments)
-	if len(parts) > 1 {
-		for i := 1; i < len(parts); i++ {
-			funcStr := strings.TrimSpace(parts[i])
-			if funcStr != "" {
-				// Check if this is a chain function
-				if strings.HasPrefix(funcStr, "chain(") && strings.HasSuffix(funcStr, ")") {
-					// Extract chain variable name
-					chainVarStr := funcStr[6 : len(funcStr)-1] // Remove "chain(" and ")"
-					chainVarStr = strings.TrimSpace(chainVarStr)
-					chainVarStr = strings.Trim(chainVarStr, `"'`)
-
-					// Expand chain if vars are available
-					if vars != nil {
-						if chainValue, ok := vars[chainVarStr]; ok {
-							// Extract functions from chain variable
-							chainFuncs := e.extractFunctionsFromChainValue(chainValue)
-							// Add chain functions to variable's function list
-							variable.Functions = append(variable.Functions, chainFuncs...)
-						}
-					}
-					// Don't add "chain(...)" itself to functions
-				} else {
-					variable.Functions = append(variable.Functions, funcStr)
-				}
+	for _, funcStr := range call.Split(strings.Join(parts[1:], "|")) {
+		// chain(var) is replaced by the functions in the variable var, at
+		// compile time as TTP's extract_chain does; an unknown variable
+		// drops it.
+		if c, err := call.Parse(funcStr); err == nil && c.Name == "chain" && len(c.Strs) > 0 {
+			if chainValue, ok := vars[c.Strs[0]]; ok {
+				variable.Functions = append(variable.Functions, e.extractFunctionsFromChainValue(chainValue)...)
 			}
+			continue
 		}
+		variable.Functions = append(variable.Functions, funcStr)
 	}
 
 	// Determine pattern based on variable name or functions
@@ -272,33 +308,20 @@ func (e *Engine) parseVariableWithVars(variableStr string, vars map[string]inter
 func (e *Engine) extractFunctionsFromChainValue(value interface{}) []string {
 	var funcs []string
 
+	// TTP reads a string, and each string of a list, with get_attributes,
+	// which splits it on "|".
 	switch v := value.(type) {
 	case string:
-		// String value - split by pipe to get functions
-		parts := strings.Split(v, "|")
-		for _, part := range parts {
-			funcStr := strings.TrimSpace(part)
-			if funcStr != "" {
-				funcs = append(funcs, funcStr)
-			}
-		}
+		funcs = call.Split(v)
 	case []interface{}:
-		// List of strings - each item is a function string
 		for _, item := range v {
 			if str, ok := item.(string); ok {
-				funcStr := strings.TrimSpace(str)
-				if funcStr != "" {
-					funcs = append(funcs, funcStr)
-				}
+				funcs = append(funcs, call.Split(str)...)
 			}
 		}
 	case []string:
-		// List of strings directly
 		for _, str := range v {
-			funcStr := strings.TrimSpace(str)
-			if funcStr != "" {
-				funcs = append(funcs, funcStr)
-			}
+			funcs = append(funcs, call.Split(str)...)
 		}
 	}
 
@@ -329,11 +352,8 @@ func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]
 		// _end_ matches until end
 		// Check if re() function provides a custom regex before using default
 		for _, funcStr := range variable.Functions {
-			if strings.HasPrefix(funcStr, "re(") && strings.HasSuffix(funcStr, ")") {
-				arg := funcStr[3 : len(funcStr)-1]
-				arg = strings.TrimSpace(arg)
-				arg = strings.Trim(arg, `"'`)
-				if arg != "" {
+			if FunctionName(funcStr) == "re" {
+				if arg, ok := firstArg(funcStr); ok && arg != "" {
 					return arg
 				}
 			}
@@ -348,9 +368,9 @@ func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]
 		// ignore matches but doesn't save
 		// Check if a custom pattern was provided
 		for _, funcStr := range variable.Functions {
-			if strings.HasPrefix(funcStr, "pattern:") {
+			if strings.HasPrefix(funcStr, ignorePatternPrefix) {
 				// Extract the pattern from "pattern:..."
-				patternName := strings.TrimPrefix(funcStr, "pattern:")
+				patternName := strings.TrimPrefix(funcStr, ignorePatternPrefix)
 				var pattern string
 				// First check if it's a template variable
 				if vars != nil {
@@ -387,51 +407,45 @@ func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]
 	// Check Functions list for pattern formatters (like DIGIT, IP, etc.)
 	// These are used as pattern formatters, not as functions
 	// Pattern formatters should be checked before other functions
+	// Every pattern formatter and re() adds a regex; several are
+	// alternatives, as TTP joins its var_res: (?:a)|(?:b).
+	var res []string
 	for _, funcStr := range variable.Functions {
-		// Remove any function arguments (e.g., "DIGIT" from "DIGIT" or "re('pattern')" from "re('pattern')")
-		funcName := funcStr
-		if strings.Contains(funcStr, "(") {
-			funcName = funcStr[:strings.Index(funcStr, "(")]
-		}
-		funcName = strings.TrimSpace(funcName)
+		funcName := FunctionName(funcStr)
 
 		// Check if this is a built-in pattern formatter
 		if pattern, ok := e.patterns[funcName]; ok {
-			return pattern
+			res = append(res, pattern)
+			continue
 		}
-		// Also check re() function which can specify a pattern
+		// re("regex"): the argument is read as a Python string (#151), so
+		// re("\\d+") and re(r"\d+") are both the regex \d+. It may name a
+		// template variable or a built-in pattern instead.
 		if funcName == "re" {
-			// Extract pattern from re("pattern") or re('pattern')
-			if strings.Contains(funcStr, "(") && strings.Contains(funcStr, ")") {
-				start := strings.Index(funcStr, "(")
-				end := strings.LastIndex(funcStr, ")")
-				if start >= 0 && end > start {
-					arg := funcStr[start+1 : end]
-					arg = strings.TrimSpace(arg)
-					arg = strings.Trim(arg, `"'`)
-					// First check if it's a template variable
-					if vars != nil {
-						if varValue, ok := vars[arg]; ok {
-							// It's a template variable - use its value as the pattern
-							return fmt.Sprintf("%v", varValue)
-						}
-					}
-					// Check if it's a built-in pattern name
-					if pattern, ok := e.patterns[arg]; ok {
-						return pattern
-					}
-					// Otherwise use the argument as-is (it's a regex pattern)
-					return arg
+			if arg, ok := firstArg(funcStr); ok {
+				if varValue, ok := vars[arg]; ok {
+					res = append(res, fmt.Sprintf("%v", varValue))
+				} else if pattern, ok := e.patterns[arg]; ok {
+					res = append(res, pattern)
+				} else {
+					res = append(res, arg)
 				}
 			}
 		}
+	}
+	switch len(res) {
+	case 0:
+	case 1:
+		return res[0]
+	default:
+		return "(?:" + strings.Join(res, ")|(?:") + ")"
 	}
 
 	// Check if variable has a default function - if so, allow empty matches
 	// This allows default() to work when the value is empty or whitespace-only
 	// Use .*? (any characters, non-greedy) to allow empty matches including whitespace
 	for _, funcStr := range variable.Functions {
-		if strings.HasPrefix(funcStr, "default(") {
+		if FunctionName(funcStr) == "default" {
 			// Use .*? (any characters, non-greedy) to allow empty matches
 			// This matches Python TTP behavior where default() can handle empty values
 			// Note: We use .*? instead of \S* because trailing spaces are trimmed from lines,
@@ -443,7 +457,7 @@ func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]
 	// Check if variable has set() function - if so, allow empty matches
 	// Variables with set() can match empty strings since set() will set the value regardless
 	for _, funcStr := range variable.Functions {
-		if strings.HasPrefix(funcStr, "set(") {
+		if FunctionName(funcStr) == "set" {
 			// Use .*? (any characters, non-greedy) to allow empty matches
 			// This allows set() to work even when the variable doesn't match anything
 			return `.*?`
@@ -549,10 +563,10 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 				hasDefault := false
 				hasSet := false
 				for _, funcStr := range variables[i].Functions {
-					if strings.HasPrefix(funcStr, "default(") {
+					switch FunctionName(funcStr) {
+					case "default":
 						hasDefault = true
-					}
-					if strings.HasPrefix(funcStr, "set(") {
+					case "set":
 						hasSet = true
 					}
 				}
@@ -811,6 +825,16 @@ func (e *Engine) validatePattern(pattern string) error {
 	}
 
 	return nil
+}
+
+// PatternNames returns the names of the built-in patterns, such as PHRASE.
+func (e *Engine) PatternNames() []string {
+	names := make([]string, 0, len(e.patterns))
+	for name := range e.patterns {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // GetBuiltinPattern returns a built-in pattern by name

@@ -244,7 +244,7 @@ func containsString(haystack []string, needle string) bool {
 // #130: functions= and chain= separate functions with "|", so an aggregating
 // function after a pipe must not slip past the allowlist.
 func TestParseGroupFunctionNames_PipesAndCommas(t *testing.T) {
-	got := parseGroupFunctionNames("contains('ip') | itemize(key='name'), to_int")
+	got := parseGroupFunctionNames("contains('ip') | itemize(key='name') | to_int")
 	want := []string{"contains", "itemize", "to_int"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("parseGroupFunctionNames: got %v, want %v", got, want)
@@ -347,14 +347,14 @@ func TestAnalyzeStreamability_StartLineDefaultIsStreamable(t *testing.T) {
 	}
 }
 
-// Commas and pipes inside arguments or quotes don't make function names,
-// and text that can't name a function (a list literal kept as a string) is
-// skipped, as processGroupFunctions skips it.
+// Commas inside arguments don't make function names; a "|" inside quotes
+// splits the chain, as in Python TTP; and text that isn't a call (a list
+// literal kept as a string) is skipped, as the group pipeline skips it.
 func TestParseGroupFunctionNames_ArgumentsAndNonNames(t *testing.T) {
 	cases := map[string]string{
 		"del(a, b, c) | to_int":                          "del,to_int",
 		"contains_val(interface, 'Loop')":                "contains_val",
-		"sformat('a|b, c') | itemize(key='x')":           "sformat,itemize",
+		"sformat('a|b, c') | itemize(key='x')":           "itemize",
 		"[\n\"del(vlan)\",\n\"contains_val(i, 'L')\"\n]": "",
 		"  macro('m1, m2') ":                             "macro",
 	}

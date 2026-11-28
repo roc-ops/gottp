@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/roc-ops/gottp/internal/call"
+
 	"go.starlark.net/starlark"
 
 	"github.com/roc-ops/gottp/internal/compiler"
@@ -162,65 +164,53 @@ func (r *Runtime) GetMacroRegistry() *macro.MacroRegistry {
 // getMatchFunc checks runtime overrides first, then compile-time overrides, then falls back to registry.
 // Precedence: runtimeFunctions (ParseOptions) > compileFunctions (CompileOptions) > registry (built-ins)
 func (r *Runtime) getMatchFunc(name string) (match.Function, bool) {
-	if r.runtimeFunctions != nil && r.runtimeFunctions.Match != nil {
-		if fn, ok := r.runtimeFunctions.Match[name]; ok {
-			return fn, true
-		}
+	var perParse, compileTime map[string]match.Function
+	if r.runtimeFunctions != nil {
+		perParse = r.runtimeFunctions.Match
 	}
-	if r.compileFunctions != nil && r.compileFunctions.Match != nil {
-		if fn, ok := r.compileFunctions.Match[name]; ok {
-			return fn, true
-		}
+	if r.compileFunctions != nil {
+		compileTime = r.compileFunctions.Match
 	}
-	return r.matchRegistry.Get(name)
+	return call.Lookup(name, perParse, compileTime, r.matchRegistry.Get)
 }
 
 // getGroupFunc checks runtime overrides first, then compile-time overrides, then falls back to registry.
 // Precedence: runtimeFunctions (ParseOptions) > compileFunctions (CompileOptions) > registry (built-ins)
 func (r *Runtime) getGroupFunc(name string) (group.Function, bool) {
-	if r.runtimeFunctions != nil && r.runtimeFunctions.Group != nil {
-		if fn, ok := r.runtimeFunctions.Group[name]; ok {
-			return fn, true
-		}
+	var perParse, compileTime map[string]group.Function
+	if r.runtimeFunctions != nil {
+		perParse = r.runtimeFunctions.Group
 	}
-	if r.compileFunctions != nil && r.compileFunctions.Group != nil {
-		if fn, ok := r.compileFunctions.Group[name]; ok {
-			return fn, true
-		}
+	if r.compileFunctions != nil {
+		compileTime = r.compileFunctions.Group
 	}
-	return r.groupRegistry.Get(name)
+	return call.Lookup(name, perParse, compileTime, r.groupRegistry.Get)
 }
 
 // getOutputFunc checks runtime overrides first, then compile-time overrides, then falls back to registry.
 // Precedence: runtimeFunctions (ParseOptions) > compileFunctions (CompileOptions) > registry (built-ins)
 func (r *Runtime) getOutputFunc(name string) (output.Function, bool) {
-	if r.runtimeFunctions != nil && r.runtimeFunctions.Output != nil {
-		if fn, ok := r.runtimeFunctions.Output[name]; ok {
-			return fn, true
-		}
+	var perParse, compileTime map[string]output.Function
+	if r.runtimeFunctions != nil {
+		perParse = r.runtimeFunctions.Output
 	}
-	if r.compileFunctions != nil && r.compileFunctions.Output != nil {
-		if fn, ok := r.compileFunctions.Output[name]; ok {
-			return fn, true
-		}
+	if r.compileFunctions != nil {
+		compileTime = r.compileFunctions.Output
 	}
-	return r.outputRegistry.Get(name)
+	return call.Lookup(name, perParse, compileTime, r.outputRegistry.Get)
 }
 
 // getInputFunc checks runtime overrides first, then compile-time overrides, then falls back to registry.
 // Precedence: runtimeFunctions (ParseOptions) > compileFunctions (CompileOptions) > registry (built-ins)
 func (r *Runtime) getInputFunc(name string) (input.Function, bool) {
-	if r.runtimeFunctions != nil && r.runtimeFunctions.Input != nil {
-		if fn, ok := r.runtimeFunctions.Input[name]; ok {
-			return fn, true
-		}
+	var perParse, compileTime map[string]input.Function
+	if r.runtimeFunctions != nil {
+		perParse = r.runtimeFunctions.Input
 	}
-	if r.compileFunctions != nil && r.compileFunctions.Input != nil {
-		if fn, ok := r.compileFunctions.Input[name]; ok {
-			return fn, true
-		}
+	if r.compileFunctions != nil {
+		compileTime = r.compileFunctions.Input
 	}
-	return r.inputRegistry.Get(name)
+	return call.Lookup(name, perParse, compileTime, r.inputRegistry.Get)
 }
 
 // RuntimeFunctions holds per-parse custom function overrides from ParseOptions.
@@ -815,23 +805,16 @@ func startLineDefaultsRecord(group *compiler.CompiledGroup) map[string]interface
 			if pattern.IsIndicatorVar(varName) {
 				continue
 			}
-			for _, funcStr := range variable.Functions {
-				if !strings.HasPrefix(funcStr, "default(") {
+			for _, c := range variable.Calls().All {
+				if c.Name != "default" {
 					continue
 				}
 				if pi == 0 {
 					hasStartDefault = true
 				}
-				// Extract default value from default("value")
-				start := strings.Index(funcStr, "(")
-				end := strings.LastIndex(funcStr, ")")
-				if start >= 0 && end > start {
-					defaultVal := strings.TrimSpace(funcStr[start+1 : end])
-					defaultVal = strings.Trim(defaultVal, `"'`)
-					// The first pattern takes precedence.
-					if _, exists := defaultValues[varName]; !exists {
-						defaultValues[varName] = defaultVal
-					}
+				// The first pattern takes precedence.
+				if _, exists := defaultValues[varName]; !exists {
+					defaultValues[varName] = defaultOf(c)
 				}
 				break
 			}
@@ -1008,9 +991,11 @@ func (r *Runtime) parseGroupStream(
 	return nil
 }
 
-// processFunctions applies function pipeline to a value
+// processFunctions runs a match variable's function calls on value. The
+// calls were read when the template compiled (MatchVariable.Calls), so
+// nothing is parsed per match.
 // Returns an error with message "condition_failed" if a condition function returns false
-func (r *Runtime) processFunctions(value interface{}, functions []string, vars map[string]interface{}, matchData map[string]interface{}, varName string) (interface{}, error) {
+func (r *Runtime) processFunctions(value interface{}, calls []*call.Call, vars map[string]interface{}, matchData map[string]interface{}, varName string) (interface{}, error) {
 	result := value
 
 	// Pre-allocate kwargs map only if needed (for functions that require vars)
@@ -1018,53 +1003,32 @@ func (r *Runtime) processFunctions(value interface{}, functions []string, vars m
 	var kwargs map[string]interface{}
 	needsVars := false
 
-	for _, funcStr := range functions {
-		// Parse function call (e.g., "upper()", "split(',')", "macro('name')")
-		funcName, args, err := parseFunction(funcStr, vars)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse function %s: %w", funcStr, err)
-		}
-
-		// Check if args contain keyword arguments (key='value' format)
-		// If so, parse them into kwargs and remove from args
-		hasKeywordArgs := false
-		var positionalArgs []string
-		keywordArgs := make(map[string]interface{}) // Store keyword args separately
-		for _, arg := range args {
-			if strings.Contains(arg, "=") && !strings.HasPrefix(arg, "=") {
-				hasKeywordArgs = true
-				// This is a keyword argument
-				parts := strings.SplitN(arg, "=", 2)
-				if len(parts) == 2 {
-					key := strings.TrimSpace(parts[0])
-					value := strings.TrimSpace(parts[1])
-					// Remove quotes from value
-					value = strings.Trim(value, `"'`)
-					// Store keyword arguments
-					keywordArgs[key] = value
-				} else {
-					// Not a valid keyword arg, treat as positional
-					positionalArgs = append(positionalArgs, arg)
-				}
-			} else {
-				// Positional argument
-				positionalArgs = append(positionalArgs, arg)
-			}
-		}
-		if hasKeywordArgs {
-			args = positionalArgs
-		}
+	for _, c := range calls {
+		funcName := c.Name
+		// A string argument naming a template variable is that variable's
+		// value.
+		args := c.ResolvedStrs(vars)
+		hasKeywordArgs := len(c.Kwargs) > 0
+		keywordArgs := c.KwargStrs
 
 		// Get function from registry (checks runtime overrides first)
 		fn, ok := r.getMatchFunc(funcName)
 		if !ok {
-			// Function not found, skip it (could be a macro handled by the function itself)
-			continue
+			newResult, handled, err := r.matchTypeMethod(result, c)
+			if err != nil {
+				return nil, err
+			}
+			if !handled {
+				// Not a function: skipped, keeping the value, as TTP does
+				// (the compiler warned about the name).
+				continue
+			}
+			fn = func(interface{}, []string, map[string]interface{}) (interface{}, error) { return newResult, nil }
 		}
 
 		// Only create kwargs map if function needs it (chain, macro, or functions that use vars)
 		// This avoids unnecessary map creation and copying for most functions
-		needsKwargs := funcName == "chain" || funcName == "macro" || funcName == "lookup" || funcName == "gpvlookup" || funcName == "rlookup" || funcName == "let" || funcName == "record" || funcName == "set" || funcName == "replaceall" || funcName == "resuball" || funcName == "unrange" || hasKeywordArgs
+		needsKwargs := funcName == "macro" || funcName == "lookup" || funcName == "gpvlookup" || funcName == "rlookup" || funcName == "let" || funcName == "record" || funcName == "set" || funcName == "replaceall" || funcName == "resuball" || funcName == "unrange" || hasKeywordArgs
 		if needsKwargs {
 			if !needsVars {
 				kwargs = make(map[string]interface{}, len(vars)+len(keywordArgs)+3) // Pre-allocate with capacity
@@ -1088,15 +1052,6 @@ func (r *Runtime) processFunctions(value interface{}, functions []string, vars m
 			// Pass r.recordedVars to record() function so it can store values globally
 			kwargs["_recorded_vars"] = r.recordedVars
 
-			// Pass function registry to chain function so it can call other functions
-			if funcName == "chain" {
-				kwargs["_match_registry"] = r.matchRegistry
-				// Pass resolver that checks runtime overrides first
-				kwargs["_match_func_resolver"] = func(name string) (match.Function, bool) {
-					return r.getMatchFunc(name)
-				}
-			}
-
 			if funcName == "macro" {
 				// Pass macro registry and macros to macro function
 				kwargs["_macro_registry"] = r.macroRegistry
@@ -1115,6 +1070,18 @@ func (r *Runtime) processFunctions(value interface{}, functions []string, vars m
 					}
 				}
 				kwargs["_macros"] = macroList
+			}
+
+			// set() sets its argument as Python reads it: set(True) is a
+			// bool. A string argument may name a template variable, which
+			// set() looks up itself.
+			if funcName == "set" {
+				delete(kwargs, "_set_value")
+				if len(c.Args) > 0 {
+					if _, isStr := c.Args[0].(string); !isStr {
+						kwargs["_set_value"] = c.Args[0]
+					}
+				}
 			}
 
 			// Pass match result data structure to let and set functions so they can set additional fields
@@ -1234,36 +1201,21 @@ func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.Compi
 		// avoid cloning vars per variable just to inject _match_data/_var_name.
 		var processedValue interface{}
 		var err error
+		// A joinmatches variable runs its other functions; the assembler
+		// joins the values.
+		calls := variable.Calls().All
 		if variable.HasJoinMatches {
-			// For joinmatches, collect the value but don't apply joinmatches yet
-			// We'll collect all matches and join them later
-			// Apply other functions first
-			otherFuncs := []string{}
-			for _, funcStr := range variable.Functions {
-				if !strings.HasPrefix(funcStr, "joinmatches") {
-					otherFuncs = append(otherFuncs, funcStr)
-				}
+			calls = variable.Calls().NoJoin
+		}
+		processedValue, err = r.processFunctions(value, calls, vars, result, variable.Name)
+		if err != nil {
+			// Check if it's a condition failure
+			if strings.Contains(err.Error(), "condition_failed") {
+				// Reject entire match
+				return nil
 			}
-			processedValue, err = r.processFunctions(value, otherFuncs, vars, result, variable.Name)
-			if err != nil {
-				// Check if it's a condition failure
-				if strings.Contains(err.Error(), "condition_failed") {
-					return nil
-				}
-				// Other error, log but continue
-				continue
-			}
-		} else {
-			processedValue, err = r.processFunctions(value, variable.Functions, vars, result, variable.Name)
-			if err != nil {
-				// Check if it's a condition failure
-				if strings.Contains(err.Error(), "condition_failed") {
-					// Reject entire match
-					return nil
-				}
-				// Other error, log but continue
-				continue
-			}
+			// Other error, log but continue
+			continue
 		}
 
 		// If variable has set() function, it should set a value in the match result
@@ -1289,293 +1241,13 @@ func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.Compi
 	return result
 }
 
-// parseFunction parses a function call string and resolves variables from vars map
-func parseFunction(funcStr string, vars map[string]interface{}) (name string, args []string, err error) {
-	// Simple parsing - extract function name and arguments
-	parts := strings.SplitN(funcStr, "(", 2)
-	name = strings.TrimSpace(parts[0])
-
-	if len(parts) > 1 {
-		// Extract arguments
-		argStr := strings.TrimSuffix(parts[1], ")")
-		argStr = strings.TrimSpace(argStr)
-		if argStr != "" {
-			// Split by comma, handling quoted strings
-			args = parseArguments(argStr, vars)
-		}
-	}
-
-	return name, args, nil
-}
-
-// parseFunctionWithoutResolve parses a function call string without resolving variables
-// This is used for group functions where arguments should be literal strings
-func parseFunctionWithoutResolve(funcStr string) (name string, args []string, err error) {
-	// Simple parsing - extract function name and arguments
-	parts := strings.SplitN(funcStr, "(", 2)
-	name = strings.TrimSpace(parts[0])
-
-	if len(parts) > 1 {
-		// Extract arguments
-		argStr := strings.TrimSuffix(parts[1], ")")
-		argStr = strings.TrimSpace(argStr)
-		if argStr != "" {
-			// Parse arguments without resolving variables
-			args = parseArgumentsWithoutResolve(argStr)
-		}
-	}
-
-	return name, args, nil
-}
-
-// parseArgumentsWithoutResolve parses function arguments without resolving variables
-func parseArgumentsWithoutResolve(argStr string) []string {
-	var args []string
-	var current strings.Builder
-	inQuotes := false
-	quoteChar := byte(0)
-	wasQuoted := false
-
-	for i := 0; i < len(argStr); i++ {
-		char := argStr[i]
-
-		if !inQuotes && (char == '"' || char == '\'') {
-			inQuotes = true
-			quoteChar = char
-			wasQuoted = true
-		} else if inQuotes && char == quoteChar {
-			// Check if this is an escaped quote (e.g., \" or \')
-			if i > 0 && argStr[i-1] == '\\' {
-				// Escaped quote - remove the backslash and add the quote
-				// Remove the backslash we added
-				currentStr := current.String()
-				if len(currentStr) > 0 {
-					current.Reset()
-					current.WriteString(currentStr[:len(currentStr)-1])
-				}
-				current.WriteByte(char)
-			} else {
-				// End of quoted string
-				inQuotes = false
-				quoteChar = 0
-			}
-		} else if inQuotes && char == '\\' {
-			// Handle escape sequences in quoted strings
-			// Check what comes after the backslash
-			if i+1 < len(argStr) {
-				nextChar := argStr[i+1]
-				switch nextChar {
-				case '\\':
-					// Escaped backslash - add single backslash
-					current.WriteByte('\\')
-					i++ // Skip the next backslash
-				case '"', '\'':
-					// Escaped quote - will be handled when we see the quote
-					current.WriteByte('\\')
-				case 'n':
-					// Newline
-					current.WriteByte('\n')
-					i++ // Skip the 'n'
-				case 't':
-					// Tab
-					current.WriteByte('\t')
-					i++ // Skip the 't'
-				case 'r':
-					// Carriage return
-					current.WriteByte('\r')
-					i++ // Skip the 'r'
-				default:
-					// Other escape sequence - for regex patterns like \d, \w, etc.
-					// Keep the backslash and the next character as-is
-					// This handles cases like \\d+ where we want \d+ (single backslash)
-					// But in raw strings, \\d+ is actually \\d+ (double backslash)
-					// So we need to convert \\ to \ for all cases
-					current.WriteByte('\\')
-					current.WriteByte(nextChar)
-					i++ // Skip the next character
-				}
-			} else {
-				// Backslash at end of string - keep as is
-				current.WriteByte(char)
-			}
-		} else if !inQuotes && char == ',' {
-			arg := current.String()
-			// Remove quotes from quoted arguments and trim spaces
-			if wasQuoted {
-				arg = strings.Trim(arg, `"'`)
-				arg = strings.TrimSpace(arg) // Also trim spaces after removing quotes
-			} else {
-				arg = strings.TrimSpace(arg)
-			}
-			// Include empty strings if they were quoted
-			if arg != "" || wasQuoted {
-				args = append(args, arg)
-			}
-			current.Reset()
-			wasQuoted = false
-		} else {
-			current.WriteByte(char)
-		}
-	}
-
-	// Add last argument
-	arg := current.String()
-	// Remove quotes from quoted arguments and trim spaces
-	if wasQuoted {
-		arg = strings.Trim(arg, `"'`)
-		arg = strings.TrimSpace(arg) // Also trim spaces after removing quotes
-	} else {
-		arg = strings.TrimSpace(arg)
-	}
-	// Include empty strings if they were quoted
-	if arg != "" || wasQuoted {
-		args = append(args, arg)
-	}
-
-	return args
-}
-
-// parseArguments parses function arguments and resolves variables from vars map
-func parseArguments(argStr string, vars map[string]interface{}) []string {
-	var args []string
-	var current strings.Builder
-	inQuotes := false
-	quoteChar := byte(0)
-	wasQuoted := false // Track if current argument was quoted (to preserve empty strings)
-
-	for i := 0; i < len(argStr); i++ {
-		char := argStr[i]
-
-		if !inQuotes && (char == '"' || char == '\'') {
-			inQuotes = true
-			quoteChar = char
-			wasQuoted = true
-			// Don't include the opening quote in the argument
-		} else if inQuotes && char == quoteChar {
-			// Check if this is an escaped quote (e.g., \" or \')
-			if i > 0 && argStr[i-1] == '\\' {
-				// Escaped quote - remove the backslash and add the quote
-				currentStr := current.String()
-				if len(currentStr) > 0 {
-					current.Reset()
-					current.WriteString(currentStr[:len(currentStr)-1])
-				}
-				current.WriteByte(char)
-			} else {
-				// End of quoted string
-				inQuotes = false
-				quoteChar = 0
-			}
-		} else if inQuotes && char == '\\' {
-			// Handle escape sequences in quoted strings
-			if i+1 < len(argStr) {
-				nextChar := argStr[i+1]
-				switch nextChar {
-				case '\\':
-					// Escaped backslash - add single backslash
-					current.WriteByte('\\')
-					i++ // Skip the next backslash
-				case '"', '\'':
-					// Escaped quote - will be handled when we see the quote
-					current.WriteByte('\\')
-				case 'n':
-					// Newline
-					current.WriteByte('\n')
-					i++ // Skip the 'n'
-				case 't':
-					// Tab
-					current.WriteByte('\t')
-					i++ // Skip the 't'
-				case 'r':
-					// Carriage return
-					current.WriteByte('\r')
-					i++ // Skip the 'r'
-				default:
-					// Other escape sequence - for regex patterns like \d, \w, etc.
-					// Keep the backslash and the next character as-is
-					current.WriteByte('\\')
-					current.WriteByte(nextChar)
-					i++ // Skip the next character
-				}
-			} else {
-				// Backslash at end of string - keep as is
-				current.WriteByte(char)
-			}
-		} else if !inQuotes && char == ',' {
-			arg := current.String()
-			// Only trim spaces for unquoted arguments
-			// For quoted arguments, preserve spaces (they might be meaningful, e.g., ' - non production')
-			if !wasQuoted {
-				arg = strings.TrimSpace(arg)
-			}
-			// Include empty strings if they were quoted (e.g., '' or "")
-			if arg != "" || wasQuoted {
-				arg = resolveArgument(arg, wasQuoted, vars)
-				args = append(args, arg)
-			}
-			current.Reset()
-			wasQuoted = false
-		} else if !inQuotes && char == ' ' {
-			// Skip spaces when not in quotes (they're just formatting)
-			continue
-		} else {
-			current.WriteByte(char)
-		}
-	}
-
-	// Add last argument
-	arg := current.String()
-	// Only trim spaces for unquoted arguments
-	// For quoted arguments, preserve spaces (they might be meaningful, e.g., ' - non production')
-	if !wasQuoted {
-		arg = strings.TrimSpace(arg)
-	}
-	// Include empty strings if they were quoted (e.g., '' or "")
-	if arg != "" || wasQuoted {
-		arg = resolveArgument(arg, wasQuoted, vars)
-		args = append(args, arg)
-	}
-
-	return args
-}
-
-// resolveArgument resolves one parsed argument. A quoted argument has already
-// lost its quotes, so quote characters left in it are content (strip('"')
-// passes a double quote): only a vars lookup applies to it.
-func resolveArgument(arg string, wasQuoted bool, vars map[string]interface{}) string {
-	if !wasQuoted {
-		return resolveVariable(arg, vars)
-	}
-	if val, ok := vars[arg]; ok {
-		return fmt.Sprintf("%v", val)
-	}
-	return arg
-}
-
-// resolveVariable resolves a variable name from vars map, or returns the original string
-func resolveVariable(arg string, vars map[string]interface{}) string {
-	// If quoted, remove quotes and return
-	if (strings.HasPrefix(arg, `"`) && strings.HasSuffix(arg, `"`)) ||
-		(strings.HasPrefix(arg, `'`) && strings.HasSuffix(arg, `'`)) {
-		return strings.Trim(arg, `"'`)
-	}
-
-	// Check if it's a variable name
-	if val, ok := vars[arg]; ok {
-		// Convert to string
-		return fmt.Sprintf("%v", val)
-	}
-
-	// Check for raw string prefix (r"...")
-	if strings.HasPrefix(arg, "r\"") && strings.HasSuffix(arg, "\"") {
-		return strings.TrimPrefix(strings.TrimSuffix(arg, "\""), "r\"")
-	}
-	if strings.HasPrefix(arg, "r'") && strings.HasSuffix(arg, "'") {
-		return strings.TrimPrefix(strings.TrimSuffix(arg, "'"), "r'")
-	}
-
-	// Not a variable, return as-is
-	return arg
+// matchTypeMethod is the fallback for a match function name that isn't a
+// match function: Python TTP then runs the value's own method or attribute
+// of that name (getattr(data, name), ttp.py:2464). Refactor F2 (#36) ports
+// the type methods here (and compiler.matchTypeMethodName); until then
+// nothing is handled, and the caller skips the name, keeping the value.
+func (r *Runtime) matchTypeMethod(value interface{}, c *call.Call) (result interface{}, handled bool, err error) {
+	return value, false, nil
 }
 
 // macroErrorIsNotFound reports whether err represents an unregistered macro
@@ -1627,38 +1299,23 @@ func (r *Runtime) processInputFunctions(inputName string, data string, vars map[
 		}
 	}
 
-	// Process functions attribute (pipe-separated)
-	if inputConfig.Functions != "" {
-		funcStrs := strings.Split(inputConfig.Functions, "|")
-		for _, funcStr := range funcStrs {
-			funcStr = strings.TrimSpace(funcStr)
-			if funcStr == "" {
-				continue
-			}
-
-			// Parse function call
-			funcName, args, err := parseFunction(funcStr, vars)
-			if err != nil {
-				return "", fmt.Errorf("failed to parse input function %s: %w", funcStr, err)
-			}
-
-			// Get function from registry (checks runtime overrides first)
-			fn, ok := r.getInputFunc(funcName)
-			if !ok {
-				// Function not found, skip it
-				continue
-			}
-
-			// Execute function
-			processed, shouldContinue, err := fn(result, args, nil)
-			if err != nil {
-				return "", fmt.Errorf("input function %s failed: %w", funcName, err)
-			}
-			if !shouldContinue {
-				return "", nil // Condition failed, stop processing
-			}
-			result = processed
+	// The functions attribute, read when the template compiled.
+	for _, c := range inputConfig.Calls() {
+		// Get function from registry (checks runtime overrides first)
+		fn, ok := r.getInputFunc(c.Name)
+		if !ok {
+			// Not an input function: skipped, as TTP does (the compiler
+			// warned about the name).
+			continue
 		}
+		processed, shouldContinue, err := fn(result, c.ResolvedArgs(vars), nil)
+		if err != nil {
+			return "", fmt.Errorf("input function %s failed: %w", c.Name, err)
+		}
+		if !shouldContinue {
+			return "", nil // Condition failed, stop processing
+		}
+		result = processed
 	}
 
 	// Process macro attribute (comma-separated macro names)
@@ -1727,54 +1384,48 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 			}
 			formatted = false
 		}
-		if outputConfig.Functions != "" {
-			funcStrs := strings.Split(outputConfig.Functions, "|")
-			for _, funcStr := range funcStrs {
-				funcStr = strings.TrimSpace(funcStr)
-				if funcStr == "" {
-					continue
-				}
-
-				// Parse function call
-				funcName, args, err := parseFunction(funcStr, vars)
-				if err != nil {
-					return nil, false, fmt.Errorf("failed to parse output function %s: %w", funcStr, err)
-				}
-
-				// Get function from registry (checks runtime overrides first)
-				fn, ok := r.getOutputFunc(funcName)
-				if !ok {
-					if funcName == "macro" {
-						// gottp extension: macro('a', 'b') runs each macro
-						// in order (Python TTP 0.10.1 raises TypeError).
-						for _, name := range args {
-							if result, err = r.runOutputMacro(strings.TrimSpace(name), result); err != nil {
-								return nil, false, err
-							}
-						}
-						formatted = false
+		// The functions attribute, read when the template compiled.
+		for _, c := range outputConfig.Calls() {
+			funcName := c.Name
+			// Positional arguments, then keyword arguments as "key=value",
+			// as output functions have always taken them; the keyword
+			// arguments are also in kwargs, as Python values.
+			args := c.ResolvedArgs(vars)
+			// Get function from registry (checks runtime overrides first)
+			fn, ok := r.getOutputFunc(funcName)
+			if !ok {
+				if funcName == "macro" {
+					// Python TTP's macro(data, macro_name). gottp extension:
+					// macro('a', 'b') runs each macro in order (TTP raises
+					// TypeError).
+					names := c.ResolvedStrs(vars)
+					if v, ok := c.Kwarg("macro_name"); ok {
+						names = append(append([]string(nil), names...), call.Str(v))
 					}
-					// Other unknown functions are skipped (Python TTP logs
-					// an error and skips them).
-					continue
+					for _, name := range names {
+						if result, err = r.runOutputMacro(strings.TrimSpace(name), result); err != nil {
+							return nil, false, err
+						}
+					}
+					formatted = false
 				}
-
-				// Prepare kwargs for functions that need context
-				kwargs := make(map[string]interface{})
-				if funcName == "is_equal" {
-					// Pass output tag content as expected data
-					// This would need to be loaded from output tag content
-					// For now, we'll skip this functionality
-				}
-
-				// Execute function
-				processed, err := fn(result, args, kwargs)
-				if err != nil {
-					return nil, false, fmt.Errorf("output function %s failed: %w", funcName, err)
-				}
-				result = processed
-				formatted = false
+				// Other unknown functions are skipped (Python TTP logs an
+				// error and skips them; the compiler warned about the name).
+				continue
 			}
+
+			kwargs := c.KwargValues()
+			if kwargs == nil {
+				kwargs = make(map[string]interface{})
+			}
+
+			// Execute function
+			processed, err := fn(result, args, kwargs)
+			if err != nil {
+				return nil, false, fmt.Errorf("output function %s failed: %w", funcName, err)
+			}
+			result = processed
+			formatted = false
 		}
 		if outputConfig.Macro != "" && !outputConfig.MacroBeforeFunctions {
 			if result, err = r.runOutputMacroAttr(outputConfig.Macro, result); err != nil {
