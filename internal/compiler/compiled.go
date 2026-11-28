@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/roc-ops/gottp/internal/call"
 	"github.com/roc-ops/gottp/internal/parser"
 	"github.com/roc-ops/gottp/internal/pattern"
 	"github.com/roc-ops/gottp/internal/validator"
@@ -56,6 +57,12 @@ type CompiledTemplate struct {
 	// Used by ParseStream to gate entry; false means ParseStream returns
 	// *TemplateNotStreamableError without invoking the callback.
 	Streamable bool
+
+	// unknownCalls are the unknown function names checkCalls found, and
+	// callWarnings all its warnings (in Warnings too), which a parent
+	// template takes over from a child.
+	unknownCalls []UnknownCall
+	callWarnings []string
 }
 
 // CompiledVarsWithName represents compiled vars with name attribute
@@ -134,6 +141,8 @@ type CompiledInput struct {
 	ExtractCommands []string // comma-separated list of commands to extract
 	Data            string   // input content (for load="text")
 	Attributes      map[string]string
+
+	calls atomic.Pointer[[]*call.Call] // Functions read as calls (Calls)
 }
 
 // CompiledOutput represents a compiled output configuration
@@ -148,6 +157,8 @@ type CompiledOutput struct {
 	Macro                string
 	MacroBeforeFunctions bool
 	Attributes           map[string]string
+
+	calls atomic.Pointer[[]*call.Call] // Functions read as calls (Calls)
 }
 
 // CompiledLookup represents a compiled lookup table
@@ -320,6 +331,11 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 		compiled.Outputs = append(compiled.Outputs, compiledOutput)
 	}
 
+	// Read every function call once, now (package call).
+	if err := checkCalls(compiled); err != nil {
+		return nil, err
+	}
+
 	// Compile lookups
 	loader := variable.NewLoader()
 	for _, lookup := range tmpl.Lookups {
@@ -420,6 +436,10 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 			return nil, err
 		}
 		compiled.Templates = append(compiled.Templates, compiledChild)
+		// The child's function-call warnings are the template's too.
+		compiled.unknownCalls = append(compiled.unknownCalls, compiledChild.unknownCalls...)
+		compiled.Warnings = append(compiled.Warnings, compiledChild.callWarnings...)
+		compiled.callWarnings = append(compiled.callWarnings, compiledChild.callWarnings...)
 
 		// Hoist child template groups into root template for unified processing
 		for _, childGroup := range compiledChild.Groups {
@@ -507,40 +527,19 @@ func (c *Compiler) compileGroup(group *parser.Group, templateVars map[string]int
 			lineWithoutVars := re.ReplaceAllString(line, "")
 			lineWithoutVars = strings.TrimSpace(lineWithoutVars)
 
-			// Extract variables to check for unconditional set()
-			varMatches := re.FindAllStringSubmatch(line, -1)
-			for _, varMatch := range varMatches {
-				if len(varMatch) < 2 {
-					continue
-				}
-				varStr := varMatch[1]
-				// Check if this variable has set() function
-				if strings.Contains(varStr, "set(") {
-					// Parse variable to get name and set() argument
-					parts := strings.Split(varStr, "|")
-					if len(parts) >= 2 {
-						varName := strings.TrimSpace(parts[0])
-						// Find set() function call
-						for _, part := range parts[1:] {
-							part = strings.TrimSpace(part)
-							if strings.HasPrefix(part, "set(") {
-								// Extract argument from set("value") or set('value')
-								start := strings.Index(part, "(")
-								end := strings.LastIndex(part, ")")
-								if start >= 0 && end > start {
-									setValue := part[start+1 : end]
-									setValue = strings.TrimSpace(setValue)
-									setValue = strings.Trim(setValue, `"'`)
-									// If line has no text (unconditional set), add to defaults
-									// Python TTP: when set() is used without text to match, it sets skip_regex_dict = True
-									// and adds the value to group.defaults
-									if lineWithoutVars == "" {
-										compiled.Defaults[varName] = setValue
-										// Debug: fmt.Printf("[DEBUG] Unconditional set() detected: %s = %s\n", varName, setValue)
-									}
-								}
-								break
+			// An unconditional set() (on a line with no other text) is a group
+			// default, as TTP's extract_set makes it: the variable's value is
+			// set()'s argument as Python reads it, so set(True) is a bool.
+			if lineWithoutVars == "" {
+				for _, varMatch := range re.FindAllStringSubmatch(line, -1) {
+					parts := strings.Split(varMatch[1], "|")
+					varName := strings.TrimSpace(parts[0])
+					for _, part := range call.Split(strings.Join(parts[1:], "|")) {
+						if cl, err := call.Parse(part); err == nil && cl.Name == "set" {
+							if len(cl.Args) > 0 {
+								compiled.Defaults[varName] = cl.Args[0]
 							}
+							break
 						}
 					}
 				}

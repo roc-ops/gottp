@@ -1,0 +1,3 @@
+<group name="g">
+v {{ x | re(char="-") }}
+</group>

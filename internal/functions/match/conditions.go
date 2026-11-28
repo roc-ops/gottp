@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/roc-ops/gottp/internal/call"
 )
 
 // ConditionResult represents the result of a condition function
@@ -289,36 +291,32 @@ func excludeRe(value interface{}, args []string, kwargs map[string]interface{}) 
 	return &ConditionResult{Value: value, Condition: false}, nil
 }
 
-// equal checks if value equals the given value
+// equal checks if value equals the given value, as TTP's data == value:
+// by type and value (call.Equal), so the string "True" doesn't equal
+// True and "1" doesn't equal 1. The runtime passes the argument as Python
+// reads it in kwargs["_equal_value"]; without it (a direct call) the
+// value's text is compared with args[0].
 func equal(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	if len(args) == 0 {
-		return &ConditionResult{Value: value, Condition: true}, nil
-	}
-	
-	expected := args[0]
-	actual := fmt.Sprintf("%v", value)
-	
-	if actual == expected {
-		return &ConditionResult{Value: value, Condition: true}, nil
-	}
-	
-	return &ConditionResult{Value: value, Condition: false}, nil
+	eq, ok := equalTo(value, args, kwargs)
+	return &ConditionResult{Value: value, Condition: !ok || eq}, nil
 }
 
-// notequal checks if value does NOT equal the given value
+// notequal checks if value does NOT equal the given value (see equal).
 func notequal(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
+	eq, ok := equalTo(value, args, kwargs)
+	return &ConditionResult{Value: value, Condition: !ok || !eq}, nil
+}
+
+// equalTo compares value with the argument of equal() or notequal(); ok
+// is false when there is no argument.
+func equalTo(value interface{}, args []string, kwargs map[string]interface{}) (eq, ok bool) {
+	if v, ok := kwargs["_equal_value"]; ok {
+		return call.Equal(value, v), true
+	}
 	if len(args) == 0 {
-		return &ConditionResult{Value: value, Condition: true}, nil
+		return false, false
 	}
-	
-	expected := args[0]
-	actual := fmt.Sprintf("%v", value)
-	
-	if actual != expected {
-		return &ConditionResult{Value: value, Condition: true}, nil
-	}
-	
-	return &ConditionResult{Value: value, Condition: false}, nil
+	return fmt.Sprintf("%v", value) == args[0], true
 }
 
 // isdigit checks if value is a digit string (all characters are digits)

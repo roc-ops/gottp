@@ -2,9 +2,9 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":false,"Matches":[]},
-   {"LineNumber":2,"Matched":false,"Matches":[]},
-   {"LineNumber":3,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":14,"GroupName":"servers","PatternIndex":0,"Variables":{"server":{"StartCol":7,"EndCol":14}},"ResultPath":"servers[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":22,"GroupName":"servers","PatternIndex":1,"Variables":{"server":{"StartCol":7,"EndCol":22}},"ResultPath":"servers[1]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":30,"GroupName":"servers","PatternIndex":2,"Variables":{"server":{"StartCol":7,"EndCol":30}},"ResultPath":"servers[2]"}]},
    {"LineNumber":4,"Matched":false,"Matches":[]}
   ]
  }

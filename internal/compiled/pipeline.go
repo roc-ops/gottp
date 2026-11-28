@@ -8,6 +8,7 @@ import (
 
 	"go.starlark.net/starlark"
 
+	"github.com/roc-ops/gottp/internal/call"
 	"github.com/roc-ops/gottp/internal/compiler"
 	"github.com/roc-ops/gottp/internal/functions/group"
 	"github.com/roc-ops/gottp/internal/pattern"
@@ -54,6 +55,9 @@ type groupStep struct {
 	args    []string
 	builtin bool // a built-in group function: gets _recorded_vars and _defaults
 	custom  bool // a custom attribute function (for its error message)
+	// pyArgs are the positional arguments as Python values, for equal,
+	// which compares by type and value (kwargs["_args"]).
+	pyArgs []interface{}
 
 	// itemize
 	key  string
@@ -185,14 +189,18 @@ func (r *Runtime) buildPipeline(g *compiler.CompiledGroup, vars map[string]inter
 			}
 			pl.addChain(r, value, vars)
 		case "macro":
-			pl.addMacro(r, splitMacroNames([]string{value}))
+			if c, err := call.Parse("macro(" + value + ")"); err == nil {
+				pl.addMacro(r, splitMacroNames(c.Strs))
+			}
 		case "void":
 			if isVoidGroup(g) {
 				pl.steps = append(pl.steps, groupStep{kind: stepVoid, name: "void"})
 			}
 		case "itemize":
 			if value != "" {
-				pl.addItemize(parseArgumentsWithoutResolve(value))
+				if c, err := call.Parse("itemize(" + value + ")"); err == nil {
+					pl.addItemize(c)
+				}
 			}
 		default:
 			builtin := isBuiltinAttrGroupFunc(name)
@@ -206,13 +214,21 @@ func (r *Runtime) buildPipeline(g *compiler.CompiledGroup, vars map[string]inter
 			if !ok {
 				return
 			}
+			// TTP reads the attribute as the call name(value).
+			c, err := call.Parse(name + "(" + value + ")")
+			if err != nil {
+				// The compiler rejects this for a built-in function; a
+				// custom one is skipped.
+				return
+			}
 			pl.steps = append(pl.steps, groupStep{
 				kind:    stepFunc,
 				name:    name,
 				fn:      fn,
-				args:    attrFunctionArgs(name, value),
+				args:    groupArgs(c),
 				builtin: slices.Contains(builtinAttrGroupFunctions, name),
 				custom:  !builtin,
+				pyArgs:  groupPyArgs(c),
 			})
 		}
 	}
@@ -327,91 +343,49 @@ func (r *Runtime) resolveDefault(v interface{}, vars map[string]interface{}) int
 	return v
 }
 
-// attrFunctionArgs splits a function attribute's value into arguments.
-func attrFunctionArgs(name, value string) []string {
-	switch name {
-	case "sformat":
-		return sformatArgs(value)
-	case "expand":
-		if value == "" {
-			return []string{}
-		}
-		args := strings.Split(value, ",")
-		for i := range args {
-			args[i] = strings.TrimSpace(args[i])
-		}
-		return args
+// groupArgs returns a group function call's arguments in the form group
+// functions take them: the positional arguments as strings, then each
+// keyword argument as "key=value" (set's default=, to_int's intlist=).
+// sformat gets its two arguments in the order of its signature,
+// sformat(string, add_field). expand always gets a non-nil list.
+func groupArgs(c *call.Call) []string {
+	if c.Name == "sformat" {
+		return sformatArgs(c)
 	}
-	if value == "" {
-		return nil
-	}
-	args := strings.Split(value, ",")
-	for i := range args {
-		args[i] = strings.Trim(strings.TrimSpace(args[i]), `"'`)
+	args := c.ResolvedArgs(nil)
+	if args == nil && c.Name == "expand" {
+		return []string{}
 	}
 	return args
 }
 
-// sformatArgs parses sformat's keyword arguments (string='...',
-// add_field='...'), splitting on commas outside quotes.
-func sformatArgs(value string) []string {
-	var current strings.Builder
-	inQuotes := false
-	quoteChar := byte(0)
-	var parts []string
-	for i := 0; i < len(value); i++ {
-		char := value[i]
-		switch {
-		case !inQuotes && (char == '"' || char == '\''):
-			inQuotes = true
-			quoteChar = char
-			current.WriteByte(char)
-		case inQuotes && char == quoteChar:
-			inQuotes = false
-			quoteChar = 0
-			current.WriteByte(char)
-		case !inQuotes && char == ',':
-			if part := strings.TrimSpace(current.String()); part != "" {
-				parts = append(parts, part)
-			}
-			current.Reset()
-		default:
-			current.WriteByte(char)
-		}
+// groupPyArgs returns the Python values of the arguments of an equal()
+// call, which compares by type and value; nil for any other function.
+func groupPyArgs(c *call.Call) []interface{} {
+	if c.Name != "equal" {
+		return nil
 	}
-	if part := strings.TrimSpace(current.String()); part != "" {
-		parts = append(parts, part)
-	}
-	return sformatOrderArgs(parts)
+	return c.Args
 }
 
-// sformatOrderArgs puts sformat's arguments in the order of its signature,
+// sformatArgs puts sformat's arguments in the order of its signature,
 // sformat(string, add_field): positional arguments fill the slots in order,
-// and string=/add_field= keyword arguments go to their own slot. Quotes
-// around a value are removed.
-func sformatOrderArgs(parts []string) []string {
+// and string=/add_field= keyword arguments go to their own slot.
+func sformatArgs(c *call.Call) []string {
 	var slots [2]string
 	var set [2]bool
-	pos := 0
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		i := -1
-		switch {
-		case strings.HasPrefix(part, "string="):
-			i, part = 0, strings.TrimPrefix(part, "string=")
-		case strings.HasPrefix(part, "add_field="):
-			i, part = 1, strings.TrimPrefix(part, "add_field=")
-		default:
-			for pos < len(slots) && set[pos] {
-				pos++
-			}
-			if pos >= len(slots) {
-				continue
-			}
-			i = pos
+	for i, a := range c.Strs {
+		if i < len(slots) {
+			slots[i], set[i] = a, true
 		}
-		slots[i] = strings.Trim(strings.TrimSpace(part), `"'`)
-		set[i] = true
+	}
+	for _, kw := range c.Kwargs {
+		switch kw.Key {
+		case "string":
+			slots[0], set[0] = call.Str(kw.Value), true
+		case "add_field":
+			slots[1], set[1] = call.Str(kw.Value), true
+		}
 	}
 	var args []string
 	for i := range slots {
@@ -443,34 +417,34 @@ func (pl *groupPipeline) addChain(r *Runtime, chain string, vars map[string]inte
 		}
 	}
 	for _, item := range items {
-		for _, funcStr := range strings.Split(item, "|") {
-			funcStr = strings.TrimSpace(funcStr)
-			if funcStr == "" {
+		for _, part := range call.Split(item) {
+			c, err := call.Parse(part)
+			if err != nil {
+				// The compiler rejects this for the template's own vars; a
+				// chain from a parse's vars skips it.
 				continue
 			}
-			name, args, _ := parseFunctionWithoutResolve(funcStr)
-			switch name {
+			switch c.Name {
 			case "macro":
-				pl.addMacro(r, splitMacroNames(args))
+				pl.addMacro(r, splitMacroNames(c.Strs))
 			case "void":
 				pl.steps = append(pl.steps, groupStep{kind: stepVoid, name: "void"})
 			case "itemize":
-				pl.addItemize(args)
+				pl.addItemize(c)
 			default:
-				fn, ok := r.getGroupFunc(name)
+				fn, ok := r.getGroupFunc(c.Name)
 				if !ok {
-					// Not a group function: skipped, as before (TTP logs it).
+					// Not a group function: skipped, as TTP does (the
+					// compiler warned about the name).
 					continue
-				}
-				if name == "sformat" {
-					args = sformatOrderArgs(args)
 				}
 				pl.steps = append(pl.steps, groupStep{
 					kind:    stepFunc,
-					name:    name,
+					name:    c.Name,
 					fn:      fn,
-					args:    args,
-					builtin: slices.Contains(builtinAttrGroupFunctions, name),
+					args:    groupArgs(c),
+					builtin: slices.Contains(builtinAttrGroupFunctions, c.Name),
+					pyArgs:  groupPyArgs(c),
 				})
 			}
 		}
@@ -499,26 +473,20 @@ func (pl *groupPipeline) addMacro(r *Runtime, names []string) {
 	pl.steps = append(pl.steps, groupStep{kind: stepMacro, name: "macro", macros: names})
 }
 
-// addItemize adds itemize(key, path=""): args are positional or key=/path=
-// keyword arguments.
-func (pl *groupPipeline) addItemize(args []string) {
+// addItemize adds itemize(key, path="").
+func (pl *groupPipeline) addItemize(c *call.Call) {
 	var key, path string
-	pos := 0
-	for _, arg := range args {
-		switch {
-		case strings.HasPrefix(arg, "key="):
-			key = strings.Trim(strings.TrimSpace(strings.TrimPrefix(arg, "key=")), `"'`)
-		case strings.HasPrefix(arg, "path="):
-			path = strings.Trim(strings.TrimSpace(strings.TrimPrefix(arg, "path=")), `"'`)
-		default:
-			switch pos {
-			case 0:
-				key = arg
-			case 1:
-				path = arg
-			}
-			pos++
-		}
+	if len(c.Strs) > 0 {
+		key = c.Strs[0]
+	}
+	if len(c.Strs) > 1 {
+		path = c.Strs[1]
+	}
+	if v, ok := c.Kwarg("key"); ok {
+		key = call.Str(v)
+	}
+	if v, ok := c.Kwarg("path"); ok {
+		path = call.Str(v)
 	}
 	step := groupStep{kind: stepItemize, name: "itemize", key: key}
 	if path != "" {
@@ -600,7 +568,11 @@ func (r *Runtime) runPipeline(pl *groupPipeline, rec map[string]interface{}, var
 		case stepVoid:
 			ok = false
 		case stepFunc:
-			out, ok, err = step.fn(data, step.args, r.groupKwargs(vars, step.builtin, defaults))
+			kwargs := r.groupKwargs(vars, step.builtin, defaults)
+			if step.pyArgs != nil && step.builtin {
+				kwargs["_args"] = step.pyArgs
+			}
+			out, ok, err = step.fn(data, step.args, kwargs)
 			if err != nil {
 				if step.custom {
 					return nil, false, false, fmt.Errorf("custom group function %s failed: %w", step.name, err)

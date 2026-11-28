@@ -45,12 +45,9 @@ type ttpTemplateProfile struct {
 var profileSkips = map[string]string{
 	"ttpsuite/test_answers_and_docs/test_issue_48_answer":      "#112 chain() naming a <vars> list is ignored, so joinmatches from the chain is lost",
 	"ttpsuite/test_answers_and_docs/test_issue_48_answer_more": "#112 chain() naming a <vars> list is ignored, so joinmatches from the chain is lost",
-	"ttpsuite/test_answers_and_docs/test_vlans_parsing":        "#27 without a <template> wrapper only the first top-level group is compiled",
 	// gottp copies the extended file's lines into the anonymous group; TTP
 	// nests the extended group under it. Results agree, the structure doesn't.
 	"ttpsuite/test_extend_tag/test_extend_tag_from_file_anonymous":                     "extend into an anonymous template inlines the group",
-	"ttpsuite/test_extend_tag/test_extend_tag_from_file_group_index_filter":            "#93 <extend groups=...> filter loads no group",
-	"ttpsuite/test_extend_tag/test_extend_tag_from_file_group_name_filter":             "#93 <extend groups=...> filter loads no group",
 	"ttpsuite/test_extend_tag/test_extend_tag_from_file_nested_group_filter":           "#74 <extend> inside a <group> is ignored",
 	"ttpsuite/test_extend_tag/test_extend_tag_within_group":                            "#74 <extend> inside a <group> is ignored",
 	"ttpsuite/test_extend_tag/test_extend_tag_within_group_with_anonymous_group":       "#74 <extend> inside a <group> is ignored",

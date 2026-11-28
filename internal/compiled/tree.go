@@ -2,12 +2,12 @@ package compiled
 
 import (
 	"fmt"
+	"github.com/roc-ops/gottp/internal/call"
 	"sort"
 	"strings"
 
 	"github.com/roc-ops/gottp/internal/compiler"
 	"github.com/roc-ops/gottp/internal/pattern"
-	"github.com/roc-ops/gottp/internal/variable"
 )
 
 // A top group with child groups is parsed as Python TTP 0.10.1 parses it
@@ -188,49 +188,26 @@ func defaultsRecord(group *compiler.CompiledGroup) map[string]interface{} {
 			if _, done := out[varName]; done {
 				continue
 			}
-			for _, funcStr := range variable.Functions {
-				if !strings.HasPrefix(funcStr, "default(") {
-					continue
+			for _, c := range variable.Calls().All {
+				if c.Name == "default" {
+					out[varName] = defaultOf(c)
+					break
 				}
-				start := strings.Index(funcStr, "(")
-				end := strings.LastIndex(funcStr, ")")
-				if start >= 0 && end > start {
-					out[varName] = defaultArg(funcStr[start+1 : end])
-				}
-				break
 			}
 		}
 	}
 	return out
 }
 
-// defaultArg is the value of default(arg), as TTP evaluates it: a quoted
-// string is the string, an unquoted Python literal (True, False, None, a
-// number, a list or a dict) is that literal, none/true/false in any case
-// are None/True/False, any other word is the word, and no argument is
-// "None".
-func defaultArg(arg string) interface{} {
-	arg = strings.TrimSpace(arg)
-	if arg == "" {
-		return "None"
+// defaultOf is the value of a default() call, as TTP's extract_default
+// takes it: its one argument as Python reads it (a quoted string, a
+// literal, or a bare name, true/false/none in any case being True, False
+// and None), and "None" for any other number of arguments.
+func defaultOf(c *call.Call) interface{} {
+	if len(c.Args) == 1 {
+		return c.Args[0]
 	}
-	if len(arg) >= 2 && (arg[0] == '"' || arg[0] == '\'') && arg[len(arg)-1] == arg[0] {
-		return arg[1 : len(arg)-1]
-	}
-	if v, ok := variable.PythonLiteral(arg); ok {
-		return v
-	}
-	// TTP evaluates arguments with _UndefSubst (get_attributes.py), which
-	// maps an undefined name to False, True or None case-insensitively.
-	switch strings.ToLower(arg) {
-	case "none":
-		return nil
-	case "true":
-		return true
-	case "false":
-		return false
-	}
-	return strings.Trim(arg, `"'`)
+	return "None"
 }
 
 // hasStartReDefault is TTP's has_start_re_default: a variable of a start

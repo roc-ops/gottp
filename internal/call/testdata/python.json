@@ -1,0 +1,497 @@
+{
+ "candidates": [
+  "to_int",
+  "to_str",
+  "to_list",
+  "to_float",
+  "to_ip",
+  "to_net",
+  "contains",
+  "containsall",
+  "exclude",
+  "excludeall",
+  "equal",
+  "notequal",
+  "startswith_re",
+  "endswith_re",
+  "contains_re",
+  "exclude_re",
+  "notstartswith_re",
+  "notendswith_re",
+  "joinmatches",
+  "sformat",
+  "replaceall",
+  "resub",
+  "resuball",
+  "is_ip",
+  "is_private",
+  "cidr_match",
+  "truncate",
+  "unrange",
+  "item",
+  "macro",
+  "lookup",
+  "rlookup",
+  "gpvlookup",
+  "record",
+  "set",
+  "let",
+  "count",
+  "void",
+  "geoip_lookup",
+  "rdns",
+  "dns",
+  "mac_eui",
+  "uptimeparse",
+  "join",
+  "split",
+  "upper",
+  "lower",
+  "strip",
+  "lstrip",
+  "rstrip",
+  "replace",
+  "title",
+  "append",
+  "prepend",
+  "print",
+  "raise",
+  "del",
+  "itemize",
+  "items2dict",
+  "extract_commands",
+  "test",
+  "is_equal",
+  "traverse",
+  "dict_to_list"
+ ],
+ "guess": {
+  "to_itn": [
+   "to_int"
+  ],
+  "contians": [
+   "contains"
+  ],
+  "extract_comands": [
+   "extract_commands"
+  ],
+  "is_eqal": [
+   "is_equal"
+  ],
+  "nosuchfn": [],
+  "joinmatch": [
+   "joinmatches"
+  ],
+  "uper": [
+   "upper"
+  ],
+  "lowr": [
+   "lower"
+  ],
+  "contain": [
+   "contains"
+  ],
+  "sformt": [
+   "sformat"
+  ],
+  "totally": [],
+  "a": [],
+  "x": [],
+  "to_in": [
+   "to_int",
+   "to_ip"
+  ],
+  "itm": [
+   "item"
+  ],
+  "repalce": [
+   "replace"
+  ],
+  "rstrp": [
+   "rstrip",
+   "strip"
+  ],
+  "lookp": [
+   "lookup",
+   "rlookup"
+  ],
+  "recrod": [
+   "record"
+  ],
+  "dict_to_lst": [
+   "dict_to_list"
+  ],
+  "t": [],
+  "contains_r": [
+   "contains_re",
+   "contains"
+  ],
+  "excludeal": [
+   "excludeall",
+   "exclude"
+  ],
+  "to_ints": [
+   "to_int"
+  ],
+  "sett": [
+   "set"
+  ],
+  "del_": [
+   "del"
+  ],
+  "printt": [
+   "print"
+  ],
+  "mac_ebui": [
+   "mac_eui"
+  ],
+  "xclueall": [
+   "excludeall"
+  ],
+  "nhotequa": [
+   "notequal"
+  ],
+  "hrint": [
+   "print"
+  ],
+  "onjaibsall": [],
+  "srepend": [
+   "prepend"
+  ],
+  "lns": [],
+  "containsanl": [
+   "containsall",
+   "contains"
+  ],
+  "items2dict": [
+   "items2dict"
+  ],
+  "equacpol": [],
+  "vexpyclude_re": [
+   "exclude_re"
+  ],
+  "exclutealzl": [
+   "excludeall"
+  ],
+  "item2dict": [
+   "items2dict"
+  ],
+  "beuj": [],
+  "otrstri": [],
+  "coxntainsall": [
+   "containsall",
+   "contains"
+  ],
+  "rlokupp": [
+   "rlookup"
+  ],
+  "itemizre": [
+   "itemize"
+  ],
+  "lvet": [
+   "let"
+  ],
+  "saormat": [
+   "sformat"
+  ],
+  "etravtrse": [
+   "traverse"
+  ],
+  "dnt": [],
+  "contaidms": [
+   "contains"
+  ],
+  "gidsequal": [
+   "is_equal"
+  ],
+  "i": [],
+  "ow": [],
+  "gvlopkup": [
+   "gpvlookup"
+  ],
+  "trversje": [
+   "traverse"
+  ],
+  "enqpwith_re": [
+   "endswith_re"
+  ],
+  "lowea": [
+   "lower"
+  ],
+  "geoiploloku": [
+   "geoip_lookup"
+  ],
+  "im": [],
+  "maclo": [
+   "macro"
+  ],
+  "to_floait": [
+   "to_float"
+  ],
+  "is_rlvate": [
+   "is_private"
+  ],
+  "endkswith_re": [
+   "endswith_re",
+   "notendswith_re"
+  ],
+  "prunczte": [],
+  "epu": [],
+  "uptimeoarse": [
+   "uptimeparse"
+  ],
+  "le": [
+   "let"
+  ]
+ },
+ "calls": {
+  "upper": {
+   "name": "upper",
+   "args": [],
+   "kwargs": {},
+   "strs": []
+  },
+  "upper()": {
+   "name": "upper",
+   "args": [],
+   "kwargs": {},
+   "strs": []
+  },
+  "re(\"\\\\d+\")": {
+   "name": "re",
+   "args": [
+    "\\d+"
+   ],
+   "kwargs": {},
+   "strs": [
+    "\\d+"
+   ]
+  },
+  "re(r\"\\d+\")": {
+   "name": "re",
+   "args": [
+    "\\d+"
+   ],
+   "kwargs": {},
+   "strs": [
+    "\\d+"
+   ]
+  },
+  "sformat(\"v={}\")": {
+   "name": "sformat",
+   "args": [
+    "v={}"
+   ],
+   "kwargs": {},
+   "strs": [
+    "v={}"
+   ]
+  },
+  "contains(vlan, ip)": {
+   "name": "contains",
+   "args": [
+    "vlan",
+    "ip"
+   ],
+   "kwargs": {},
+   "strs": [
+    "vlan",
+    "ip"
+   ]
+  },
+  "x(1, -2, 3.5, True, false, NONE, None)": {
+   "name": "x",
+   "args": [
+    1,
+    -2,
+    3.5,
+    true,
+    false,
+    null,
+    null
+   ],
+   "kwargs": {},
+   "strs": [
+    "1",
+    "-2",
+    "3.5",
+    "True",
+    "False",
+    "None",
+    "None"
+   ]
+  },
+  "lookup(aux, add_field=\"info\")": {
+   "name": "lookup",
+   "args": [
+    "aux"
+   ],
+   "kwargs": {
+    "add_field": "info"
+   },
+   "strs": [
+    "aux"
+   ]
+  },
+  "f([1, \"a\", [2,3]], {\"k\": [1]})": {
+   "name": "f",
+   "args": [
+    [
+     1,
+     "a",
+     [
+      2,
+      3
+     ]
+    ],
+    {
+     "k": [
+      1
+     ]
+    }
+   ],
+   "kwargs": {},
+   "strs": [
+    "[1, 'a', [2, 3]]",
+    "{'k': [1]}"
+   ]
+  },
+  "f(\"a\" \"b\")": {
+   "name": "f",
+   "args": [
+    "ab"
+   ],
+   "kwargs": {},
+   "strs": [
+    "ab"
+   ]
+  },
+  "joinmatches(\",\")": {
+   "name": "joinmatches",
+   "args": [
+    ","
+   ],
+   "kwargs": {},
+   "strs": [
+    ","
+   ]
+  },
+  "f(1e20, 1e-5, 100.0, 0.1)": {
+   "name": "f",
+   "args": [
+    1e+20,
+    1e-05,
+    100.0,
+    0.1
+   ],
+   "kwargs": {},
+   "strs": [
+    "1e+20",
+    "1e-05",
+    "100.0",
+    "0.1"
+   ]
+  },
+  "item (\"x\")": {
+   "name": "item",
+   "args": [
+    "x"
+   ],
+   "kwargs": {},
+   "strs": [
+    "x"
+   ]
+  },
+  "f(a=1, b=\"2\")": {
+   "name": "f",
+   "args": [],
+   "kwargs": {
+    "a": 1,
+    "b": "2"
+   },
+   "strs": []
+  },
+  "f(())": {
+   "name": "f",
+   "args": [
+    []
+   ],
+   "kwargs": {},
+   "strs": [
+    "[]"
+   ]
+  },
+  "f((1))": {
+   "name": "f",
+   "args": [
+    1
+   ],
+   "kwargs": {},
+   "strs": [
+    "1"
+   ]
+  },
+  "f((1,))": {
+   "name": "f",
+   "args": [
+    [
+     1
+    ]
+   ],
+   "kwargs": {},
+   "strs": [
+    "[1]"
+   ]
+  },
+  "set(\"val\")": {
+   "name": "set",
+   "args": [
+    "val"
+   ],
+   "kwargs": {},
+   "strs": [
+    "val"
+   ]
+  },
+  "f(r\"\\\\\")": {
+   "name": "f",
+   "args": [
+    "\\\\"
+   ],
+   "kwargs": {},
+   "strs": [
+    "\\\\"
+   ]
+  },
+  "f(\"\\x41\\n\")": {
+   "name": "f",
+   "args": [
+    "A\n"
+   ],
+   "kwargs": {},
+   "strs": [
+    "A\n"
+   ]
+  },
+  "f(1,)": {
+   "name": "f",
+   "args": [
+    1
+   ],
+   "kwargs": {},
+   "strs": [
+    "1"
+   ]
+  },
+  "contains(\"a,b\")": {
+   "name": "contains",
+   "args": [
+    "a,b"
+   ],
+   "kwargs": {},
+   "strs": [
+    "a,b"
+   ]
+  }
+ }
+}

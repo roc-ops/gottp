@@ -100,15 +100,15 @@ With this template, each line (interface and ip address) will produce a separate
 functions
 ---------
 
-``functions="contains('ip'), set('vrf', 'default')"``
+``functions="contains('ip') | set('vrf', 'default')"``
 
-Comma-separated list of group functions to apply to group results.
+Group functions to apply to group results, separated by ``|`` as in Python TTP. A ``|`` inside a quoted argument also splits the chain (gottp warns); put such an argument in ``<vars>`` and pass the variable's name instead.
 
 **Example:**
 
 .. code-block:: xml
 
-   <group name="interfaces" functions="contains('ip'), record('last_interface')">
+   <group name="interfaces" functions="contains('ip') | record('last_interface')">
    interface {{ interface }}
     ip address {{ ip }}
    </group>

@@ -242,7 +242,10 @@ func ParseTemplate(templateText string) (*Template, error) {
 			break
 		}
 		if err != nil {
-			// Fallback: try the original unwrapped approach for backward compatibility
+			// Fallback: try the original unwrapped approach for backward
+			// compatibility. A second error is final: wrapping the text
+			// again and starting over (as gottp once did) never ends,
+			// growing the text each time (#144).
 			topLevelElements = nil
 			decoder2 := xml.NewDecoder(strings.NewReader(templateText))
 			decoder2.Strict = false
@@ -252,13 +255,7 @@ func ParseTemplate(templateText string) (*Template, error) {
 					break
 				}
 				if err2 != nil {
-					// Try wrapping in template tag
-					templateText = "<template>\n" + templateText + "\n</template>"
-					decoder2 = xml.NewDecoder(strings.NewReader(templateText))
-					tok2, err2 = decoder2.Token()
-					if err2 != nil {
-						return nil, fmt.Errorf("failed to parse template XML: %w", err2)
-					}
+					return nil, fmt.Errorf("failed to parse template XML: %w", err2)
 				}
 				switch t := tok2.(type) {
 				case xml.StartElement:
@@ -329,9 +326,19 @@ doneParsingRoot:
 		if len(nonTemplateElements) > 0 {
 			root.Children = append(nonTemplateElements, root.Children...)
 		}
-	} else if len(topLevelElements) > 0 {
-		// No <template> elements found - use first element as root
+	} else if len(topLevelElements) == 1 {
+		// No <template> elements found - use the element as root
 		root = topLevelElements[0]
+	} else if len(topLevelElements) > 1 {
+		// Several top-level elements without <template> (a template that
+		// starts with <group>, which isn't wrapped above): they are all the
+		// template's, as in Python TTP, which wraps such a template in
+		// <template>. Only the first was kept before.
+		root = xmlElement{
+			XMLName:  xml.Name{Local: "template"},
+			Attrs:    make(map[string]string),
+			Children: topLevelElements,
+		}
 	}
 
 	// Ensure root is template tag

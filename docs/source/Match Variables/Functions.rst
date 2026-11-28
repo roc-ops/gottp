@@ -3,6 +3,25 @@ Functions
 
 GoTTP contains a set of match variable functions that can be applied to match results to transform them or validate and filter match results.
 
+Function call syntax
+--------------------
+
+Match variable functions, group attributes and ``functions=``/``chain=``, input functions and output functions are all read the same way, as Python TTP 0.10.1 reads them (``ttp/utils/get_attributes.py``):
+
+* A chain such as ``{{ name | contains("vlan") | upper }}`` is split on every ``|``, **including one inside quotes**. ``re("UP|DOWN")`` therefore becomes the two broken calls ``re("UP`` and ``DOWN")``, as in Python TTP, and gottp adds a compile warning (``GetWarnings()``) naming the variable and the broken-off pieces. To pass an argument that contains ``|``, define it in ``<vars>`` and pass the variable's name: ``re(UP_OR_DOWN)``.
+* A call is ``name`` or ``name(arguments)``. The arguments are Python call arguments: positional values, then ``key=value`` keyword arguments. Each value is a Python literal: a string (with Python's escapes, ``r"..."`` raw strings and adjacent-string concatenation), an int, a float, ``True``/``False``/``None``, or a list, tuple or dict of literals. So ``re("\\d+")`` and ``re(r"\d+")`` are both the regex ``\d+``, and an ``=`` inside a quoted string is just a character: ``sformat("v={}")``.
+* A bare word is its own text, so ``contains(vlan)`` is ``contains("vlan")``; ``true``, ``false`` and ``none`` in any case are ``True``, ``False`` and ``None``. A bare word is a Python name, so it may use any letters: ``contains(Москва)``. In a match variable, input or output function, a string argument that names a template variable is that variable's value.
+* A group attribute is read as the call ``name(value)``: ``contains="ip, description"`` is ``contains(ip, description)``.
+* An argument that isn't a literal is passed as its **raw text**, with a compile warning:
+
+  * An unquoted word such as ``set(auto-decision)`` or ``exclude(-VM-)``, which Python TTP evaluates as an expression (``auto - decision``) and fails on. The warning suggests quoting it, ``set("auto-decision")``, which works in both. This is a gottp extension.
+  * A Python expression such as ``set(1+2)``, ``x.upper()``, an f-string or ``b"x"``. Python TTP evaluates it; gottp doesn't, and passes the text ``"1+2"``.
+
+* Broken call syntax is a **compile error**: an unterminated quote, unbalanced brackets, an empty argument (``f(a,,b)``), a positional argument after a keyword one, a repeated keyword, and ``macro()`` with a keyword argument or, on an output, without a name.
+* A function name that isn't known in its scope gives a compile warning, with up to three similar names (Python TTP's ``guess``), and is skipped when the template runs. A Python TTP function gottp doesn't implement (group ``lookup`` and ``str_to_unicode``; output ``deepdiff``, ``validate`` and ``validate_yangson``) is warned about as "not supported by gottp" instead, without suggestions; a match variable keeps its value. A function passed only in ``ParseOptions.Functions`` is warned about too, since it isn't known at compile time; one passed in ``CompileOptions.Functions`` isn't.
+
+Calls are read once, when the template compiles.
+
 Action Functions
 ----------------
 

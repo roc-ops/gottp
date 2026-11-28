@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/roc-ops/gottp/internal/call"
 	"github.com/roc-ops/gottp/internal/compiler"
 	"github.com/roc-ops/gottp/internal/functions/group"
 	"github.com/roc-ops/gottp/internal/parser"
@@ -95,7 +96,7 @@ interface {{ name }}
 	}
 }
 
-func TestDefaultArg(t *testing.T) {
+func TestDefaultOf(t *testing.T) {
 	cases := map[string]interface{}{
 		`"x"`:                "x",
 		`'x'`:                "x",
@@ -111,12 +112,16 @@ func TestDefaultArg(t *testing.T) {
 		`FALSE`:              false,
 	}
 	for in, want := range cases {
-		got := defaultArg(in)
+		c, err := call.Parse("default(" + in + ")")
+		if err != nil {
+			t.Fatalf("default(%s): %v", in, err)
+		}
+		got := defaultOf(c)
 		if n, ok := got.(int); ok {
 			got = int64(n)
 		}
 		if !reflect.DeepEqual(got, want) {
-			t.Errorf("defaultArg(%q) = %#v, want %#v", in, got, want)
+			t.Errorf("default(%s) = %#v, want %#v", in, got, want)
 		}
 	}
 }

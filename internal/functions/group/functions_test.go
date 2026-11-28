@@ -179,7 +179,7 @@ func TestContainsGroup(t *testing.T) {
 			data:    map[string]interface{}{},
 			args:    nil,
 			want:    false,
-			wantErr: true, // contains requires at least one argument
+			wantErr: false, // TTP's contains(data, *args): no key found
 		},
 	}
 	
@@ -230,7 +230,7 @@ func TestDeleteKey(t *testing.T) {
 			name:    "no args",
 			data:    map[string]interface{}{"key": "value"},
 			args:    nil,
-			wantErr: true, // delete requires at least one argument
+			wantErr: false, // TTP's delete_func(data, *args): nothing deleted
 		},
 	}
 	

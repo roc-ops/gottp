@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -48,6 +49,30 @@ func PythonStringLiteral(s string) (string, bool) {
 type pyLiteralParser struct {
 	s string
 	i int
+	// names reads an identifier the way TTP's get_attributes evaluates it
+	// (_UndefSubst): true, false and none in any case are True, False and
+	// None, and any other name is the name as a string.
+	names bool
+	// depth is the nesting depth of lists, tuples and dicts, bounded by
+	// maxLiteralDepth.
+	depth int
+}
+
+// maxLiteralDepth bounds how deeply lists, tuples and dicts nest, so a
+// template can't exhaust the stack.
+const maxLiteralDepth = 100
+
+// PythonValueAt reads one Python value from s at byte offset i and returns
+// it with the offset just after it. With names, an identifier is read the
+// way TTP's get_attributes evaluates call arguments (_UndefSubst): true,
+// false and none in any case are True, False and None, and any other name
+// is its own text. Without names an identifier other than True, False and
+// None is an error.
+func PythonValueAt(s string, i int, names bool) (interface{}, int, error) {
+	p := &pyLiteralParser{s: s, i: i, names: names}
+	p.skipSpace()
+	v, err := p.value()
+	return v, p.i, err
 }
 
 func (p *pyLiteralParser) skipSpace() {
@@ -77,22 +102,25 @@ func (p *pyLiteralParser) value() (interface{}, error) {
 		return nil, fmt.Errorf("unexpected end")
 	}
 	switch c := p.s[p.i]; {
-	case c == '[':
+	case c == '[' || c == '(' || c == '{':
+		if p.depth >= maxLiteralDepth {
+			return nil, fmt.Errorf("literal nested more than %d deep", maxLiteralDepth)
+		}
+		p.depth++
+		defer func() { p.depth-- }()
 		p.i++
-		return p.sequence(']')
-	case c == '(':
-		p.i++
-		return p.sequence(')')
-	case c == '{':
-		p.i++
+		switch c {
+		case '[':
+			return p.sequence(']')
+		case '(':
+			return p.sequence(')')
+		}
 		return p.dict()
 	case c == '"' || c == '\'':
 		return p.stringLiterals()
-	case isIdentStart(c):
+	case IdentStartAt(p.s, p.i):
 		start := p.i
-		for p.i < len(p.s) && isIdentChar(p.s[p.i]) {
-			p.i++
-		}
+		p.i = IdentEnd(p.s, p.i)
 		word := p.s[start:p.i]
 		if p.i < len(p.s) && (p.s[p.i] == '"' || p.s[p.i] == '\'') && isStringPrefix(word) {
 			p.i = start
@@ -106,19 +134,38 @@ func (p *pyLiteralParser) value() (interface{}, error) {
 		case "None":
 			return nil, nil
 		}
+		if p.names {
+			switch strings.ToLower(word) {
+			case "true":
+				return true, nil
+			case "false":
+				return false, nil
+			case "none":
+				return nil, nil
+			}
+			return word, nil
+		}
 		return nil, fmt.Errorf("name %q is not a literal", word)
+	case c >= utf8.RuneSelf:
+		r, _ := utf8.DecodeRuneInString(p.s[p.i:])
+		return nil, fmt.Errorf("unexpected %q", r)
 	default:
 		return p.number()
 	}
 }
 
-// sequence parses list or tuple items up to end.
+// sequence parses list or tuple items up to end. A parenthesized value
+// without a comma, (x), is the value itself, as in Python.
 func (p *pyLiteralParser) sequence(end byte) (interface{}, error) {
 	items := []interface{}{}
+	comma := false
 	for {
 		p.skipSpace()
 		if p.i < len(p.s) && p.s[p.i] == end {
 			p.i++
+			if end == ')' && len(items) == 1 && !comma {
+				return items[0], nil
+			}
 			return items, nil
 		}
 		v, err := p.value()
@@ -132,6 +179,7 @@ func (p *pyLiteralParser) sequence(end byte) (interface{}, error) {
 		}
 		if p.s[p.i] == ',' {
 			p.i++
+			comma = true
 			continue
 		}
 		if p.s[p.i] != end {
@@ -191,7 +239,8 @@ func (p *pyLiteralParser) number() (interface{}, error) {
 	}
 	text := strings.ReplaceAll(p.s[start:p.i], "_", "")
 	if text == "" {
-		return nil, fmt.Errorf("unexpected %q", p.s[start])
+		r, _ := utf8.DecodeRuneInString(p.s[start:])
+		return nil, fmt.Errorf("unexpected %q", r)
 	}
 	if n, err := strconv.ParseInt(text, 0, 64); err == nil && !isLeadingZeroInt(text) {
 		return int(n), nil
@@ -220,9 +269,7 @@ func (p *pyLiteralParser) stringLiterals() (interface{}, error) {
 			p.skipSpace()
 		}
 		start := p.i
-		for p.i < len(p.s) && isIdentChar(p.s[p.i]) {
-			p.i++
-		}
+		p.i = IdentEnd(p.s, p.i)
 		prefix := p.s[start:p.i]
 		if p.i >= len(p.s) || (p.s[p.i] != '"' && p.s[p.i] != '\'') || !isStringPrefix(prefix) {
 			p.i = save
@@ -261,6 +308,10 @@ func (p *pyLiteralParser) stringBody(raw bool) (string, error) {
 			if raw {
 				return body, nil
 			}
+			if hasNamedEscape(body) {
+				// A named Unicode escape needs Python's name table.
+				return "", fmt.Errorf(`\N{...} escape is not supported`)
+			}
 			return decodePythonEscapes(body), nil
 		case c == '\n' && len(quote) == 1:
 			return "", fmt.Errorf("newline in string")
@@ -269,6 +320,19 @@ func (p *pyLiteralParser) stringBody(raw bool) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("unterminated string")
+}
+
+// hasNamedEscape reports a \N{...} escape in a string body.
+func hasNamedEscape(body string) bool {
+	for i := 0; i+2 < len(body); i++ {
+		if body[i] == '\\' {
+			if body[i+1] == 'N' && body[i+2] == '{' {
+				return true
+			}
+			i++
+		}
+	}
+	return false
 }
 
 // decodePythonEscapes applies Python's string escapes to body. Unknown
@@ -340,12 +404,57 @@ func decodePythonEscapes(body string) string {
 	return b.String()
 }
 
-func isIdentStart(c byte) bool {
-	return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+// IsIdentStartRune approximates Python's XID_Start, the characters an
+// identifier may start with: a letter (categories L and Nl) or "_".
+func IsIdentStartRune(r rune) bool {
+	if r < utf8.RuneSelf {
+		return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+	}
+	return unicode.IsLetter(r) || unicode.Is(unicode.Nl, r) || unicode.Is(unicode.Other_ID_Start, r)
 }
 
-func isIdentChar(c byte) bool {
-	return isIdentStart(c) || (c >= '0' && c <= '9')
+// IsIdentRune approximates Python's XID_Continue, the characters after the
+// first: XID_Start, digits (Nd), combining marks (Mn, Mc) and connector
+// punctuation (Pc).
+func IsIdentRune(r rune) bool {
+	if r < utf8.RuneSelf {
+		return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+	}
+	return IsIdentStartRune(r) || unicode.In(r, unicode.Nd, unicode.Mn, unicode.Mc, unicode.Pc) ||
+		unicode.Is(unicode.Other_ID_Continue, r)
+}
+
+// IdentStartAt reports whether a Python identifier starts at byte offset i
+// of s.
+func IdentStartAt(s string, i int) bool {
+	if i >= len(s) {
+		return false
+	}
+	if c := s[i]; c < utf8.RuneSelf {
+		return IsIdentStartRune(rune(c))
+	}
+	r, _ := utf8.DecodeRuneInString(s[i:])
+	return IsIdentStartRune(r)
+}
+
+// IdentEnd returns the offset just after the identifier characters of s
+// starting at byte offset i (i itself if there are none).
+func IdentEnd(s string, i int) int {
+	for i < len(s) {
+		if c := s[i]; c < utf8.RuneSelf {
+			if !IsIdentRune(rune(c)) {
+				break
+			}
+			i++
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if !IsIdentRune(r) {
+			break
+		}
+		i += size
+	}
+	return i
 }
 
 // isStringPrefix reports a string prefix gottp evaluates: none, r and u

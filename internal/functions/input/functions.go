@@ -3,6 +3,7 @@ package input
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -28,6 +29,16 @@ func NewRegistry() *Registry {
 // Register registers a function
 func (r *Registry) Register(name string, fn Function) {
 	r.functions[name] = fn
+}
+
+// Names returns the names of the registered functions, sorted.
+func (r *Registry) Names() []string {
+	names := make([]string, 0, len(r.functions))
+	for name := range r.functions {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // Get retrieves a function by name
