@@ -259,18 +259,22 @@ func (r *Runtime) parse(inputs map[string]string, vars map[string]interface{}, o
 	}
 
 	finalResults := resultsToFormat
+	formatted := false
 	if len(r.compiled.Outputs) > 0 {
 		var err error
-		finalResults, err = r.processOutputFunctions(resultsToFormat, vars)
+		finalResults, formatted, err = r.processOutputFunctions(resultsToFormat, vars)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process output functions: %w", err)
 		}
 	}
 
-	if !perInput {
+	if !perInput || !formatted {
+		// A value an output macro or function returned is the result as
+		// is, like in Python TTP.
 		return finalResults, nil
 	}
-	// per_input - return as list (already wrapped if formatted, or wrap if not)
+	// per_input formatter output - return as list (already wrapped if
+	// formatted, or wrap if not; the wrap is #98)
 	if _, isList := finalResults.([]interface{}); !isList {
 		return []interface{}{finalResults}, nil
 	}

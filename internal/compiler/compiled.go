@@ -144,7 +144,10 @@ type CompiledOutput struct {
 	Path       string
 	Returner   string
 	Headers    string
-	Attributes map[string]string
+	// Macro and MacroBeforeFunctions: see parser.Output.
+	Macro                string
+	MacroBeforeFunctions bool
+	Attributes           map[string]string
 }
 
 // CompiledLookup represents a compiled lookup table
@@ -309,6 +312,9 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 			Returner:   output.Returner,
 			Headers:    output.Headers,
 			Attributes: output.Attributes,
+
+			Macro:                output.Macro,
+			MacroBeforeFunctions: output.MacroBeforeFunctions,
 		}
 		compiled.Outputs = append(compiled.Outputs, compiledOutput)
 	}

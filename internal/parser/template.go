@@ -73,14 +73,21 @@ type Input struct {
 
 // Output represents an output tag
 type Output struct {
-	Name       string
-	Format     string
-	Functions  string
-	Path       string
-	Returner   string
-	Headers    string
-	Content    string
-	Attributes map[string]string
+	Name      string
+	Format    string
+	Functions string
+	Path      string
+	Returner  string
+	Headers   string
+	// Macro is the macro attribute: macro names run on the results like
+	// functions="macro('name')" (Python TTP output macro()).
+	Macro string
+	// MacroBeforeFunctions reports whether the macro attribute comes before
+	// the functions attribute in the tag. Python TTP runs output functions
+	// in attribute order (ttp/ttp.py _outputter_class.get_attributes).
+	MacroBeforeFunctions bool
+	Content              string
+	Attributes           map[string]string
 }
 
 // Lookup represents a lookup table
@@ -565,6 +572,8 @@ func (t *Template) parseOutput(elem xmlElement) (*Output, error) {
 			output.Name = value
 		case "format":
 			output.Format = value
+		case "macro":
+			output.Macro = value
 		case "functions":
 			output.Functions = value
 		case "path":
@@ -573,6 +582,15 @@ func (t *Template) parseOutput(elem xmlElement) (*Output, error) {
 			output.Returner = value
 		case "headers":
 			output.Headers = value
+		}
+	}
+
+	if output.Macro != "" {
+		for _, key := range elem.AttrOrder {
+			if key == "macro" || key == "functions" {
+				output.MacroBeforeFunctions = key == "macro"
+				break
+			}
 		}
 	}
 
