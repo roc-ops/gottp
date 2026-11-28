@@ -1,7 +1,7 @@
 {
  "inputs": {
   "Default_Input": [
-   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":3,"GroupName":"a","PatternIndex":0,"Variables":{"v":{"StartCol":2,"EndCol":3}},"ResultPath":"a"}]},
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":3,"GroupName":"a","PatternIndex":0,"Variables":{"v":{"StartCol":2,"EndCol":3}},"ResultPath":""}]},
    {"LineNumber":1,"Matched":false,"Matches":[]}
   ]
  }

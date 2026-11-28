@@ -60,12 +60,11 @@ interface {{ ifname }}
 	}
 }
 
-// TestSourceMap_ResultPathSingleInstanceUnaffected makes sure the fix for
-// #24 didn't change behavior for the single-instance case. Note the
-// unresolved "*" suffix on ResultPath here is pre-existing, separate
-// behavior (outside #24's scope, which was specifically about resolving
-// per-instance paths for repeated groups) - this test just pins it so a
-// future change to it is a deliberate, visible decision.
+// TestSourceMap_ResultPathSingleInstanceUnaffected covers a repeated group
+// (name="interfaces*") with a single match. Its record is stored as a
+// one-element list ({"interfaces": [{...}]}), so its ResultPath is
+// "interfaces[0]". Before refactor A2 (#60) it was the unresolved
+// "interfaces*".
 func TestSourceMap_ResultPathSingleInstanceUnaffected(t *testing.T) {
 	template := `<template>
 <group name="interfaces*">
@@ -91,8 +90,8 @@ interface {{ ifname }}
 	input := result.SourceMap.Inputs["Default_Input"]
 	for _, line := range input.Lines {
 		for _, m := range line.Matches {
-			if m.ResultPath != "interfaces*" {
-				t.Errorf("line %d: expected ResultPath %q, got %q", line.LineNumber, "interfaces*", m.ResultPath)
+			if m.ResultPath != "interfaces[0]" {
+				t.Errorf("line %d: expected ResultPath %q, got %q", line.LineNumber, "interfaces[0]", m.ResultPath)
 			}
 		}
 	}

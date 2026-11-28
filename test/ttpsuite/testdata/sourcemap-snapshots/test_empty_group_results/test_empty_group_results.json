@@ -2,12 +2,12 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"vlans.{{ vlan }}","PatternIndex":0,"Variables":{"vlan":{"StartCol":5,"EndCol":9}},"ResultPath":"vlans.{{ vlan }}[0]"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":15,"GroupName":"vlans.{{ vlan }}","PatternIndex":1,"Variables":{"name":{"StartCol":6,"EndCol":15}},"ResultPath":"vlans.{{ vlan }}[0]"}]},
-   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"vlans.{{ vlan }}","PatternIndex":0,"Variables":{"vlan":{"StartCol":5,"EndCol":9}},"ResultPath":"vlans.{{ vlan }}[1]"}]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"vlans.{{ vlan }}","PatternIndex":0,"Variables":{"vlan":{"StartCol":5,"EndCol":8}},"ResultPath":"vlans.{{ vlan }}[2]"}]},
-   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":14,"GroupName":"vlans.{{ vlan }}","PatternIndex":1,"Variables":{"name":{"StartCol":6,"EndCol":14}},"ResultPath":"vlans.{{ vlan }}[2]"}]},
-   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"vlans.{{ vlan }}","PatternIndex":0,"Variables":{"vlan":{"StartCol":5,"EndCol":8}},"ResultPath":"vlans.{{ vlan }}[3]"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"vlans.{{ vlan }}","PatternIndex":0,"Variables":{"vlan":{"StartCol":5,"EndCol":9}},"ResultPath":"vlans.1234"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":15,"GroupName":"vlans.{{ vlan }}","PatternIndex":1,"Variables":{"name":{"StartCol":6,"EndCol":15}},"ResultPath":"vlans.1234"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"vlans.{{ vlan }}","PatternIndex":0,"Variables":{"vlan":{"StartCol":5,"EndCol":9}},"ResultPath":"vlans.5678"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"vlans.{{ vlan }}","PatternIndex":0,"Variables":{"vlan":{"StartCol":5,"EndCol":8}},"ResultPath":"vlans.910"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":14,"GroupName":"vlans.{{ vlan }}","PatternIndex":1,"Variables":{"name":{"StartCol":6,"EndCol":14}},"ResultPath":"vlans.910"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"vlans.{{ vlan }}","PatternIndex":0,"Variables":{"vlan":{"StartCol":5,"EndCol":8}},"ResultPath":"vlans.777"}]},
    {"LineNumber":7,"Matched":false,"Matches":[]}
   ]
  }

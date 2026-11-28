@@ -2,16 +2,16 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":20,"GroupName":"","PatternIndex":0,"Variables":{"local_intf":{"StartCol":12,"EndCol":20}},"ResultPath":"_anonymous_*"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":25,"GroupName":"","PatternIndex":1,"Variables":{"peer_name":{"StartCol":13,"EndCol":25}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":20,"GroupName":"","PatternIndex":0,"Variables":{"local_intf":{"StartCol":12,"EndCol":20}},"ResultPath":"_anonymous_[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":25,"GroupName":"","PatternIndex":1,"Variables":{"peer_name":{"StartCol":13,"EndCol":25}},"ResultPath":"_anonymous_[0]"}]},
    {"LineNumber":3,"Matched":false,"Matches":[]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"peer_system_description","PatternIndex":0,"Variables":{},"ResultPath":"peer_system_description"},{"StartCol":0,"EndCol":19,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":19}},"ResultPath":"peer_system_description"}]},
-   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":124,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":124}},"ResultPath":"peer_system_description"}]},
-   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":51,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":51}},"ResultPath":"peer_system_description"}]},
-   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":46}},"ResultPath":"peer_system_description"}]},
-   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":33,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":33}},"ResultPath":"peer_system_description"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"peer_system_description","PatternIndex":0,"Variables":{},"ResultPath":"_anonymous_[0].peer_system_description"},{"StartCol":0,"EndCol":19,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":19}},"ResultPath":"_anonymous_[0].peer_system_description"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":124,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":124}},"ResultPath":"_anonymous_[0].peer_system_description"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":51,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":51}},"ResultPath":"_anonymous_[0].peer_system_description"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":46}},"ResultPath":"_anonymous_[0].peer_system_description"}]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":33,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":33}},"ResultPath":"_anonymous_[0].peer_system_description"}]},
    {"LineNumber":9,"Matched":false,"Matches":[]},
-   {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":26}},"ResultPath":"peer_system_description"},{"StartCol":0,"EndCol":26,"GroupName":"peer_system_description","PatternIndex":2,"Variables":{},"ResultPath":"peer_system_description"}]},
+   {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"peer_system_description","PatternIndex":1,"Variables":{"sys_description":{"StartCol":0,"EndCol":26}},"ResultPath":"_anonymous_[0].peer_system_description"}]},
    {"LineNumber":11,"Matched":false,"Matches":[]}
   ]
  }

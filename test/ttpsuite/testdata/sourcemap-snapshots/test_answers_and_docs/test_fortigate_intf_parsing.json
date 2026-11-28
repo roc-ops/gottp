@@ -5,8 +5,8 @@
    {"LineNumber":1,"Matched":false,"Matches":[]},
    {"LineNumber":2,"Matched":false,"Matches":[]},
    {"LineNumber":3,"Matched":false,"Matches":[]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":3,"GroupName":"interfaces","PatternIndex":2,"Variables":{},"ResultPath":"interfaces"}]},
-   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"interfaces","PatternIndex":0,"Variables":{},"ResultPath":"interfaces"}]},
+   {"LineNumber":4,"Matched":false,"Matches":[]},
+   {"LineNumber":5,"Matched":false,"Matches":[]},
    {"LineNumber":6,"Matched":false,"Matches":[]},
    {"LineNumber":7,"Matched":false,"Matches":[]},
    {"LineNumber":8,"Matched":false,"Matches":[]},
@@ -22,7 +22,7 @@
    {"LineNumber":18,"Matched":false,"Matches":[]},
    {"LineNumber":19,"Matched":false,"Matches":[]},
    {"LineNumber":20,"Matched":false,"Matches":[]},
-   {"LineNumber":21,"Matched":true,"Matches":[{"StartCol":0,"EndCol":3,"GroupName":"interfaces","PatternIndex":2,"Variables":{},"ResultPath":"interfaces"}]},
+   {"LineNumber":21,"Matched":false,"Matches":[]},
    {"LineNumber":22,"Matched":false,"Matches":[]},
    {"LineNumber":23,"Matched":false,"Matches":[]},
    {"LineNumber":24,"Matched":false,"Matches":[]},
@@ -30,7 +30,7 @@
    {"LineNumber":26,"Matched":false,"Matches":[]},
    {"LineNumber":27,"Matched":false,"Matches":[]},
    {"LineNumber":28,"Matched":false,"Matches":[]},
-   {"LineNumber":29,"Matched":true,"Matches":[{"StartCol":0,"EndCol":3,"GroupName":"interfaces","PatternIndex":2,"Variables":{},"ResultPath":"interfaces"}]},
+   {"LineNumber":29,"Matched":false,"Matches":[]},
    {"LineNumber":30,"Matched":false,"Matches":[]}
   ]
  }

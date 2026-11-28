@@ -31,6 +31,14 @@ These fixes make `ParseWithValidation` report problems it used to pass, so outpu
 - **Top-level groups are validated once.** A second YANG validation of top-level groups, which replaced the result `parseGroup` recorded, is gone; a group that only returns its start-line defaults no longer gets a validation result that it doesn't get with source maps off. (#52)
 - `<vars name="...">` tags are stored the same way as with source maps off: in each input's results with `results="per_input"` (with getters such as `gethostname` resolved), and not at all with `per_template`.
 
+### Changed (source map content)
+The source map is now recorded from the matches the parser actually uses, instead of a second matching pass after parsing (refactor A2, #60). Parsed data doesn't change. The `SourceMap` JSON shape doesn't change, but its content does:
+- **`ResultPath` is the record's real location in the results**, found by following each record through `record=`, group functions, macros and storing. Every level gets its list index: `routers[0].interfaces[1].addresses[0]`, where it used to be `routers*.interfaces[1].addresses`. Dynamic paths are resolved (`vlans.10` instead of `vlans.{{ id }}[0]`), and a repeated group with one match gives `interfaces[0]` instead of `interfaces*`. The old pass looked the path up by prefix in random map order and recorded only two nesting levels.
+- **Only matches a record used are recorded.** A line a pattern matches but no record takes (before the first start line, after a rejected start line, a redundant `_start_`/`_end_` match) is no longer marked matched.
+- **Matches of records that don't reach the results** (filtered out by `contains=` and similar, `void` groups, a child group whose `itemize` result isn't stored) are still recorded, with an empty `ResultPath`.
+- **Children at every depth are recorded**, including a line that two groups' records both consumed.
+- With source maps on, parsing is 24–32% faster and allocates 2–20% less, because the second matching pass is gone.
+
 ### Tests
 - **Source-map snapshots and parity pins** (refactor A0, #60): `test/ttpsuite` now pins the source map of all 217 source-map parity cases as snapshot files (`TestSourceMapSnapshots`, rewritten with `-update-sourcemap-snapshots`), and `TestSourceMapParity` also compares `KeyFields`. Three new gottp-only parity cases (`testdata/sourcemap-parity`) record that source maps on skips input functions and leaves `KeyFields` empty. `test/comparison` has benchmarks with source maps on (`*SourceMap`) next to the existing ones.
 

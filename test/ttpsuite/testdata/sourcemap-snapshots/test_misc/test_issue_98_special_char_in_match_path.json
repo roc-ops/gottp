@@ -2,10 +2,10 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"interfaces.{{ ri }}**","PatternIndex":0,"Variables":{},"ResultPath":"interfaces.\"some_routing_instance_70\\1\"**"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":34,"GroupName":"interfaces.{{ ri }}**","PatternIndex":1,"Variables":{"ri":{"StartCol":4,"EndCol":32}},"ResultPath":"interfaces.\"some_routing_instance_70\\1\"**"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"interfaces.{{ ri }}**","PatternIndex":0,"Variables":{},"ResultPath":"interfaces.\"some_routing_instance_70\\1\""}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":34,"GroupName":"interfaces.{{ ri }}**","PatternIndex":1,"Variables":{"ri":{"StartCol":4,"EndCol":32}},"ResultPath":"interfaces.\"some_routing_instance_70\\1\""}]},
    {"LineNumber":3,"Matched":false,"Matches":[]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":5,"GroupName":"interfaces.{{ ri }}**","PatternIndex":2,"Variables":{},"ResultPath":"interfaces.\"some_routing_instance_70\\1\"**"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":5,"GroupName":"interfaces.{{ ri }}**","PatternIndex":2,"Variables":{},"ResultPath":"interfaces.\"some_routing_instance_70\\1\""}]},
    {"LineNumber":5,"Matched":false,"Matches":[]},
    {"LineNumber":6,"Matched":false,"Matches":[]}
   ]

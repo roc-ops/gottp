@@ -2,7 +2,7 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":10,"GroupName":"vrfs*","PatternIndex":0,"Variables":{"name":{"StartCol":4,"EndCol":8}},"ResultPath":"vrfs*"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":10,"GroupName":"vrfs*","PatternIndex":0,"Variables":{"name":{"StartCol":4,"EndCol":8}},"ResultPath":"vrfs[0]"}]},
    {"LineNumber":2,"Matched":false,"Matches":[]},
    {"LineNumber":3,"Matched":false,"Matches":[]},
    {"LineNumber":4,"Matched":false,"Matches":[]},
@@ -27,7 +27,7 @@
    {"LineNumber":23,"Matched":false,"Matches":[]},
    {"LineNumber":24,"Matched":false,"Matches":[]},
    {"LineNumber":25,"Matched":false,"Matches":[]},
-   {"LineNumber":26,"Matched":true,"Matches":[{"StartCol":0,"EndCol":5,"GroupName":"vrfs*","PatternIndex":2,"Variables":{},"ResultPath":"vrfs*"}]},
+   {"LineNumber":26,"Matched":true,"Matches":[{"StartCol":0,"EndCol":5,"GroupName":"vrfs*","PatternIndex":2,"Variables":{},"ResultPath":"vrfs[0]"}]},
    {"LineNumber":27,"Matched":false,"Matches":[]}
   ]
  }
