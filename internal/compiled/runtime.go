@@ -656,48 +656,8 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 	// Python TTP: anonymous groups are merged with the rest of the groups' results
 	var resultsToFormat interface{}
 	if r.compiled.ResultsMethod == "per_template" {
-		if anonymousResults, ok := results["_anonymous_"]; ok {
-			// If _anonymous_ is a list, that becomes the root result
-			// Otherwise, merge it into results
-			if anonymousList, ok := anonymousResults.([]interface{}); ok {
-				// Anonymous group with multiple matches - the list is the result
-				resultsToFormat = anonymousList
-			} else {
-				// Single match or other type - merge into results
-				delete(results, "_anonymous_")
-				if anonymousMap, ok := anonymousResults.(map[string]interface{}); ok {
-					for k, v := range anonymousMap {
-						results[k] = v
-					}
-				}
-				resultsToFormat = results
-			}
-		} else {
-			resultsToFormat = results
-		}
+		resultsToFormat = formResults(results)
 	} else {
-		// per_input - merge _anonymous_ into each input's results
-		for _, inputResults := range resultsPerInput {
-			if anonymousResults, ok := inputResults["_anonymous_"]; ok {
-				// If _anonymous_ is a list, that becomes the input's result
-				// Otherwise, merge it into inputResults
-				if anonymousList, ok := anonymousResults.([]interface{}); ok {
-					// Anonymous group with multiple matches - store the list for later use
-					// We'll handle this when creating resultsList
-					// Store it back in the map temporarily so we can access it
-					inputResults["_anonymous_list"] = anonymousList
-				} else {
-					// Single match or other type - merge into inputResults
-					delete(inputResults, "_anonymous_")
-					if anonymousMap, ok := anonymousResults.(map[string]interface{}); ok {
-						for k, v := range anonymousMap {
-							inputResults[k] = v
-						}
-					}
-				}
-			}
-		}
-
 		// per_input - create a result for each input, even if empty
 		// Create results list with one entry per input
 		resultsList := make([]interface{}, 0)
@@ -716,19 +676,9 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 
 		for _, inputName := range inputNamesList {
 			if inputResults, exists := resultsPerInput[inputName]; exists {
-				// Check if this input has anonymous group results stored as a list
-				// Anonymous groups with multiple matches are stored at "_anonymous_list" key
-				if anonymousList, ok := inputResults["_anonymous_list"]; ok {
-					if list, ok := anonymousList.([]interface{}); ok {
-						// Anonymous group results - these should BE the entire result list
-						// Don't append, just use the list directly as the result
-						resultsToFormat = list
-						goto skipResultsListBuild
-					}
-				}
-
-				// This input had results - use its results map
-				resultsList = append(resultsList, inputResults)
+				// This input had results; an anonymous group's results
+				// become this input's result (Python TTP form_results).
+				resultsList = append(resultsList, formResults(inputResults))
 			} else {
 				// Empty result for this input (matches Python TTP behavior)
 				resultsList = append(resultsList, make(map[string]interface{}))
@@ -736,7 +686,6 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 		}
 
 		resultsToFormat = resultsList
-	skipResultsListBuild:
 	}
 
 	// Process output functions if any
@@ -759,6 +708,53 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 		return []interface{}{finalResults}, nil
 	}
 	return finalResults, nil
+}
+
+// formResults turns one input's results map (or, for per_template, the
+// combined results map) into that input's result, the way Python TTP's
+// template.form_results does (ttp/ttp.py:989-1003 in TTP 0.10.1). Results of
+// top-level anonymous groups are stored under "_anonymous_"; when present,
+// that value becomes the result, and anything else in the map is appended to
+// it as one more item. Without anonymous results the map is the result.
+//
+// Python never has an empty "_anonymous_" list (it only creates the key on a
+// match); gottp can, so an empty one counts as absent. When "_anonymous_" is a
+// single dict (the implicit group of a template without tags, matched once)
+// and other results exist, Python raises AttributeError; gottp merges the
+// dict into the rest instead, as it did before.
+func formResults(result map[string]interface{}) interface{} {
+	anonymous, ok := result["_anonymous_"]
+	if !ok {
+		return result
+	}
+	delete(result, "_anonymous_")
+	switch a := anonymous.(type) {
+	case []interface{}:
+		if len(a) == 0 {
+			return result
+		}
+		if len(result) == 0 {
+			return a
+		}
+		datum := make([]interface{}, 0, len(a)+1)
+		datum = append(datum, a...)
+		return append(datum, result)
+	case map[string]interface{}:
+		if len(result) == 0 {
+			return a
+		}
+		for k, v := range a {
+			result[k] = v
+		}
+		return result
+	case nil:
+		return result
+	default:
+		if len(result) == 0 {
+			return anonymous
+		}
+		return result
+	}
 }
 
 // errStreamGate is the sentinel matched by errors.Is when the gate fires.
@@ -1359,31 +1355,10 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 	var resultsToFormat interface{}
 
 	if r.compiled.ResultsMethod == "per_template" {
-		// per_template - return single results map
-		resultsToFormat = results
+		// per_template - return single results map, with an anonymous
+		// group's results as the result (Python TTP form_results)
+		resultsToFormat = formResults(results)
 	} else {
-		// per_input - handle anonymous groups
-		// Anonymous groups with multiple matches need special handling
-		for _, inputResults := range resultsPerInput {
-			if anonymousResults, ok := inputResults["_anonymous_"]; ok {
-				// If _anonymous_ is a list, that becomes the input's result
-				// Otherwise, merge it into inputResults
-				if anonymousList, ok := anonymousResults.([]interface{}); ok {
-					// Anonymous group with multiple matches - store the list for later use
-					// We'll handle this when creating resultsList
-					// Store it back in the map temporarily so we can access it
-					inputResults["_anonymous_list"] = anonymousList
-				} else {
-					// Single match or other type - merge into inputResults
-					delete(inputResults, "_anonymous_")
-					if anonymousMap, ok := anonymousResults.(map[string]interface{}); ok {
-						for k, v := range anonymousMap {
-							inputResults[k] = v
-						}
-					}
-				}
-			}
-		}
 
 		// per_input - create a result for each input, even if empty
 		// Create results list with one entry per input
@@ -1403,19 +1378,9 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 
 		for _, inputName := range inputNamesList {
 			if inputResults, exists := resultsPerInput[inputName]; exists {
-				// Check if this input has anonymous group results stored as a list
-				// Anonymous groups with multiple matches are stored at "_anonymous_list" key
-				if anonymousList, ok := inputResults["_anonymous_list"]; ok {
-					if list, ok := anonymousList.([]interface{}); ok {
-						// Anonymous group results - these should BE the entire result list
-						// Don't append, just use the list directly as the result
-						resultsToFormat = list
-						goto skipResultsListBuild
-					}
-				}
-
-				// This input had results - use its results map
-				resultsList = append(resultsList, inputResults)
+				// This input had results; an anonymous group's results
+				// become this input's result (Python TTP form_results).
+				resultsList = append(resultsList, formResults(inputResults))
 			} else {
 				// Empty result for this input (matches Python TTP behavior)
 				resultsList = append(resultsList, make(map[string]interface{}))
@@ -1423,7 +1388,6 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 		}
 
 		resultsToFormat = resultsList
-	skipResultsListBuild:
 	}
 
 	// Process output functions if any
@@ -7114,18 +7078,23 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 					result = formatted
 				} else {
 					// For other formatters, format each input's results separately
-					// BUT: for table formatter with anonymous groups (list of dicts),
-					// Python TTP combines all matches into a single table
+					// BUT: Python TTP's table formatter takes the whole results
+					// list and flattens each input's result into one table. An
+					// input's result is a dict, or a list of matches when the
+					// template has a top-level anonymous group (#62).
 					if outputConfig.Format == "table" {
-						// Check if resultList is a list of dicts (anonymous group results)
-						allDicts := true
+						allTableable := true
 						for _, item := range resultList {
-							if _, ok := item.(map[string]interface{}); !ok {
-								allDicts = false
+							switch item.(type) {
+							case map[string]interface{}, []interface{}:
+							default:
+								allTableable = false
+							}
+							if !allTableable {
 								break
 							}
 						}
-						if allDicts {
+						if allTableable {
 							// Anonymous group results - combine into single table
 							formatted, err := formatFn(resultList, nil, kwargs)
 							if err != nil {

@@ -63,9 +63,15 @@ interface Vlan777
 		t.Fatal("Expected at least one result")
 	}
 
-	groupList, ok := resultList[0].(map[string]interface{})
+	// An unnamed top-level <group> always gives a list of matches as the
+	// input's result, even for one match (Python TTP 0.10.1, #62).
+	matches, ok := resultList[0].([]interface{})
+	if !ok || len(matches) != 1 {
+		t.Fatalf("Expected a list of one match as the input's result, got %#v", resultList[0])
+	}
+	groupList, ok := matches[0].(map[string]interface{})
 	if !ok {
-		t.Fatalf("Expected map result, got %T", resultList[0])
+		t.Fatalf("Expected map result, got %T", matches[0])
 	}
 
 	// Should only have Port-Channel11 (Loopback0 and Vlan777 should be filtered out)

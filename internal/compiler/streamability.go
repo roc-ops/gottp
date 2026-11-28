@@ -127,6 +127,12 @@ func hasAnyJoinMatches(g *CompiledGroup) bool {
 // reviewability.
 func analyzeStreamability(g *CompiledGroup) {
 	g.NormalizedPath = strings.TrimSuffix(g.Name, "*")
+	if g.NormalizedPath == "_anonymous_" {
+		// The implicit group of a template without group tags is named
+		// "_anonymous_", as in Python TTP (#62). It streams like an unnamed
+		// <group>, with an empty path.
+		g.NormalizedPath = ""
+	}
 
 	var reasons []string
 
