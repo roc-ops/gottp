@@ -1,0 +1,104 @@
+[
+ {
+  "name": "test_group_chain_attribute/test_group_chain_attribute_list",
+  "source": "test/pytest/test_group_chain_attribute.py::test_group_chain_attribute_list",
+  "template": "\n<input load=\"text\">\ninterface Port-Chanel11\n  vlan 10\ninterface Loopback0\n  vlan 20\n  description test loopback0\ninterface Loopback1\n  vlan 30\n  description test loopback1\n</input>\n\n<vars>\nchain1 = [\n\"del(vlan)\",\n\"contains_val(interface, 'Loop')\"\n]\n</vars>\n\n<group chain=\"chain1\">\ninterface {{ interface }}\n  vlan {{ vlan | to_int }}\n  description {{ description | ORPHRASE }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "test loopback0",
+      "interface": "Loopback0"
+     },
+     {
+      "description": "test loopback1",
+      "interface": "Loopback1"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_chain_attribute/test_group_chain_attribute_list_multi_func",
+  "source": "test/pytest/test_group_chain_attribute.py::test_group_chain_attribute_list_multi_func",
+  "template": "\n<input load=\"text\">\ninterface Port-Chanel11\n  vlan 10\ninterface Loopback0\n  vlan 20\n  description test loopback0\ninterface Loopback1\n  vlan 30\n  description test loopback1\n</input>\n\n<vars>\nchain1 = [\n  \"del(vlan) | set('set_value', 'set_key')\",\n  \"contains_val(interface, 'Loop')\",\n  \"macro('test_macro')\",\n  \"macro('test_macro1, test_macro2')\",\n  \"macro(test_macro3, test_macro4)\",\n]\n</vars>\n\n<macro>\ndef test_macro(data):\n    data[\"test_macro\"] = \"DONE\"\n    return data\n\ndef test_macro1(data):\n    data[\"test_macro1\"] = \"DONE\"\n    return data\n    \ndef test_macro2(data):\n    data[\"test_macro2\"] = \"DONE\"\n    return data\n\t\ndef test_macro3(data):\n    data[\"test_macro3\"] = \"DONE\"\n    return data\n\t\ndef test_macro4(data):\n    data[\"test_macro4\"] = \"DONE\"\n    return data\n</macro>\n\n<group chain=\"chain1\">\ninterface {{ interface }}\n  vlan {{ vlan | to_int }}\n  description {{ description | ORPHRASE }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "test loopback0",
+      "interface": "Loopback0",
+      "set_key": "set_value",
+      "test_macro": "DONE",
+      "test_macro1": "DONE",
+      "test_macro2": "DONE",
+      "test_macro3": "DONE",
+      "test_macro4": "DONE"
+     },
+     {
+      "description": "test loopback1",
+      "interface": "Loopback1",
+      "set_key": "set_value",
+      "test_macro": "DONE",
+      "test_macro1": "DONE",
+      "test_macro2": "DONE",
+      "test_macro3": "DONE",
+      "test_macro4": "DONE"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_chain_attribute/test_group_chain_attribute_string_var",
+  "source": "test/pytest/test_group_chain_attribute.py::test_group_chain_attribute_string_var",
+  "template": "\n<input load=\"text\">\ninterface Port-Chanel11\n  vlan 10\ninterface Loopback0\n  vlan 20\n  description test loopback0\ninterface Loopback1\n  vlan 30\n  description test loopback1\n</input>\n\n<vars>\nchain1 = \"del(vlan) | set('set_value', 'set_key') | contains_val(interface, 'Loop') | macro('test_macro')\"\n</vars>\n\n<macro>\ndef test_macro(data):\n    data[\"test_macro\"] = \"DONE\"\n    return data\n</macro>\n\n<group chain=\"chain1\">\ninterface {{ interface }}\n  vlan {{ vlan | to_int }}\n  description {{ description | ORPHRASE }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "test loopback0",
+      "interface": "Loopback0",
+      "set_key": "set_value",
+      "test_macro": "DONE"
+     },
+     {
+      "description": "test loopback1",
+      "interface": "Loopback1",
+      "set_key": "set_value",
+      "test_macro": "DONE"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_chain_attribute/test_group_chain_attribute_string_inline",
+  "source": "test/pytest/test_group_chain_attribute.py::test_group_chain_attribute_string_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Chanel11\n  vlan 10\ninterface Loopback0\n  vlan 20\n  description test loopback0\ninterface Loopback1\n  vlan 30\n  description test loopback1\n</input>\n\n<macro>\ndef test_macro(data):\n    data[\"test_macro\"] = \"DONE\"\n    return data\n\t\ndef test_macro1(data):\n    data[\"test_macro1\"] = \"DONE\"\n    return data\n</macro>\n\n<group chain=\"del(vlan) | set('set_value', 'set_key') | contains_val(interface, 'Loop') | macro('test_macro, test_macro1')\">\ninterface {{ interface }}\n  vlan {{ vlan | to_int }}\n  description {{ description | ORPHRASE }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "test loopback0",
+      "interface": "Loopback0",
+      "set_key": "set_value",
+      "test_macro": "DONE",
+      "test_macro1": "DONE"
+     },
+     {
+      "description": "test loopback1",
+      "interface": "Loopback1",
+      "set_key": "set_value",
+      "test_macro": "DONE",
+      "test_macro1": "DONE"
+     }
+    ]
+   ]
+  ]
+ }
+]

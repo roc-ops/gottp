@@ -1,0 +1,41 @@
+[
+ {
+  "name": "test_lookups/test_lookup_include_csv",
+  "source": "test/pytest/test_lookups.py::test_lookup_include_csv",
+  "template": "\n<lookup name=\"ASNs\" load=\"csv\" include=\"./assets/test_lookup_include_csv.csv\"/>\n\n<input load=\"text\">\nrouter bgp 65101\n</input>\n\n<group name=\"bgp_config\">\nrouter bgp {{ bgp_as | lookup(ASNs, add_field=\"as_info\") }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "bgp_config": {
+      "bgp_as": "65101",
+      "as_info": {
+       "as_name": "CPEs",
+       "as_description": "Private ASN for FTTB CPEs"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_lookups/test_lookup_include_yaml",
+  "source": "test/pytest/test_lookups.py::test_lookup_include_yaml",
+  "template": "\n<lookup name=\"yaml_look\" load=\"yaml\" include=\"./assets/test_lookup_include_yaml.txt\">\n</lookup>\n\n<input load=\"text\">\nrouter bgp 65100\n</input>\n\n<group name=\"bgp_config\">\nrouter bgp {{ bgp_as | lookup(\"yaml_look\", add_field=\"as_details\") }}\n</group> \n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "bgp_config": {
+      "bgp_as": "65100",
+      "as_details": {
+       "as_description": "Private ASN",
+       "as_name": "Subs",
+       "prefix_num": "734"
+      }
+     }
+    }
+   ]
+  ]
+ }
+]

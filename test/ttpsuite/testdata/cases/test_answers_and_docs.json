@@ -1,0 +1,3209 @@
+[
+ {
+  "name": "test_answers_and_docs/test_docs_ttp_dictionary_usage_example",
+  "source": "test/pytest/test_answers_and_docs.py::test_docs_ttp_dictionary_usage_example",
+  "template": "\n<input load=\"text\">\ninterface Lo0\n ip address 124.171.238.50/29\n!\ninterface Lo1\n ip address 1.1.1.1/30\n</input>\n\n<group macro=\"add_last_host\">\ninterface {{ interface }}\n ip address {{ ip }}\n</group>\n\n<macro>\ndef add_last_host(data):\n    ip_obj, _ = _ttp_[\"match\"][\"to_ip\"](data[\"ip\"])\n    all_ips = list(ip_obj.network.hosts())\n    data[\"last_host\"] = str(all_ips[-1])\n    return data\n</macro>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "ip": "124.171.238.50/29",
+      "interface": "Lo0",
+      "last_host": "124.171.238.54"
+     },
+     {
+      "ip": "1.1.1.1/30",
+      "interface": "Lo1",
+      "last_host": "1.1.1.2"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_github_issue_22",
+  "source": "test/pytest/test_answers_and_docs.py::test_github_issue_22",
+  "template": "{{ ignore(r\"\\s+\") }}ip address {{ ip_address }} 255.255.255.255",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface Loopback0\n description Fabric Node Router ID\n ip address 192.2.101.70 255.255.255.255\n ip pim sparse-mode\n ip router isis \n clns mtu 1400\nend\ninterface Loopback0\n description Fabric Node Router ID\n ip address 192.2.101.71 255.255.255.255\n ip pim sparse-mode\n ip router isis \n clns mtu 1400\nend\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "ip_address": "192.2.101.70"
+     },
+     {
+      "ip_address": "192.2.101.71"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_reddit_answer_1",
+  "source": "test/pytest/test_answers_and_docs.py::test_reddit_answer_1",
+  "template": "\n<vars>\nhostname=\"gethostname\"\n</vars>\n\n<group name=\"vlans*\">\nStatus and Counters - VLAN Information - for ports {{ Port_Number }}\n{{ Tagged_VLAN | joinmatches(\" \") }} {{ ignore }} | {{ ignore }} {{ ignore }} {{ ignore }} Tagged\n{{ Untagged_VLAN }}                  {{ ignore }} | {{ ignore }} {{ ignore }} {{ ignore }} Untagged\n{{ Hostname | set(hostname) }}\n</group>   \n\n<output>\nformat = \"csv\"\npath = \"vlans\"\nheaders = \"Hostname, Port_Number, Untagged_VLAN, Tagged_VLAN\"\n</output>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nSWITCH# show vlan port 2/11 detail\n\nStatus and Counters - VLAN Information - for ports 2/11\n\nPort name:\n\nVLAN ID Name | Status Voice Jumbo Mode\n\n------- -------------------- + ---------- ----- ----- --------\n\n60 ABC | Port-based No No Tagged\n\n70 DEF | Port-based No No Tagged\n\n101 GHIJ | Port-based No No Untagged\n\n105 KLMNO | Port-based No No Tagged\n\n116 PQRS | Port-based No No Tagged\n\n117 TVU | Port-based No No Tagged\n\nSWITCH# show vlan port 2/12 detail\n\nStatus and Counters - VLAN Information - for ports 2/12\n\nPort name:\n\nVLAN ID Name | Status Voice Jumbo Mode\n\n------- -------------------- + ---------- ----- ----- --------\n\n61 ABC | Port-based No No Tagged\n\n71 DEF | Port-based No No Tagged\n\n103 GHI | Port-based No No Untagged\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   "\"Hostname\",\"Port_Number\",\"Untagged_VLAN\",\"Tagged_VLAN\"\n\"SWITCH\",\"2/11\",\"101\",\"60 70 105 116 117\"\n\"SWITCH\",\"2/12\",\"103\",\"61 71\""
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_reddit_answer_2",
+  "source": "test/pytest/test_answers_and_docs.py::test_reddit_answer_2",
+  "template": "\n<vars>\nclean_phrase = [\n    'ORPHRASE',\n    'macro(\"clean_str\")'\n]\nclean_list = [\n    'ORPHRASE',\n    'macro(\"build_list\")'\n]\n</vars>\n<macro>\ndef build_list(data):\n    if \"\\\" \\\"\" in data:\n        t = data.split(\"\\\" \\\"\")\n        for i in range(0, len(t)):\n            t[i] = t[i].strip(\"\\\"\").replace(\" \", \"_\")\n            i+=1\n        return t\n    else:\n        return [data.strip(\"\\\"\").replace(\" \", \"_\")]\ndef clean_str(data):\n    return data.replace(\"\\\"\",\"\").replace(\" \", \"_\")\ndef match_ip_or_any(data):\n    import ipaddress\n    if data == \"any\":\n        return data\n    elif \"/\" in data:\n        return str(data)\n    else:    \n        t = data.replace(\" \", \"/\")\n        return str(ipaddress.IPv4Network(t, strict=False))\ndef ignore_empty(data):\n    if data == \"''\":\n        return bool(False)\n    else:\n        return data\n</macro>\n<macro>\ndef skip_empty(data):\n    if data == {}:\n        return False\n    return data\n</macro>\n<group name=\"ospf\">\nconfig router ospf {{ _start_ }}\n    set auto-cost-ref-bandwidth {{ ref_bw }}\n    set default-information-originate {{ default_originate | contains(\"enable\") }}\n    set default-information-metric {{ default_originate_metric }}\n    set default-information-metric-type {{ default_originate_metric_type }}\n    set default-information-route-map {{ default_originate_routemap | chain(\"clean_phrase\") | macro(\"ignore_empty\") }}\n    set default-metric {{ default_rt_metric }} \n    set rfc1583-compatible {{ rfc1583_compat | contains(\"enable\") }}\n    set router-id {{ router_id }}  \n    set distribute-list-in {{ dist_list_in | chain(\"clean_phrase\") | macro(\"ignore_empty\") }} \n    set distribute-route-map-in {{ dist_routemap_in | chain(\"clean_phrase\") | macro(\"ignore_empty\") }} \n    <group name=\"areas*\" macro=\"skip_empty\">\n    config area {{ _start_ }}\n        <group>\n        edit {{ area | _start_ }}\n            set stub-type {{ stub_type }}\n            set type {{ area_type }}\n            set nssa-default-information-originate {{ nssa_default_originate | contains(\"enable\") }}\n            set nssa-default-information-originate-metric {{ nssa_default_metric }}\n            set nssa-default-information-originate-metric-type {{ nssa_default_metric_type }}\n            set nssa-redistribution {{ nssa_redis }}\n        next {{ _end_ }}\n        </group>\n    end {{ _end_ }}\n    </group>\n    <group name=\"interfaces*\" macro=\"skip_empty\">\n    config ospf-interface {{ _start_ }}\n        <group contains=\"status\">\n        edit {{ name | chain(\"clean_phrase\") | _start_ }}\n            set interface {{ interface | chain(\"clean_phrase\")}} \n            set ip {{ ip | exclude(\"0.0.0.0\") }}\n            set cost {{ cost | exclude(\"0\") }}\n            set priority {{ priority }}\n            set mtu {{ mtu | exclude(\"0\") }}\n            set network-type {{ network }} \n            set status {{ status | contains(\"enable\") }}\n        next {{ _end_ }}\n        </group>\n    end {{ _end_ }}\n    </group>\n    <group name=\"networks*\" macro=\"skip_empty\">\n    config network {{ _start_ }}\n        <group>\n        edit {{ id | _start_ }}\n            set prefix {{ prefix | ORPHRASE | to_ip | with_prefixlen }} \n            set area {{ area }} \n        next {{ _end_ }}\n        </group>\n    end {{ _end_ }}\n    </group>\n    <group name=\"redistribute*\" contains=\"status\">\n    config redistribute {{ protocol | chain(\"clean_phrase\") | _start_ }}\n        set status {{ status | contains('enable') }}\n        set route-map {{ route_map | chain(\"clean_phrase\") | macro(\"ignore_empty\") }}\n        set metric-type {{ metric-type }} \n        set metric {{ metric | exclude(\"0\") }}\n        set tag {{ tag | exclude(\"0\")}}\n    end {{ _end_ }}\n    </group>\nend {{ _end_ }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nconfig router ospf\n    set abr-type standard\n    set auto-cost-ref-bandwidth 1000\n    set distance-external 110\n    set distance-inter-area 110\n    set distance-intra-area 110\n    set database-overflow disable\n    set database-overflow-max-lsas 10000\n    set database-overflow-time-to-recover 300\n    set default-information-originate disable\n    set default-information-metric 10\n    set default-information-metric-type 2\n    set default-information-route-map ''\n    set default-metric 10\n    set distance 110\n    set rfc1583-compatible disable\n    set router-id 10.1.1.1\n    set spf-timers 5 10\n    set bfd disable\n    set log-neighbour-changes enable\n    set distribute-list-in \"OSPF_IMPORT_PREFIX\"\n    set distribute-route-map-in ''\n    set restart-mode none\n    set restart-period 120\n    config area\n        edit 0.0.0.1\n            set shortcut disable\n            set authentication none\n            set default-cost 10\n            set nssa-translator-role candidate\n            set stub-type summary\n            set type nssa\n            set nssa-default-information-originate disable\n            set nssa-default-information-originate-metric 10\n            set nssa-default-information-originate-metric-type 2\n            set nssa-redistribution enable\n        next\n    end\n    config ospf-interface\n        edit \"vlan1-int\"\n            set interface \"Vlan1\"\n            set ip 0.0.0.0\n            set authentication text\n            set authentication-key netconanRemoved13\n            set prefix-length 0\n            set retransmit-interval 5\n            set transmit-delay 1\n            set cost 0\n            set priority 1\n            set dead-interval 40\n            set hello-interval 10\n            set hello-multiplier 0\n            set database-filter-out disable\n            set mtu 0\n            set mtu-ignore disable\n            set network-type point-to-point\n            set bfd global\n            set status enable\n            set resync-timeout 40\n        next\n        edit \"vlan2-int\"\n            set interface \"vlan2\"\n            set ip 0.0.0.0\n            set authentication text\n            set authentication-key netconanRemoved14\n            set prefix-length 0\n            set retransmit-interval 5\n            set transmit-delay 1\n            set cost 0\n            set priority 1\n            set dead-interval 40\n            set hello-interval 10\n            set hello-multiplier 0\n            set database-filter-out disable\n            set mtu 0\n            set mtu-ignore disable\n            set network-type point-to-point\n            set bfd global\n            set status enable\n            set resync-timeout 40\n        next\n    end\n    config network\n        edit 1\n            set prefix 10.1.1.1 255.255.255.252\n            set area 0.0.0.1\n        next\n        edit 2\n            set prefix 10.1.1.3 255.255.255.252\n            set area 0.0.0.1\n        next\n    end\n    config redistribute \"connected\"\n        set status enable\n        set metric 0\n        set routemap ''\n        set metric-type 2\n        set tag 0\n    end\n    config redistribute \"static\"\n        set status enable\n        set metric 0\n        set routemap ''\n        set metric-type 2\n        set tag 0\n    end\n    config redistribute \"rip\"\n        set status disable\n        set metric 0\n        set routemap ''\n        set metric-type 2\n        set tag 0\n    end\n    config redistribute \"bgp\"\n        set status enable\n        set metric 0\n        set routemap ''\n        set metric-type 2\n        set tag 0\n    end\n    config redistribute \"isis\"\n        set status disable\n        set metric 0\n        set routemap ''\n        set metric-type 2\n        set tag 0\n    end\nend\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "ospf": {
+      "dist_list_in": "OSPF_IMPORT_PREFIX",
+      "router_id": "10.1.1.1",
+      "default_rt_metric": "10",
+      "default_originate_metric_type": "2",
+      "default_originate_metric": "10",
+      "ref_bw": "1000",
+      "areas": [
+       {
+        "nssa_redis": "enable",
+        "nssa_default_metric_type": "2",
+        "nssa_default_metric": "10",
+        "area_type": "nssa",
+        "stub_type": "summary",
+        "area": "0.0.0.1"
+       }
+      ],
+      "interfaces": [
+       {
+        "status": "enable",
+        "network": "point-to-point",
+        "priority": "1",
+        "interface": "Vlan1",
+        "name": "vlan1-int"
+       },
+       {
+        "status": "enable",
+        "network": "point-to-point",
+        "priority": "1",
+        "interface": "vlan2",
+        "name": "vlan2-int"
+       }
+      ],
+      "networks": [
+       {
+        "area": "0.0.0.1",
+        "prefix": "10.1.1.1/30",
+        "id": "1"
+       },
+       {
+        "area": "0.0.0.1",
+        "prefix": "10.1.1.3/30",
+        "id": "2"
+       }
+      ],
+      "redistribute": [
+       {
+        "metric-type": "2",
+        "status": "enable",
+        "protocol": "connected"
+       },
+       {
+        "metric-type": "2",
+        "status": "enable",
+        "protocol": "static"
+       },
+       {
+        "metric-type": "2",
+        "status": "enable",
+        "protocol": "bgp"
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_group_default_docs",
+  "source": "test/pytest/test_answers_and_docs.py::test_group_default_docs",
+  "template": "\n<input load=\"text\">\ndevice-hostame uptime is 27 weeks, 3 days, 10 hours, 46 minutes, 10 seconds\n</input>\n\n<group name=\"uptime**\">\ndevice-hostame uptime is {{ uptime | PHRASE }}\n    <group name=\"software\">\n     software version {{ version | default(\"uncknown\") }}\n    </group>\n</group>\n\n<group name=\"domain\" default=\"Uncknown\">\nDefault domain is {{ fqdn }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "uptime": {
+      "uptime": "27 weeks, 3 days, 10 hours, 46 minutes, 10 seconds",
+      "software": {
+       "version": "uncknown"
+      }
+     },
+     "domain": {
+      "fqdn": "Uncknown"
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_github_issue_34_answer",
+  "source": "test/pytest/test_answers_and_docs.py::test_github_issue_34_answer",
+  "template": "\n<input load=\"text\">\nHi World\n</input>\n\n<group name='demo'>\n<group name='audiences*'>\nHello {{ audience | default([]) }}\n</group>\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "demo": {
+      "audiences": [
+       {
+        "audience": []
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_github_issue_33_answer_1",
+  "source": "test/pytest/test_answers_and_docs.py::test_github_issue_33_answer_1",
+  "template": "\n<input load=\"text\">\nserver 1.1.1.1\nserver 2.2.2.2 3.3.3.3\nserver 4.4.4.4 5.5.5.5 6.6.6.6\n</input>\n\n<group name=\"servers\" method=\"table\">\nserver {{ server | re(r\"\\S+\") | let(\"servers_number\", 1 ) }}\nserver {{ server | re(r\"\\S+ \\S+\") | let(\"servers_number\", 2) }}\nserver {{ server | re(r\"\\S+ \\S+ \\S+\") | let(\"servers_number\", 3) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "servers": [
+      {
+       "server": "1.1.1.1",
+       "servers_number": 1
+      },
+      {
+       "server": "2.2.2.2 3.3.3.3",
+       "servers_number": 2
+      },
+      {
+       "server": "4.4.4.4 5.5.5.5 6.6.6.6",
+       "servers_number": 3
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_36",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_36",
+  "template": "\n<input load=\"text\">\nip access-list standard 42\n 10 remark machine_A\n 10 permit 192.168.200.162\n 20 remark machine_B\n 20 permit 192.168.200.149\n 30 deny   any log\nip access-list standard 98\n 10 permit 10.10.10.1\n 20 remark toto\n 20 permit 30.30.30.1\n 30 permit 30.30.30.0 0.0.0.255\nip access-list standard 99\n 10 permit 10.20.30.40 log\n 20 permit 20.30.40.1 log\n 30 remark DEVICE - SNMP RW\n 30 permit 50.50.50.128 0.0.0.127\n 40 permit 60.60.60.64 0.0.0.63\nip access-list extended 199\n 10 remark COLLECTOR - SNMP\n 10 permit ip 70.70.70.0 0.0.0.255 any\n 20 remark RETURN - Back\n 20 permit ip 80.80.80.0 0.0.0.127 any\n 30 remark VISUALIZE\n 30 permit ip host 90.90.90.138 any\n</input>\n\n<group name=\"ip.{{ acl_type }}.{{ acl_name }}\">\nip access-list {{ acl_type }} {{ acl_name }}\n <group name=\"{{ entry_id }}*\" method=\"table\">\n {{ entry_id }} remark {{ remark_name | re(\".+\") | let(\"action\", \"remark\") }}\n {{ entry_id }} {{ action }} {{ src_host }}\n {{ entry_id }} {{ action }} {{ src_host | let(\"log\", \"log\") }} log\n {{ entry_id }} {{ action }} {{ protocol }} host {{ src_host | let(\"dest_any\", \"any\") }} any\n {{ entry_id }} {{ action }} {{ protocol }} {{ src_ntw | let(\"dest_any\", \"any\") }} {{ src_wildcard | IP }} any\n {{ entry_id }} {{ action }} {{ src_ntw }} {{ src_wildcard | IP }}\n </group>\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "ip": {
+      "standard": {
+       "42": {
+        "10": [
+         {
+          "remark_name": "machine_A",
+          "action": "remark"
+         },
+         {
+          "action": "permit",
+          "src_host": "192.168.200.162"
+         }
+        ],
+        "20": [
+         {
+          "remark_name": "machine_B",
+          "action": "remark"
+         },
+         {
+          "action": "permit",
+          "src_host": "192.168.200.149"
+         }
+        ],
+        "30": [
+         {
+          "action": "deny",
+          "src_host": "any",
+          "log": "log"
+         }
+        ]
+       },
+       "98": {
+        "10": [
+         {
+          "action": "permit",
+          "src_host": "10.10.10.1"
+         }
+        ],
+        "20": [
+         {
+          "remark_name": "toto",
+          "action": "remark"
+         },
+         {
+          "action": "permit",
+          "src_host": "30.30.30.1"
+         }
+        ],
+        "30": [
+         {
+          "action": "permit",
+          "src_ntw": "30.30.30.0",
+          "src_wildcard": "0.0.0.255"
+         }
+        ]
+       },
+       "99": {
+        "10": [
+         {
+          "action": "permit",
+          "src_host": "10.20.30.40",
+          "log": "log"
+         }
+        ],
+        "20": [
+         {
+          "action": "permit",
+          "src_host": "20.30.40.1",
+          "log": "log"
+         }
+        ],
+        "30": [
+         {
+          "remark_name": "DEVICE - SNMP RW",
+          "action": "remark"
+         },
+         {
+          "action": "permit",
+          "src_ntw": "50.50.50.128",
+          "src_wildcard": "0.0.0.127"
+         }
+        ],
+        "40": [
+         {
+          "action": "permit",
+          "src_ntw": "60.60.60.64",
+          "src_wildcard": "0.0.0.63"
+         }
+        ]
+       }
+      },
+      "extended": {
+       "199": {
+        "10": [
+         {
+          "remark_name": "COLLECTOR - SNMP",
+          "action": "remark"
+         },
+         {
+          "action": "permit",
+          "protocol": "ip",
+          "src_ntw": "70.70.70.0",
+          "dest_any": "any",
+          "src_wildcard": "0.0.0.255"
+         }
+        ],
+        "20": [
+         {
+          "remark_name": "RETURN - Back",
+          "action": "remark"
+         },
+         {
+          "action": "permit",
+          "protocol": "ip",
+          "src_ntw": "80.80.80.0",
+          "dest_any": "any",
+          "src_wildcard": "0.0.0.127"
+         }
+        ],
+        "30": [
+         {
+          "remark_name": "VISUALIZE",
+          "action": "remark"
+         },
+         {
+          "action": "permit",
+          "protocol": "ip",
+          "src_host": "90.90.90.138",
+          "dest_any": "any"
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_github_issue_37_original_data_template",
+  "source": "test/pytest/test_answers_and_docs.py::test_github_issue_37_original_data_template",
+  "template": "\n<macro>\nimport re\ndef qinq(data):\n    data = re.sub(r\"\\*\", r\"qinq\", data)\n    return data \n</macro>\n\n<group name=\"service\">\n    service {{ ignore }}\n    <group name=\"epipe.{{ service_id }}\"  default=\"none\">\n        epipe {{ service_id | _start_ }} customer {{ customer_id }} create\n            description \"{{ description | ORPHRASE | default(\"none\") }}\"\n            service-mtu {{ service_mtu | default(\"none\") }}\n            service-name \"{{ service_name | ORPHRASE | default(\"none\") }}\"\n        <group name=\"endpoint\"  default=\"none\">\n            endpoint {{ endpoint | _start_ }} create\n                revert-time {{ revert_time | default(\"none\") }}\n            exit {{ _end_ }}\n        </group>     \n        <group name=\"sap.{{ sap_id }}\"  default=\"none\">\n            sap {{ sap_id | macro(\"qinq\") | _start_ | ORPHRASE }} create\n                description \"{{ description | ORPHRASE | default(\"none\")}}\"\n                multi-service-site \"{{ mss_name | default(\"none\") }}\"\n            <group name=\"ingress\" default=\"default_ingress\" >\n                ingress {{ _start_ }}\n                    qos {{ sap_ingress | default(\"1\") }}                 \n                    scheduler-policy {{ scheduler_policy | default(\"none\")}}\n                exit {{ _end_ }}\n            </group>\n            <group name=\"egress\" default=\"default_egress\">\n                egress {{ _start_ }}\n                    scheduler-policy {{ scheduler_policy | default(\"none\") }}\n                    qos {{ sap_egress | default(\"1)\") }}\n                exit {{ _end_ }}\n            </group>\n                no shutdown {{ state | set(\"enabled\") | default(\"disabled\") }}\n            exit {{ _end_ }}\n        </group>\n        <group name=\"pwr_sdp.{{pwr_spoke_sdp_id}}**\" default=\"none\"> \n            spoke-sdp {{ pwr_spoke_sdp_id | default(\"none\")}}:{{vc_id | _start_ | default(\"none\") }} endpoint {{ endpoint | default(\"none\") }} create             \n                precedence {{ precedence | default(\"default_precedence\") }}\n                no shutdown {{ state | set(\"enabled\") | default(\"disabled\") }}\n            exit {{ _end_ }}\n        </group> \n        <group name=\"regular_sdp.{{r_spoke_sdp_id}}**\" default=\"none\"> \n            spoke-sdp {{ r_spoke_sdp_id }}:{{vc_id | _start_ }} create             \n                no shutdown {{ state | set(\"enabled\") | default(\"disabled\") }}\n            exit {{ _end_ }}\n        </group> \n            no shutdown {{ state | set(\"enabled\") | default(\"disabled\") }}\n        exit {{ _end_ }}\n    </group>\n    exit {{ _end_ }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n    service foo\n        epipe 103076 customer 160 create\n            description \"vf=EWL:cn=TATA_COM:tl=2C02495918:st=act:\"\n            service-mtu 1588\n            service-name \"EPIPE service-103076 DKTN08a-D0105 (63.130.108.41)\"\n            sap 1/2/12:20.* create\n                description \"vf=EWL:cn=TATA_COM:tl=2C02495890:st=act:\"\n                multi-service-site \"TATA_VSNL_STRAT_A206_LAN10\"\n                ingress\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 40 kilobytes\n                            rate 10000 cir 10000\n                        exit\n                    exit\n                exit\n                egress\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 40 kilobytes\n                            rate 10000 cir 10000\n                        exit\n                    exit\n                exit\n                accounting-policy 4\n                no shutdown\n            exit\n            spoke-sdp 8051:103076 create\n                no shutdown\n            exit\n            no shutdown\n        exit\n        epipe 103206 customer 1904 create\n            description \"vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'\"\n            service-mtu 1988\n            service-name \"EPIPE service-103206 DKTN08a-D0105 (63.130.108.41)\"\n            sap 2/2/3:401.100 create\n                description \"vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'\"\n                multi-service-site \"SKANSKA_E13DG_A825_LAN1\"\n                ingress\n                    qos 11010\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 1188 kilobytes\n                            rate max cir 47500\n                        exit\n                        queue 3 create\n                            cbs default\n                            mbs 63 kilobytes\n                            rate max cir 2500\n                        exit\n                    exit\n                exit\n                egress\n                    qos 11010\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 1188 kilobytes\n                            rate max cir 47500\n                        exit\n                        queue 3 create\n                            cbs default\n                            mbs 63 kilobytes\n                            rate max cir 2500\n                        exit\n                    exit\n                exit\n                collect-stats\n                accounting-policy 4\n                no shutdown\n            exit\n            spoke-sdp 8035:103206 create\n                no shutdown\n            exit\n            no shutdown\n        exit\n        epipe 103256 customer 160 create\n            description \"vf=EWL:cn=TATA_COMM:tl=2C02490189:st=act:\"\n            service-mtu 1988\n            service-name \"EPIPE service-103256 DKTN08a-D0105 (63.130.108.41)\"\n            sap 1/2/12:15.* create\n                description \"vf=EWL:cn=TATA_COMM:tl=2C02490171:st=act:\"\n                multi-service-site \"TATA_VSNL_STRAT_A206_LAN5\"\n                ingress\n                    qos 11000\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 391 kilobytes\n                            rate 100000 cir 100000\n                        exit\n                    exit\n                exit\n                egress\n                    qos 11000\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 391 kilobytes\n                            rate 100000 cir 100000\n                        exit\n                    exit\n                exit\n                accounting-policy 4\n                no shutdown\n            exit\n            spoke-sdp 8139:103256 create\n                no shutdown\n            exit\n            no shutdown\n        exit\n        epipe 103742 customer 160 create\n            description \"vf=EWL:cn=TATA_COM:tl=2C02410363:st=act:\"\n            service-mtu 1588\n            service-name \"EPIPE service-103742 DKTN08a-D0105 (63.130.108.41)\"\n            sap 5/2/50:20.* create\n                description \"vf=EWL:cn=TATA_COM:tl=2C02410338:st=act:\"\n                multi-service-site \"TATA_STRAT_LON_A206_LANA\"\n                ingress\n                    qos 11000\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 32 kilobytes\n                            rate 8000 cir 8000\n                        exit\n                    exit\n                exit\n                egress\n                    qos 11000\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 32 kilobytes\n                            rate 8000 cir 8000\n                        exit\n                    exit\n                exit\n                accounting-policy 4\n                no shutdown\n            exit\n            spoke-sdp 8061:103742 create\n                no shutdown\n            exit\n            no shutdown\n        exit\n        epipe 55513386 customer 4 vc-switching create\n            description \"vf=EAGG:cn=Bulldog:tl=VF\"\n            service-mtu 1526\n            spoke-sdp 78:55513386 create\n                control-word\n                no shutdown\n            exit\n            spoke-sdp 8245:55513386 create\n                control-word\n                no shutdown\n            exit\n            no shutdown\n        exit\n        epipe 55517673 customer 4 create\n            description \"vf=EAGG:cn=Bulldog:tl=2C01291821:st=act:no=NGA EPIPE#BAACTQ#VLAN 901\"\n            service-mtu 1526\n            service-name \"epipe service-64585 DKTN08a-D0105 (63.130.108.41)\"\n            endpoint \"SDP\" create\n                revert-time infinite\n            exit\n            sap 2/2/3:901.* create\n                description \"2_2_3,H0505824A,Bulldog,VLAN 901\"\n                ingress\n                    scheduler-policy \"NGA-LLU-300M\"\n                    qos 20010\n                exit\n                egress\n                    scheduler-policy \"NGA-LLU-300M\"\n                    qos 20010\n                exit\n                no shutdown\n            exit\n            spoke-sdp 8243:55517673 endpoint \"SDP\" create\n                collect-stats\n                precedence 1\n                no shutdown\n            exit\n            spoke-sdp 8245:55517673 endpoint \"SDP\" create\n                collect-stats\n                precedence primary\n                no shutdown\n            exit\n            no shutdown\n        exit   \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "service": {
+      "epipe": {
+       "103076": {
+        "service_name": "EPIPE service-103076 DKTN08a-D0105 (63.130.108.41)",
+        "service_mtu": "1588",
+        "description": "vf=EWL:cn=TATA_COM:tl=2C02495918:st=act:",
+        "customer_id": "160",
+        "state": "enabled",
+        "sap": {
+         "1/2/12:20.qinq": {
+          "mss_name": "TATA_VSNL_STRAT_A206_LAN10",
+          "description": "vf=EWL:cn=TATA_COM:tl=2C02495890:st=act:",
+          "state": "enabled",
+          "ingress": {
+           "sap_ingress": "1",
+           "scheduler_policy": "none"
+          },
+          "egress": {
+           "scheduler_policy": "none",
+           "sap_egress": "1)"
+          }
+         }
+        },
+        "regular_sdp": {
+         "8051": {
+          "state": "enabled",
+          "vc_id": "103076"
+         }
+        }
+       },
+       "103206": {
+        "service_name": "EPIPE service-103206 DKTN08a-D0105 (63.130.108.41)",
+        "service_mtu": "1988",
+        "description": "vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'",
+        "customer_id": "1904",
+        "state": "enabled",
+        "sap": {
+         "2/2/3:401.100": {
+          "mss_name": "SKANSKA_E13DG_A825_LAN1",
+          "description": "vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'",
+          "state": "enabled",
+          "ingress": {
+           "sap_ingress": "11010",
+           "scheduler_policy": "none"
+          },
+          "egress": {
+           "sap_egress": "11010",
+           "scheduler_policy": "none"
+          }
+         }
+        },
+        "regular_sdp": {
+         "8035": {
+          "state": "enabled",
+          "vc_id": "103206"
+         }
+        }
+       },
+       "103256": {
+        "service_name": "EPIPE service-103256 DKTN08a-D0105 (63.130.108.41)",
+        "service_mtu": "1988",
+        "description": "vf=EWL:cn=TATA_COMM:tl=2C02490189:st=act:",
+        "customer_id": "160",
+        "state": "enabled",
+        "sap": {
+         "1/2/12:15.qinq": {
+          "mss_name": "TATA_VSNL_STRAT_A206_LAN5",
+          "description": "vf=EWL:cn=TATA_COMM:tl=2C02490171:st=act:",
+          "state": "enabled",
+          "ingress": {
+           "sap_ingress": "11000",
+           "scheduler_policy": "none"
+          },
+          "egress": {
+           "sap_egress": "11000",
+           "scheduler_policy": "none"
+          }
+         }
+        },
+        "regular_sdp": {
+         "8139": {
+          "state": "enabled",
+          "vc_id": "103256"
+         }
+        }
+       },
+       "103742": {
+        "service_name": "EPIPE service-103742 DKTN08a-D0105 (63.130.108.41)",
+        "service_mtu": "1588",
+        "description": "vf=EWL:cn=TATA_COM:tl=2C02410363:st=act:",
+        "customer_id": "160",
+        "state": "enabled",
+        "sap": {
+         "5/2/50:20.qinq": {
+          "mss_name": "TATA_STRAT_LON_A206_LANA",
+          "description": "vf=EWL:cn=TATA_COM:tl=2C02410338:st=act:",
+          "state": "enabled",
+          "ingress": {
+           "sap_ingress": "11000",
+           "scheduler_policy": "none"
+          },
+          "egress": {
+           "sap_egress": "11000",
+           "scheduler_policy": "none"
+          }
+         }
+        },
+        "regular_sdp": {
+         "8061": {
+          "state": "enabled",
+          "vc_id": "103742"
+         }
+        }
+       },
+       "55517673": {
+        "service_name": "epipe service-64585 DKTN08a-D0105 (63.130.108.41)",
+        "service_mtu": "1526",
+        "description": "vf=EAGG:cn=Bulldog:tl=2C01291821:st=act:no=NGA EPIPE#BAACTQ#VLAN 901",
+        "customer_id": "4",
+        "state": "enabled",
+        "endpoint": {
+         "revert_time": "infinite",
+         "endpoint": "\"SDP\""
+        },
+        "sap": {
+         "2/2/3:901.qinq": {
+          "description": "2_2_3,H0505824A,Bulldog,VLAN 901",
+          "mss_name": "none",
+          "state": "enabled",
+          "ingress": {
+           "sap_ingress": "20010",
+           "scheduler_policy": "\"NGA-LLU-300M\""
+          },
+          "egress": {
+           "sap_egress": "20010",
+           "scheduler_policy": "\"NGA-LLU-300M\""
+          }
+         }
+        },
+        "pwr_sdp": {
+         "8243": {
+          "state": "enabled",
+          "precedence": "1",
+          "vc_id": "55517673",
+          "endpoint": "\"SDP\""
+         },
+         "8245": {
+          "state": "enabled",
+          "precedence": "primary",
+          "vc_id": "55517673",
+          "endpoint": "\"SDP\""
+         }
+        }
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_github_issue_37_cleaned_up_data",
+  "source": "test/pytest/test_answers_and_docs.py::test_github_issue_37_cleaned_up_data",
+  "template": "\n<group name=\"service\">\n    service {{ ignore }}\n    <group name=\"epipe.{{ service_id }}\">\n        epipe {{ service_id }} customer {{ customer_id }} create                    \n            <group name=\"regular_sdp.{{r_spoke_sdp_id}}**\"> \n            spoke-sdp {{ r_spoke_sdp_id }}:{{vc_id }} create             \n                no shutdown {{ state | set(\"enabled\") }}\n            </group> \n        </group>\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n    service foo\n        epipe 103076 customer 160 create\n            description \"vf=EWL:cn=TATA_COM:tl=2C02495918:st=act:\"\n            service-mtu 1588\n            service-name \"EPIPE service-103076 DKTN08a-D0105 (63.130.108.41)\"\n            sap 1/2/12:20.* create\n                description \"vf=EWL:cn=TATA_COM:tl=2C02495890:st=act:\"\n                multi-service-site \"TATA_VSNL_STRAT_A206_LAN10\"\n                ingress\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 40 kilobytes\n                            rate 10000 cir 10000\n                        exit\n                    exit\n                exit\n                egress\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 40 kilobytes\n                            rate 10000 cir 10000\n                        exit\n                    exit\n                exit\n                accounting-policy 4\n                no shutdown\n            exit\n            spoke-sdp 8051:103076 create\n                no shutdown\n            exit\n            no shutdown\n        exit\n        epipe 103206 customer 1904 create\n            description \"vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'\"\n            service-mtu 1988\n            service-name \"EPIPE service-103206 DKTN08a-D0105 (63.130.108.41)\"\n            sap 2/2/3:401.100 create\n                description \"vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'\"\n                multi-service-site \"SKANSKA_E13DG_A825_LAN1\"\n                ingress\n                    qos 11010\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 1188 kilobytes\n                            rate max cir 47500\n                        exit\n                        queue 3 create\n                            cbs default\n                            mbs 63 kilobytes\n                            rate max cir 2500\n                        exit\n                    exit\n                exit\n                egress\n                    qos 11010\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 1188 kilobytes\n                            rate max cir 47500\n                        exit\n                        queue 3 create\n                            cbs default\n                            mbs 63 kilobytes\n                            rate max cir 2500\n                        exit\n                    exit\n                exit\n                collect-stats\n                accounting-policy 4\n                no shutdown\n            exit\n            spoke-sdp 8035:103206 create\n                no shutdown\n            exit\n            no shutdown\n        exit\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "service": {
+      "epipe": {
+       "103076": {
+        "customer_id": "160",
+        "regular_sdp": {
+         "8051": {
+          "state": "enabled",
+          "vc_id": "103076"
+         }
+        }
+       },
+       "103206": {
+        "customer_id": "1904",
+        "regular_sdp": {
+         "8035": {
+          "state": "enabled",
+          "vc_id": "103206"
+         }
+        }
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_github_issue_37_cleaned_data_template",
+  "source": "test/pytest/test_answers_and_docs.py::test_github_issue_37_cleaned_data_template",
+  "template": "\n<group name=\"service\">\n    service {{ ignore }}\n    <group name=\"epipe.{{ service_id }}\"  default=\"none\">\n        epipe {{ service_id }} customer {{ customer_id }} create\n            description \"{{ description | ORPHRASE }}\"\n            service-mtu {{ service_mtu }}\n            service-name \"{{ service_name | ORPHRASE }}\"\n        <group name=\"endpoint\"  default=\"none\">\n            endpoint {{ endpoint }} create\n                revert-time {{ revert_time }}\n            exit {{ _end_ }}\n        </group>     \n        <group name=\"sap.{{ sap_id }}\"  default=\"none\">\n            sap {{ sap_id | resub(r\"\\*\", \"qinq\") | ORPHRASE }} create\n                description \"{{ description | ORPHRASE }}\"\n                multi-service-site \"{{ mss_name }}\"\n            <group name=\"ingress\">\n                ingress {{ _start_ }}\n                    qos {{ sap_ingress | default(\"1\") }}                 \n                    scheduler-policy {{ scheduler_policy | default(\"none\")}}\n                exit {{ _end_ }}\n            </group>\n            <group name=\"egress\">\n                egress {{ _start_ }}\n                    scheduler-policy {{ scheduler_policy | default(\"none\") }}\n                    qos {{ sap_egress | default(\"1)\") }}\n                exit {{ _end_ }}\n            </group>\n                no shutdown {{ state | set(\"enabled\") | default(\"disabled\") }}\n            exit {{ _end_ }}\n        </group>\n        <group name=\"pwr_sdp.{{pwr_spoke_sdp_id}}**\" default=\"none\"> \n            spoke-sdp {{ pwr_spoke_sdp_id }}:{{vc_id }} endpoint {{ endpoint }} create             \n                precedence {{ precedence | default(\"default_precedence\") }}\n                no shutdown {{ state | set(\"enabled\") | default(\"disabled\") }}\n            exit {{ _end_ }}\n        </group> \n        <group name=\"regular_sdp.{{r_spoke_sdp_id}}**\" default=\"none\"> \n            spoke-sdp {{ r_spoke_sdp_id }}:{{vc_id }} create             \n                no shutdown {{ state | set(\"enabled\") | default(\"disabled\") }}\n            exit {{ _end_ }}\n        </group> \n            no shutdown {{ state | set(\"enabled\") | default(\"disabled\") }}\n        exit {{ _end_ }}\n    </group>\n    exit {{ _end_ }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n    service foo\n        epipe 103076 customer 160 create\n            description \"vf=EWL:cn=TATA_COM:tl=2C02495918:st=act:\"\n            service-mtu 1588\n            service-name \"EPIPE service-103076 DKTN08a-D0105 (63.130.108.41)\"\n            sap 1/2/12:20.* create\n                description \"vf=EWL:cn=TATA_COM:tl=2C02495890:st=act:\"\n                multi-service-site \"TATA_VSNL_STRAT_A206_LAN10\"\n                ingress\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 40 kilobytes\n                            rate 10000 cir 10000\n                        exit\n                    exit\n                exit\n                egress\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 40 kilobytes\n                            rate 10000 cir 10000\n                        exit\n                    exit\n                exit\n                accounting-policy 4\n                no shutdown\n            exit\n            spoke-sdp 8051:103076 create\n                no shutdown\n            exit\n            no shutdown\n        exit\n        epipe 103206 customer 1904 create\n            description \"vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'\"\n            service-mtu 1988\n            service-name \"EPIPE service-103206 DKTN08a-D0105 (63.130.108.41)\"\n            sap 2/2/3:401.100 create\n                description \"vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'\"\n                multi-service-site \"SKANSKA_E13DG_A825_LAN1\"\n                ingress\n                    qos 11010\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 1188 kilobytes\n                            rate max cir 47500\n                        exit\n                        queue 3 create\n                            cbs default\n                            mbs 63 kilobytes\n                            rate max cir 2500\n                        exit\n                    exit\n                exit\n                egress\n                    qos 11010\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 1188 kilobytes\n                            rate max cir 47500\n                        exit\n                        queue 3 create\n                            cbs default\n                            mbs 63 kilobytes\n                            rate max cir 2500\n                        exit\n                    exit\n                exit\n                collect-stats\n                accounting-policy 4\n                no shutdown\n            exit\n            spoke-sdp 8035:103206 create\n                no shutdown\n            exit\n            no shutdown\n        exit\n        epipe 103256 customer 160 create\n            description \"vf=EWL:cn=TATA_COMM:tl=2C02490189:st=act:\"\n            service-mtu 1988\n            service-name \"EPIPE service-103256 DKTN08a-D0105 (63.130.108.41)\"\n            sap 1/2/12:15.* create\n                description \"vf=EWL:cn=TATA_COMM:tl=2C02490171:st=act:\"\n                multi-service-site \"TATA_VSNL_STRAT_A206_LAN5\"\n                ingress\n                    qos 11000\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 391 kilobytes\n                            rate 100000 cir 100000\n                        exit\n                    exit\n                exit\n                egress\n                    qos 11000\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 391 kilobytes\n                            rate 100000 cir 100000\n                        exit\n                    exit\n                exit\n                accounting-policy 4\n                no shutdown\n            exit\n            spoke-sdp 8139:103256 create\n                no shutdown\n            exit\n            no shutdown\n        exit\n        epipe 103742 customer 160 create\n            description \"vf=EWL:cn=TATA_COM:tl=2C02410363:st=act:\"\n            service-mtu 1588\n            service-name \"EPIPE service-103742 DKTN08a-D0105 (63.130.108.41)\"\n            sap 5/2/50:20.* create\n                description \"vf=EWL:cn=TATA_COM:tl=2C02410338:st=act:\"\n                multi-service-site \"TATA_STRAT_LON_A206_LANA\"\n                ingress\n                    qos 11000\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 32 kilobytes\n                            rate 8000 cir 8000\n                        exit\n                    exit\n                exit\n                egress\n                    qos 11000\n                    queue-override\n                        queue 1 create\n                            cbs default\n                            mbs 32 kilobytes\n                            rate 8000 cir 8000\n                        exit\n                    exit\n                exit\n                accounting-policy 4\n                no shutdown\n            exit\n            spoke-sdp 8061:103742 create\n                no shutdown\n            exit\n            no shutdown\n        exit\n        epipe 55513386 customer 4 vc-switching create\n            description \"vf=EAGG:cn=Bulldog:tl=VF\"\n            service-mtu 1526\n            spoke-sdp 78:55513386 create\n                control-word\n                no shutdown\n            exit\n            spoke-sdp 8245:55513386 create\n                control-word\n                no shutdown\n            exit\n            no shutdown\n        exit\n        epipe 55517673 customer 4 create\n            description \"vf=EAGG:cn=Bulldog:tl=2C01291821:st=act:no=NGA EPIPE#BAACTQ#VLAN 901\"\n            service-mtu 1526\n            service-name \"epipe service-64585 DKTN08a-D0105 (63.130.108.41)\"\n            endpoint \"SDP\" create\n                revert-time infinite\n            exit\n            sap 2/2/3:901.* create\n                description \"2_2_3,H0505824A,Bulldog,VLAN 901\"\n                ingress\n                    scheduler-policy \"NGA-LLU-300M\"\n                    qos 20010\n                exit\n                egress\n                    scheduler-policy \"NGA-LLU-300M\"\n                    qos 20010\n                exit\n                no shutdown\n            exit\n            spoke-sdp 8243:55517673 endpoint \"SDP\" create\n                collect-stats\n                precedence 1\n                no shutdown\n            exit\n            spoke-sdp 8245:55517673 endpoint \"SDP\" create\n                collect-stats\n                precedence primary\n                no shutdown\n            exit\n            no shutdown\n        exit   \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "service": {
+      "epipe": {
+       "103076": {
+        "service_name": "EPIPE service-103076 DKTN08a-D0105 (63.130.108.41)",
+        "service_mtu": "1588",
+        "description": "vf=EWL:cn=TATA_COM:tl=2C02495918:st=act:",
+        "customer_id": "160",
+        "state": "enabled",
+        "sap": {
+         "1/2/12:20.qinq": {
+          "mss_name": "TATA_VSNL_STRAT_A206_LAN10",
+          "description": "vf=EWL:cn=TATA_COM:tl=2C02495890:st=act:",
+          "state": "enabled",
+          "ingress": {
+           "sap_ingress": "1",
+           "scheduler_policy": "none"
+          },
+          "egress": {
+           "scheduler_policy": "none",
+           "sap_egress": "1)"
+          }
+         }
+        },
+        "regular_sdp": {
+         "8051": {
+          "state": "enabled",
+          "vc_id": "103076"
+         }
+        }
+       },
+       "103206": {
+        "service_name": "EPIPE service-103206 DKTN08a-D0105 (63.130.108.41)",
+        "service_mtu": "1988",
+        "description": "vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'",
+        "customer_id": "1904",
+        "state": "enabled",
+        "sap": {
+         "2/2/3:401.100": {
+          "mss_name": "SKANSKA_E13DG_A825_LAN1",
+          "description": "vf=1273:cn=skanska:tl=3C02407455:st=act:no='SKANSKA UK PLC Stepney Green E1 3DG'",
+          "state": "enabled",
+          "ingress": {
+           "sap_ingress": "11010",
+           "scheduler_policy": "none"
+          },
+          "egress": {
+           "sap_egress": "11010",
+           "scheduler_policy": "none"
+          }
+         }
+        },
+        "regular_sdp": {
+         "8035": {
+          "state": "enabled",
+          "vc_id": "103206"
+         }
+        }
+       },
+       "103256": {
+        "service_name": "EPIPE service-103256 DKTN08a-D0105 (63.130.108.41)",
+        "service_mtu": "1988",
+        "description": "vf=EWL:cn=TATA_COMM:tl=2C02490189:st=act:",
+        "customer_id": "160",
+        "state": "enabled",
+        "sap": {
+         "1/2/12:15.qinq": {
+          "mss_name": "TATA_VSNL_STRAT_A206_LAN5",
+          "description": "vf=EWL:cn=TATA_COMM:tl=2C02490171:st=act:",
+          "state": "enabled",
+          "ingress": {
+           "sap_ingress": "11000",
+           "scheduler_policy": "none"
+          },
+          "egress": {
+           "sap_egress": "11000",
+           "scheduler_policy": "none"
+          }
+         }
+        },
+        "regular_sdp": {
+         "8139": {
+          "state": "enabled",
+          "vc_id": "103256"
+         }
+        }
+       },
+       "103742": {
+        "service_name": "EPIPE service-103742 DKTN08a-D0105 (63.130.108.41)",
+        "service_mtu": "1588",
+        "description": "vf=EWL:cn=TATA_COM:tl=2C02410363:st=act:",
+        "customer_id": "160",
+        "state": "enabled",
+        "sap": {
+         "5/2/50:20.qinq": {
+          "mss_name": "TATA_STRAT_LON_A206_LANA",
+          "description": "vf=EWL:cn=TATA_COM:tl=2C02410338:st=act:",
+          "state": "enabled",
+          "ingress": {
+           "sap_ingress": "11000",
+           "scheduler_policy": "none"
+          },
+          "egress": {
+           "sap_egress": "11000",
+           "scheduler_policy": "none"
+          }
+         }
+        },
+        "regular_sdp": {
+         "8061": {
+          "state": "enabled",
+          "vc_id": "103742"
+         }
+        }
+       },
+       "55517673": {
+        "service_name": "epipe service-64585 DKTN08a-D0105 (63.130.108.41)",
+        "service_mtu": "1526",
+        "description": "vf=EAGG:cn=Bulldog:tl=2C01291821:st=act:no=NGA EPIPE#BAACTQ#VLAN 901",
+        "customer_id": "4",
+        "state": "enabled",
+        "endpoint": {
+         "revert_time": "infinite",
+         "endpoint": "\"SDP\""
+        },
+        "sap": {
+         "2/2/3:901.qinq": {
+          "description": "2_2_3,H0505824A,Bulldog,VLAN 901",
+          "mss_name": "none",
+          "state": "enabled",
+          "ingress": {
+           "sap_ingress": "20010",
+           "scheduler_policy": "\"NGA-LLU-300M\""
+          },
+          "egress": {
+           "sap_egress": "20010",
+           "scheduler_policy": "\"NGA-LLU-300M\""
+          }
+         }
+        },
+        "pwr_sdp": {
+         "8243": {
+          "state": "enabled",
+          "precedence": "1",
+          "vc_id": "55517673",
+          "endpoint": "\"SDP\""
+         },
+         "8245": {
+          "state": "enabled",
+          "precedence": "primary",
+          "vc_id": "55517673",
+          "endpoint": "\"SDP\""
+         }
+        }
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_github_issue_42",
+  "source": "test/pytest/test_answers_and_docs.py::test_github_issue_42",
+  "template": "\n<group name=\"vrfs\">\nvrf {{name}}\n  <group name=\"route-targets\">\n  import route-target {{ _start_ }}\n   {{ import | to_list | joinmatches }}\n  </group>\n  !\n  <group name=\"route-targets\">\n  export route-target {{ _start_ }}\n   {{ export | to_list | joinmatches }}\n  </group>\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvrf xyz\n address-family ipv4 unicast\n  import route-target\n   65000:3507\n   65000:3511\n   65000:5453\n   65000:5535\n  !\n  export route-target\n   65000:5453\n   65000:5535\n  !\n !\n!    \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vrfs": {
+      "name": "xyz",
+      "route-targets": [
+       {
+        "import": [
+         "65000:3507",
+         "65000:3511",
+         "65000:5453",
+         "65000:5535"
+        ]
+       },
+       {
+        "export": [
+         "65000:5453",
+         "65000:5535"
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_github_issue_42_answer",
+  "source": "test/pytest/test_answers_and_docs.py::test_github_issue_42_answer",
+  "template": "\n<group name=\"vrfs\">\nvrf {{name}}\n  <group name=\"import_rts\">\n  import route-target {{ _start_ }}\n   {{ import_rt | _start_ }}\n  </group>\n  !\n  <group name=\"export_rts\">\n  export route-target {{ _start_ }}\n   {{ export_rt | _start_ }}\n  </group>\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvrf xyz\n address-family ipv4 unicast\n  import route-target\n   65000:3507\n   65000:3511\n   65000:5453\n   65000:5535\n  !\n  export route-target\n   65000:5453\n   65000:5535\n  !\n !\n!    \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vrfs": {
+      "name": "xyz",
+      "import_rts": [
+       {
+        "import_rt": "65000:3507"
+       },
+       {
+        "import_rt": "65000:3511"
+       },
+       {
+        "import_rt": "65000:5453"
+       },
+       {
+        "import_rt": "65000:5535"
+       }
+      ],
+      "export_rts": [
+       {
+        "export_rt": "65000:5453"
+       },
+       {
+        "export_rt": "65000:5535"
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_45",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_45",
+  "template": "\n<group name=\"vrfs*\">\n    {{ name | _start_ }} {\n        <group name=\"forwarding_options\">\n        forwarding-options { {{ _start_ }}\n            <group name=\"dhcp_relay\">\n            dhcp-relay { {{ _start_ }}\n            \n                <group name=\"server_group\">\n                server-group { {{ _start_ }}\n                    <group name=\"dhcp*\">\n                    {{ server_group_name1 | _start_ }} {\n                        <group name=\"helper_addresses*\">\n                        {{ helper_address | IP }};\n                        </group>\n                    } {{ _end_ }}\n                    </group>\n                } {{ _end_ }}\n                </group>\n                \n                <group name=\"groups*\">\n                group {{ group_name | _start_ }} {\n                    active-server-group {{server_group_name2}};\n                } {{ _end_ }}\n                </group>\n                \n            } {{ _end_ }}\n            </group>\n        } {{ _end_ }}\n        </group>\n    } {{ _end_ }}\n</group>    \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n    vrf2 {\n        forwarding-options {\n            dhcp-relay {\n                server-group {\n                    IN_MEDIA_SIGNALING {\n                        10.154.6.147;\n                    }\n                    DHCP-NGN-SIG {\n                        10.154.6.147;\n                    }\n                }\n                group group2 {\n                    active-server-group IN_MEDIA_SIGNALING;\n                    overrides {\n                        trust-option-82;\n                    }\n                }\n                group NGN-SIG {\n                    active-server-group DHCP-NGN-SIG;\n                    overrides {\n                        trust-option-82;\n                    }\n                }\n            }\n        }\n    }\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vrfs": [
+      {
+       "name": "vrf2",
+       "forwarding_options": {
+        "dhcp_relay": {
+         "server_group": {
+          "dhcp": [
+           {
+            "server_group_name1": "IN_MEDIA_SIGNALING",
+            "helper_addresses": [
+             {
+              "helper_address": "10.154.6.147"
+             }
+            ]
+           },
+           {
+            "server_group_name1": "DHCP-NGN-SIG",
+            "helper_addresses": [
+             {
+              "helper_address": "10.154.6.147"
+             }
+            ]
+           }
+          ]
+         },
+         "groups": [
+          {
+           "server_group_name2": "IN_MEDIA_SIGNALING",
+           "group_name": "group2"
+          },
+          {
+           "server_group_name2": "DHCP-NGN-SIG",
+           "group_name": "NGN-SIG"
+          }
+         ]
+        }
+       }
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_45_1",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_45_1",
+  "template": "\n<group name=\"vrfs*\">\n    {{ name | _start_ }} {\n        <group name=\"forwarding_options\">\n        forwarding-options { {{ _start_ }}\n            <group name=\"dhcp_relay\">\n            dhcp-relay { {{ _start_ }}\n            \n                <group name=\"server_group\">\n                server-group { {{ _start_ }}\n                    <group name=\"dhcp*\">\n                    {{ server_group_name | _start_ }} {\n                    </group>\n                </group>\n                \n                <group name=\"groups*\">\n                group {{ group_name | _start_ }} {\n                </group>\n                \n            </group>\n        </group>\n</group>    \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n    vrf2 {\n        forwarding-options {\n            dhcp-relay {\n                server-group {\n                    IN_MEDIA_SIGNALING {\n                        10.154.6.147;\n                    }\n                group NGN-SIG {\n                    active-server-group DHCP-NGN-SIG;\n                    overrides {\n                        trust-option-82;\n                    }\n                }\n            }\n        }\n    }\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vrfs": [
+      {
+       "name": "vrf2",
+       "forwarding_options": {
+        "dhcp_relay": {
+         "server_group": {
+          "dhcp": [
+           {
+            "server_group_name": "IN_MEDIA_SIGNALING"
+           },
+           {
+            "server_group_name": "overrides"
+           }
+          ]
+         },
+         "groups": [
+          {
+           "group_name": "NGN-SIG"
+          }
+         ]
+        }
+       }
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_45_filtering_fix",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_45_filtering_fix",
+  "template": "\n<group name=\"vrfs*\">\n    {{ name | _start_ }} {\n        <group name=\"forwarding_options\">\n        forwarding-options { {{ _start_ }}\n            <group name=\"dhcp_relay\">\n            dhcp-relay { {{ _start_ }}\n            \n                <group name=\"server_group\">\n                server-group { {{ _start_ }}\n                    <group name=\"dhcp*\">\n                    {{ server_group_name1 | _start_ | exclude(\"overrides\") }} {\n                        <group name=\"helper_addresses*\">\n                        {{ helper_address | IP }};\n                        </group>\n                    } {{ _end_ }}\n                    </group>\n                } {{ _end_ }}\n                </group>\n                \n                <group name=\"groups*\">\n                group {{ group_name | _start_ }} {\n                    active-server-group {{server_group_name2}};\n                } {{ _end_ }}\n                </group>\n                \n            } {{ _end_ }}\n            </group>\n        } {{ _end_ }}\n        </group>\n    } {{ _end_ }}\n</group>    \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n    vrf2 {\n        forwarding-options {\n            dhcp-relay {\n                server-group {\n                    IN_MEDIA_SIGNALING {\n                        10.154.6.147;\n                    }\n                    DHCP-NGN-SIG {\n                        10.154.6.147;\n                    }\n                }\n                group group2 {\n                    active-server-group IN_MEDIA_SIGNALING;\n                    overrides {\n                        trust-option-82;\n                    }\n                }\n                group NGN-SIG {\n                    active-server-group DHCP-NGN-SIG;\n                    overrides {\n                        trust-option-82;\n                    }\n                }\n            }\n        }\n    }\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vrfs": [
+      {
+       "name": "vrf2",
+       "forwarding_options": {
+        "dhcp_relay": {
+         "server_group": {
+          "dhcp": [
+           {
+            "server_group_name1": "IN_MEDIA_SIGNALING",
+            "helper_addresses": [
+             {
+              "helper_address": "10.154.6.147"
+             }
+            ]
+           },
+           {
+            "server_group_name1": "DHCP-NGN-SIG",
+            "helper_addresses": [
+             {
+              "helper_address": "10.154.6.147"
+             }
+            ]
+           }
+          ]
+         },
+         "groups": [
+          {
+           "server_group_name2": "IN_MEDIA_SIGNALING",
+           "group_name": "group2"
+          },
+          {
+           "server_group_name2": "DHCP-NGN-SIG",
+           "group_name": "NGN-SIG"
+          }
+         ]
+        }
+       }
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_47_answer",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_47_answer",
+  "template": "\nSome text which indicates that below block should be included in results ABC {{ _start_ }}\nSome text which indicates that below block should be included in results DEF {{ _start_ }}\nSome text which indicates that below block should be included in results GKL {{ _start_ }}\ninterface {{ interface }}\n ip address {{ ip }}/{{ mask }}\n description {{ description | re(\".+\") }}\n ip vrf {{ vrf }}\n! {{ _end_ }}\n",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nSome text which indicates that below block should be included in results ABC\ninterface Loopback0\n description Router-id-loopback\n ip address 192.168.0.113/24\n!\nSome text which indicates that below block should be included in results DEF\ninterface Loopback2\n description Router-id-loopback 2\n ip address 192.168.0.114/24\n!\nSome text which indicates that below block should NOT be included in results\ninterface Vlan778\n description CPE_Acces_Vlan\n ip address 2002::fd37/124\n ip vrf CPE1\n!\nSome text which indicates that below block should be included in results GKL\ninterface Loopback3\n description Router-id-loopback 3\n ip address 192.168.0.115/24\n!\n",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "ip": "192.168.0.113",
+      "mask": "24",
+      "description": "Router-id-loopback",
+      "interface": "Loopback0"
+     },
+     {
+      "ip": "192.168.0.114",
+      "mask": "24",
+      "description": "Router-id-loopback 2",
+      "interface": "Loopback2"
+     },
+     {
+      "ip": "192.168.0.115",
+      "mask": "24",
+      "description": "Router-id-loopback 3",
+      "interface": "Loopback3"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_48_answer",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_48_answer",
+  "template": "\n<vars>\ndescr_chain = [\n    \"PHRASE\",\n    \"exclude('Prerequisite(s)')\",\n    \"exclude('Department(s)')\",\n    \"joinmatches\"\n]\n</vars>\n\n<group>\n{{ course }}*{{ code }} {{ name | PHRASE }} {{ semester }} ({{ lecture_lab_time }}) [{{ weight }}]\n{{ description | chain(descr_chain) }}\nPrerequisite(s): {{ prereqs | ORPHRASE }}\nDepartment(s): {{ department | ORPHRASE }}   \n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nECON*3400 The Economics of Personnel Management U (3-0) [0.50]\nIn this course, we examine the economics of personnel management in organizations.\nUsing mainstream microeconomic and behavioural economic theory, we will consider\nsuch issues as recruitment, promotion, financial and non-financial incentives,\ncompensation, job performance, performance evaluation, and investment in personnel.\nThe interplay between theoretical models and empirical evidence will be emphasized in\nconsidering different approaches to the management of personnel.\nPrerequisite(s): ECON*2310 or ECON*2200\nDepartment(s): Department of Economics and Finance    \n\nECON*4400 The Economics of Personnel Management U (7-1) [0.90]\nIn this course, we examine the economics of personnel management in organizations.\nUsing mainstream microeconomic and behavioural economic theory, we will consider\nsuch issues as recruitment, promotion, financial and non-financial incentives,\ncompensation, job performance, performance evaluation, and investment in personnel.\nPrerequisite(s): ECON*2310\nDepartment(s): Department of Economics\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "department": "Department of Economics and Finance",
+      "prereqs": "ECON*2310 or ECON*2200",
+      "course": "ECON",
+      "code": "3400",
+      "name": "The Economics of Personnel Management",
+      "semester": "U",
+      "lecture_lab_time": "3-0",
+      "weight": "0.50",
+      "description": "In this course, we examine the economics of personnel management in organizations.\nUsing mainstream microeconomic and behavioural economic theory, we will consider\nsuch issues as recruitment, promotion, financial and non-financial incentives,\ncompensation, job performance, performance evaluation, and investment in personnel.\nThe interplay between theoretical models and empirical evidence will be emphasized in\nconsidering different approaches to the management of personnel."
+     },
+     {
+      "department": "Department of Economics",
+      "prereqs": "ECON*2310",
+      "course": "ECON",
+      "code": "4400",
+      "name": "The Economics of Personnel Management",
+      "semester": "U",
+      "lecture_lab_time": "7-1",
+      "weight": "0.90",
+      "description": "In this course, we examine the economics of personnel management in organizations.\nUsing mainstream microeconomic and behavioural economic theory, we will consider\nsuch issues as recruitment, promotion, financial and non-financial incentives,\ncompensation, job performance, performance evaluation, and investment in personnel."
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_48_answer_more",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_48_answer_more",
+  "template": "\n<vars>\nchain_1 = [\n    \"ORPHRASE\",\n    \"exclude('Prerequisite(s)')\",\n    \"exclude('Department(s)')\",\n    \"exclude('Restriction(s)')\",\n    \"joinmatches\"\n]\n</vars>\n\n<group>\n{{ course }}*{{ code }} {{ name | PHRASE }} {{ semester }} ({{ lecture_lab_time }}) [{{ weight }}]\n{{ description | chain(chain_1) }}\nPrerequisite(s): {{ prereqs | ORPHRASE }}\nDepartment(s): {{ department | ORPHRASE }}   \n\n<group name=\"_\">\nRestriction(s): {{ restrictions | PHRASE | joinmatches }}\n{{ restrictions | chain(chain_1) }}\n</group>\n\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nIBIO*4521 Thesis in Integrative Biology F (0-12) [1.00]\nThis course is the first part of the two-semester course IBIO*4521/2. This course is\na two-semester (F,W) undergraduate project in which students conduct a comprehensive,\nindependent research project in organismal biology under the supervision of a faculty\nmember in the Department of Integrative Biology. Projects involve a thorough literature\nreview, a research proposal, original research communicated in oral and poster\npresentations, and in a written, publication quality document. This two-semester course\noffers students the opportunity to pursue research questions and experimental designs\nthat cannot be completed in the single semester research courses. Students must make\narrangements with both a faculty supervisor and the course coordinator at least one\nsemester in advance. A departmental registration form must be obtained from the course\ncoordinator and submitted no later than the second class day of the fall semester. This is\na twosemester course offered over consecutive semesters F-W. When you select this\ncourse, you must select IBIO*4521 in the Fall semester and IBIO*4522 in the Winter\nsemester.A grade will not be assigned to IBIO*4521 until IBIO*4522 has been completed.\nPrerequisite(s): 12.00 credits\nRestriction(s): Normally a minimum cumulative average of 70%. Permission of course\ncoordinator.\nDepartment(s): Department of Integrative Biology\n\nIBIO*4533 Thesis in Integrative Biology F (0-14) [2.00]\nThis course is the first part of the two-semester course IBIO*4521/2. This course is\na two-semester (F,W) undergraduate project in which students conduct a comprehensive,\nindependent research project in organismal biology under the supervision of a faculty\nmember in the Department of Integrative Biology. \nRestriction(s): Normally a minimum cumulative average of 80%. Permission of course\ncoordinator. Normally a minimum cumulative average of 90%. Permission of course\ncoordinator. \nDepartment(s): Department of Integrative Biology\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "prereqs": "12.00 credits",
+      "course": "IBIO",
+      "code": "4521",
+      "name": "Thesis in Integrative Biology",
+      "semester": "F",
+      "lecture_lab_time": "0-12",
+      "weight": "1.00",
+      "description": "This course is the first part of the two-semester course IBIO*4521/2. This course is\na two-semester (F,W) undergraduate project in which students conduct a comprehensive,\nindependent research project in organismal biology under the supervision of a faculty\nmember in the Department of Integrative Biology. Projects involve a thorough literature\nreview, a research proposal, original research communicated in oral and poster\npresentations, and in a written, publication quality document. This two-semester course\noffers students the opportunity to pursue research questions and experimental designs\nthat cannot be completed in the single semester research courses. Students must make\narrangements with both a faculty supervisor and the course coordinator at least one\nsemester in advance. A departmental registration form must be obtained from the course\ncoordinator and submitted no later than the second class day of the fall semester. This is\na twosemester course offered over consecutive semesters F-W. When you select this\ncourse, you must select IBIO*4521 in the Fall semester and IBIO*4522 in the Winter\nsemester.A grade will not be assigned to IBIO*4521 until IBIO*4522 has been completed.",
+      "restrictions": "Normally a minimum cumulative average of 70%. Permission of course\ncoordinator.",
+      "department": "Department of Integrative Biology"
+     },
+     {
+      "course": "IBIO",
+      "code": "4533",
+      "name": "Thesis in Integrative Biology",
+      "semester": "F",
+      "lecture_lab_time": "0-14",
+      "weight": "2.00",
+      "description": "This course is the first part of the two-semester course IBIO*4521/2. This course is\na two-semester (F,W) undergraduate project in which students conduct a comprehensive,\nindependent research project in organismal biology under the supervision of a faculty\nmember in the Department of Integrative Biology.",
+      "restrictions": "Normally a minimum cumulative average of 80%. Permission of course\ncoordinator. Normally a minimum cumulative average of 90%. Permission of course\ncoordinator.",
+      "department": "Department of Integrative Biology"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_slack_answer_2",
+  "source": "test/pytest/test_answers_and_docs.py::test_slack_answer_2",
+  "template": "\n    <group name=\"system.ports\">\n    port {{ id }}\n        shutdown {{ admin_enabled | set(false) }}\n        description \"{{ description | ORPHRASE | strip('\"') }}\"\n        <group name=\"ethernet\">\n        ethernet {{ _start_ }}\n            mode {{ mode }}\n            encap-type {{ encap_type }}\n            mtu {{ mtu | DIGIT }}\n            egress-scheduler-policy {{ egress_sched_policy | strip('\"') }}\n            loopback internal persistent {{ loop_internal | set(true) }}\n            <group name=\"network\">\n            network {{ _start_ }}\n                queue-policy {{ queue_policy | ORPHRASE | strip('\"') }}\n                accounting-policy {{ accounting_policy | DIGIT }}\n                collect-stats {{ collect_stats | set(true) }}\n                <group name=\"egress\">\n                egress {{ _start_ }}\n                    <group name=\"queuegroups*\">\n                    queue-group {{ name | strip('\"') }} instance 1 create\n                            rate {{ agg_rate | DIGIT }}\n                    exit {{_end_}}\n                    </group>\n## this \"exit {{ _end_ }}\" had wrong indentation level, leading to \n## group name=\"egress\" finishing too early\n                exit {{_end_}}\n                </group>\n            exit {{_end_}}\n            </group>\n            lldp {{ lldp_enabled | set(true) }}\n        exit {{_end_}}\n        </group>\n        no shutdown {{admin_enabled | set(true)}}\n    exit {{_end_}}\n    </group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n    port 1/1/1\n        description \"port 1 description\"\n        ethernet\n            mode hybrid\n            encap-type dot1q\n            crc-monitor\n                sd-threshold 5 multiplier 5\n                sf-threshold 3 multiplier 5\n                window-size 60\n            exit\n            network\n                queue-policy \"ncq-only\"\n                accounting-policy 12\n                collect-stats\n                egress\n                    queue-group \"qos-policy-for-router1\" instance 1 create\n                        accounting-policy 1\n                        collect-stats\n                        agg-rate\n                            rate 50000\n                        exit\n                    exit\n                exit\n            exit\n            access\n                egress\n                    queue-group \"policer-output-queues\" instance 1 create\n                        accounting-policy 1\n                        collect-stats\n                    exit\n                exit\n            exit\n            lldp\n                dest-mac nearest-bridge\n                    admin-status tx-rx\n                    notification\n                    tx-tlvs port-desc sys-name sys-desc sys-cap\n                    tx-mgmt-address system\n                exit\n            exit\n            down-on-internal-error\n        exit\n        no shutdown\n    exit\n    port 1/1/2\n        description \"another port to a another router\"\n        ethernet\n            mode hybrid\n            encap-type dot1q\n            egress-scheduler-policy \"qos-port-scheduler\"\n            crc-monitor\n                sd-threshold 5 multiplier 5\n                sf-threshold 3 multiplier 5\n                window-size 60\n            exit\n            access\n                egress\n                    queue-group \"policer-output-queues\" instance 1 create\n                        accounting-policy 1\n                        collect-stats\n                    exit\n                exit\n            exit\n            down-on-internal-error\n        exit\n        no shutdown\n    exit\n    port 1/1/3\n        description \"port 3 to some third router\"\n        ethernet\n            mode access\n            encap-type dot1q\n            mtu 2000\n            egress-scheduler-policy \"strict-scheduler\"\n            network\n                queue-policy \"ncq-only\"\n                accounting-policy 12\n                collect-stats\n                egress\n                    queue-group \"some-shaping-policy\" instance 1 create\n                        accounting-policy 1\n                        collect-stats\n                        agg-rate\n                            rate 50000\n                        exit\n                    exit\n                    queue-group \"another-shaping-policy\" instance 1 create\n                        accounting-policy 1\n                        collect-stats\n                        agg-rate\n                            rate 50000\n                        exit\n                    exit\n                    queue-group \"this-shaper-is-cool\" instance 1 create\n                        agg-rate\n                            rate 1000000\n                        exit\n                    exit\n                exit\n            exit\n        exit\n        no shutdown\n    exit\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "system": {
+      "ports": [
+       {
+        "description": "port 1 description",
+        "id": "1/1/1",
+        "ethernet": {
+         "encap_type": "dot1q",
+         "mode": "hybrid",
+         "network": {
+          "collect_stats": true,
+          "accounting_policy": "12",
+          "queue_policy": "ncq-only",
+          "egress": {
+           "queuegroups": [
+            {
+             "agg_rate": "50000",
+             "name": "qos-policy-for-router1"
+            }
+           ]
+          }
+         },
+         "lldp_enabled": true
+        },
+        "admin_enabled": true
+       },
+       {
+        "description": "another port to a another router",
+        "id": "1/1/2",
+        "ethernet": {
+         "egress_sched_policy": "qos-port-scheduler",
+         "encap_type": "dot1q",
+         "mode": "hybrid"
+        },
+        "admin_enabled": true
+       },
+       {
+        "description": "port 3 to some third router",
+        "id": "1/1/3",
+        "ethernet": {
+         "egress_sched_policy": "strict-scheduler",
+         "mtu": "2000",
+         "encap_type": "dot1q",
+         "mode": "access",
+         "network": {
+          "collect_stats": true,
+          "accounting_policy": "12",
+          "queue_policy": "ncq-only",
+          "egress": {
+           "queuegroups": [
+            {
+             "agg_rate": "50000",
+             "name": "some-shaping-policy"
+            },
+            {
+             "agg_rate": "50000",
+             "name": "another-shaping-policy"
+            },
+            {
+             "agg_rate": "1000000",
+             "name": "this-shaper-is-cool"
+            }
+           ]
+          }
+         }
+        },
+        "admin_enabled": true
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_slack_answer_3",
+  "source": "test/pytest/test_answers_and_docs.py::test_slack_answer_3",
+  "template": "\n        <group name=\"service.vprns*.{{id}}**\">\n        vprn {{ id }} name {{ name | ORPHRASE | strip('\"') }} customer {{ ignore }} create\n            <group name=\"ospf**\">\n            ospf {{ _start_ }}\n                area {{ area }}\n                    <group name=\"interfaces*\">\n                    interface {{ name | ORPHRASE | strip('\"') }}\n                    </group>\n            </group>\n            <group name=\"ospf3**\">\n            ospf3 0 {{ _start_ }}\n                area {{ area }}\n                    <group name=\"interfaces*\">\n                    interface {{ name | ORPHRASE | strip('\"') }}\n                    </group>\n            </group>\n        </group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n    service\n        vprn 4 name \"ospf_version3_vprn\" customer 40 create\n            ospf\n                area 0.0.0.0\n                    interface \"interface-one\"\n            ospf3 0\n                area 0.0.0.0\n                    interface \"interface-two\"\n        vprn 5 name \"vprn5\" customer 50 create\n            ospf\n                area 0.0.0.0\n                    interface \"interface-three\"\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "service": {
+      "vprns": [
+       {
+        "4": {
+         "name": "ospf_version3_vprn",
+         "ospf": {
+          "area": "0.0.0.0",
+          "interfaces": [
+           {
+            "name": "interface-one"
+           }
+          ]
+         },
+         "ospf3": {
+          "area": "0.0.0.0",
+          "interfaces": [
+           {
+            "name": "interface-two"
+           }
+          ]
+         }
+        },
+        "5": {
+         "name": "vprn5",
+         "ospf": {
+          "area": "0.0.0.0",
+          "interfaces": [
+           {
+            "name": "interface-three"
+           }
+          ]
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_slack_answer_3_full",
+  "source": "test/pytest/test_answers_and_docs.py::test_slack_answer_3_full",
+  "template": "\n#-------------------------------------------------- {{ ignore }}\necho \"Service Configuration\" {{ ignore }}\n#-------------------------------------------------- {{ ignore }}\n    service {{ ignore }}\n<group name=\"service.vprns*.{{id}}**\">\n        vprn {{ id }} name {{ name | ORPHRASE | strip('\"') }} customer {{ ignore }} create\n            shutdown {{ admin_enabled | set(\"False\") }}\n            description {{ description | ORPHRASE | strip('\"') }}\n            vrf-import {{ import_policy | ORPHRASE | strip('\"') }}\n            router-id {{ router_id }}\n            autonomous-system {{ local_as }}\n            route-distinguisher {{ loopback_ip }}:{{ vrf_routedist }}\n            vrf-target target:{{ ignore }}:{{ vrf_routetarget }}\n            vrf-target {{ vrf_export }} target:{{ ignore }}:{{ vrf_routetarget }}\n        <group name=\"interfaces*.{{name}}**\">\n            interface {{ name | ORPHRASE | strip('\"') }} create\n                shutdown {{ admin_enabled | set(\"False\") }}\n                description {{ description | ORPHRASE | strip('\"') }}\n                address {{ address | IP }}/{{ mask | DIGIT }}\n                ip-mtu {{ mtu }}\n                bfd {{ bfd_timers }} receive {{ ignore }} multiplier {{ bfd_interval }}\n            <group name=\"vrrp\">\n                vrrp {{ instance }}\n                    backup {{ backup }}\n                    priority {{ priority }}\n                    policy {{ policy }}\n                    ping-reply {{ pingreply | set(\"True\") }}\n                    traceroute-reply {{ traceroute_reply | set(\"True\") }}\n                    init-delay {{ initdelay }}\n                    message-interval {{ message_int_seconds }}\n                    message-interval  milliseconds {{ message_int_milliseconds }}\n                    bfd-enable 1 interface {{ bfd_interface | ORPHRASE | strip('\"')}} dst-ip {{ bfd_dst_ip }}\n                exit {{ _end_ }}\n            </group>\n            <group name=\"ipv6\">\n                ipv6 {{ _start_ }}\n                    address {{ address | IPV6 }}/{{ mask | DIGIT }}\n                    address {{ address | _start_ | IPV6 }}/{{ mask | DIGIT }} dad-disable\n                    link-local-address {{ linklocal_address | IPV6 }} dad-disable\n                <group name=\"vrrp\">\n                    vrrp {{ instance | _start_ }}\n                    <group name=\"backup*\">\n                        backup {{ ip }}\n                    </group>\n                        priority {{ priority }}\n                        policy {{ policy }}\n                        ping-reply {{ pingreplay | set(\"True\") }}\n                        traceroute-reply {{ traceroute_reply | set(\"True\") }}\n                        init-delay {{ initdelay }}\n                        message-interval milliseconds {{ message_int_milliseconds }}\n                    exit {{ _end_ }}\n                </group>\n                exit {{ _end_ }}\n            </group>\n            <group name=\"vpls\">\n                vpls {{ vpls_name | ORPHRASE | strip('\"') | _start_ }}\n                exit {{ _end_ }}\n            </group>\n            <group name=\"sap**\">\n                sap {{ port | _start_ }}:{{ vlan | DIGIT }} create\n                    ingress {{ _exact_ }}\n                        qos {{ qos_sap_ingress }}\n                <group name=\"_\">\n                    egress {{ _start_ }}\n                        qos {{ qos_sap_egress }}\n                </group>\n                    collect-stats {{ collect_stats | set(\"True\") }}\n                    accounting-policy {{ accounting_policy }}\n                exit {{ _end_}}\n            </group>\n            exit {{ _end_}}\n        </group>\n        <group name=\"staticroutes*\">\n            static-route-entry {{ prefix | PREFIX | _start_ }}\n                black-hole {{ blackhole | set(\"True\") }}\n                next-hop {{ nexthop | IP }}\n                    shutdown {{ admin_enabled | set(\"False\") }}\n                    no shutdown {{ admin_enabled | set(\"True\") }}\n            exit {{ _end_ }}\n        </group>\n        <group name=\"aggregates\">\n            aggregate {{ agg_block | PREFIX | _start_ }} summary-only\n        </group>\n        <group name=\"router_advertisement\">\n            router-advertisement {{ _start_ }}\n                interface {{ interface | ORPHRASE | strip('\"') }}\n                    use-virtual-mac {{ use_virtualmac | set(\"True\") }}\n                    no shutdown {{ admin_enabled | set(\"True\") }}\n            exit {{ _end_ }}\n        </group>\n        <group name=\"bgp**\">\n            bgp {{ _start_ }}\n                min-route-advertisement {{ min_route_advertisement | DIGIT }}\n                <group name=\"peergroups*\">\n                group {{ name | ORPHRASE | strip('\"') }}\n                    family {{ family | ORPHRASE | split(\" \") }}\n                    type {{ peer_type | ORPHRASE }}\n                    import {{ importpolicy | ORPHRASE | strip('\"') }}\n                    export {{ exportpolicy | ORPHRASE | strip('\"') }}\n                    peer-as {{ remote_as }}\n                    bfd-enable {{ bfd_enabled | set(\"True\") }}\n                    <group name=\"neighbors*\">\n                    neighbor {{ address | IP | _start_ }}\n                    neighbor {{ address | IPV6 | _start_ }}\n                        shutdown {{ admin_enabled | set(\"False\") }}\n                        keepalive {{ keepalive }}\n                        hold-time {{ holdtime }}\n                        bfd-enable {{ bfd_enabled | set(\"True\") }}\n                        as-override {{ as_override | set(\"True\") }}\n                    exit {{ _end_ }}\n                    </group>\n                exit {{ _end_ }}\n                </group>\n                no shutdown {{ admin_enabled | set(\"True\") | _start_ }}\n            exit {{ _end_ }}\n        </group>\n        <group name=\"ospf**\">\n            ospf {{ _start_ }}{{ _exact_ }}\n                area {{ area }}\n                <group name=\"interfaces*\">\n                    interface {{ name | ORPHRASE | strip('\"') | _start_ }}\n                        passive {{ passive | set(\"True\") }}\n                    exit {{ _end_ }}\n                </group>\n                no shutdown {{ admin_enabled | set(\"True\") }}\n            exit {{ _end_ }}\n        </group>\n        <group name=\"ospf3**\">\n            ospf3 0 {{ _start_ }}{{ _exact_ }}\n                area {{ area }}\n                <group name=\"interfaces*\">\n                    interface {{ name | ORPHRASE | strip('\"') | _start_ }}\n                        passive {{ passive | set(\"True\") }}\n                    exit {{ _end_ }}\n                </group>\n                no shutdown {{ admin_enabled | set(\"True\") }}\n            exit {{ _end_ }}\n        </group>\n            no shutdown {{ admin_enabled | set(\"True\") }}\n        exit {{ _end_ }}\n</group>    \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n    service\n        vprn 1 name \"vprn1\" customer 10 create\n            interface \"loopback\" create\n            exit\n            interface \"interface-one\" create\n            exit\n            interface \"interface-two\" create\n            exit\n            interface \"bgp-interface\" create\n            exit\n        exit\n        vprn 2 name \"vprn2\" customer 20 create\n            interface \"loopback\" create\n            exit\n            interface \"interface-two\" create\n            exit\n            interface \"bgp-interface\" create\n            exit\n        exit\n        vprn 3 name \"vprn3\" customer 30 create\n            interface \"loopback\" create\n            exit\n            interface \"interface-two\" create\n            exit\n        exit\n        vprn 4 name \"ospf_version3_vprn\" customer 40 create\n            interface \"loopback\" create\n            exit\n            interface \"interface-two\" create\n            exit\n        exit\n        vprn 5 name \"vprn5\" customer 50 create\n            interface \"loopback\" create\n            exit\n            interface \"interface-two\" create\n            exit\n            interface \"bgp-interface\" create\n            exit\n        exit\n        vprn 1 name \"vprn1\" customer 10 create\n            interface \"loopback\" create\n                address 10.10.10.1/32\n                loopback\n            exit\n            interface \"interface-one\" create\n                address 10.10.10.10/30\n                sap 1/1/1:10 create\n                exit\n            exit\n            interface \"interface-two\" create\n                address 10.10.10.100/31\n                sap lag-5:80 create\n                exit\n            exit\n            interface \"bgp-interface\" create\n                address 10.10.10.200/31\n                sap lag-4:100 create\n                exit\n            exit\n            ospf\n                area 0.0.0.0\n                    interface \"interface-two\"\n                        passive\n                        no shutdown\n                    exit\n                exit\n                no shutdown\n            exit\n            no shutdown\n        exit\n        vprn 2 name \"vprn2\" customer 20 create\n            interface \"interface-two\" create\n                address 10.11.11.10/31\n                sap lag-1:50 create\n                exit\n            exit\n            ospf\n                area 0.0.0.0\n                    interface \"interface-two\"\n                        passive\n                        no shutdown\n                    exit\n                exit\n                no shutdown\n            exit\n            no shutdown\n        exit\n        vprn 3 name \"vprn3\" customer 30 create\n            interface \"loopback\" create\n                address 10.12.12.12/32\n                loopback\n            exit\n            interface \"interface-two\" create\n                address 10.12.12.100/31\n                sap lag-5:33 create\n                exit\n            exit\n            ospf\n                area 0.0.0.0\n                    interface \"interface-two\"\n                        passive\n                        no shutdown\n                    exit\n                exit\n                no shutdown\n            exit\n            no shutdown\n        exit\n        vprn 4 name \"ospf_version3_vprn\" customer 40 create\n            interface \"loopback\" create\n                address 10.40.40.10/32\n                ipv6\n                    address 1500:1000:460e::a03:ae46/128\n                exit\n                loopback\n            exit\n            interface \"interface-two\" create\n                address 10.40.40.100/31\n                ipv6\n                    address 1500:1000:460e::2222:1111/64\n                exit\n                sap lag-5:800 create\n                exit\n            exit\n            ospf\n                area 0.0.0.0\n                    interface \"interface-two\"\n                        passive\n                        no shutdown\n                    exit\n                exit\n                no shutdown\n            exit\n            ospf3 0\n                area 0.0.0.0\n                    interface \"interface-two\"\n                        passive\n                        no shutdown\n                    exit\n                exit\n                no shutdown\n            exit\n            no shutdown\n        exit\n        vprn 5 name \"vprn5\" customer 50 create\n            interface \"loopback\" create\n                address 10.50.50.50/32\n                loopback\n            exit\n            interface \"interface-two\" create\n                address 10.50.50.100/31\n                sap lag-5:5 create\n                exit\n            exit\n            interface \"bgp-interface\" create\n                address 10.50.50.200/31\n                sap lag-1:602 create\n                exit\n            exit\n            bgp\n                group \"eBGP\"\n                    peer-as 4444\n                    neighbor 10.50.50.201\n                    exit\n                exit\n                no shutdown\n            exit\n            ospf\n                area 0.0.0.0\n                    interface \"interface-two\"\n                        passive\n                        no shutdown\n                    exit\n                exit\n                no shutdown\n            exit\n            no shutdown\n        exit\n    exit\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "service": {
+      "vprns": [
+       {
+        "1": {
+         "name": "vprn1",
+         "interfaces": [
+          {
+           "loopback": {
+            "address": "10.10.10.1",
+            "mask": "32"
+           },
+           "interface-one": {
+            "address": "10.10.10.10",
+            "mask": "30",
+            "sap": {
+             "port": "1/1/1",
+             "vlan": "10"
+            }
+           },
+           "interface-two": {
+            "address": "10.10.10.100",
+            "mask": "31",
+            "sap": {
+             "port": "lag-5",
+             "vlan": "80"
+            }
+           },
+           "bgp-interface": {
+            "address": "10.10.10.200",
+            "mask": "31",
+            "sap": {
+             "port": "lag-4",
+             "vlan": "100"
+            }
+           }
+          }
+         ],
+         "ospf": {
+          "area": "0.0.0.0",
+          "interfaces": [
+           {
+            "passive": "True",
+            "name": "interface-two"
+           }
+          ],
+          "admin_enabled": "True"
+         },
+         "admin_enabled": "True"
+        },
+        "2": {
+         "name": "vprn2",
+         "interfaces": [
+          {
+           "loopback": {},
+           "interface-two": {
+            "address": "10.11.11.10",
+            "mask": "31",
+            "sap": {
+             "port": "lag-1",
+             "vlan": "50"
+            }
+           },
+           "bgp-interface": {}
+          }
+         ],
+         "ospf": {
+          "area": "0.0.0.0",
+          "interfaces": [
+           {
+            "passive": "True",
+            "name": "interface-two"
+           }
+          ],
+          "admin_enabled": "True"
+         },
+         "admin_enabled": "True"
+        },
+        "3": {
+         "name": "vprn3",
+         "interfaces": [
+          {
+           "loopback": {
+            "address": "10.12.12.12",
+            "mask": "32"
+           },
+           "interface-two": {
+            "address": "10.12.12.100",
+            "mask": "31",
+            "sap": {
+             "port": "lag-5",
+             "vlan": "33"
+            }
+           }
+          }
+         ],
+         "ospf": {
+          "area": "0.0.0.0",
+          "interfaces": [
+           {
+            "passive": "True",
+            "name": "interface-two"
+           }
+          ],
+          "admin_enabled": "True"
+         },
+         "admin_enabled": "True"
+        },
+        "4": {
+         "name": "ospf_version3_vprn",
+         "interfaces": [
+          {
+           "loopback": {
+            "address": "10.40.40.10",
+            "mask": "32",
+            "ipv6": {
+             "address": "1500:1000:460e::a03:ae46",
+             "mask": "128"
+            }
+           },
+           "interface-two": {
+            "address": "10.40.40.100",
+            "mask": "31",
+            "ipv6": {
+             "address": "1500:1000:460e::2222:1111",
+             "mask": "64"
+            },
+            "sap": {
+             "port": "lag-5",
+             "vlan": "800"
+            }
+           }
+          }
+         ],
+         "ospf": {
+          "area": "0.0.0.0",
+          "interfaces": [
+           {
+            "passive": "True",
+            "name": "interface-two"
+           }
+          ],
+          "admin_enabled": "True"
+         },
+         "ospf3": {
+          "area": "0.0.0.0",
+          "interfaces": [
+           {
+            "passive": "True",
+            "name": "interface-two"
+           }
+          ],
+          "admin_enabled": "True"
+         },
+         "admin_enabled": "True"
+        },
+        "5": {
+         "name": "vprn5",
+         "interfaces": [
+          {
+           "loopback": {
+            "address": "10.50.50.50",
+            "mask": "32"
+           },
+           "interface-two": {
+            "address": "10.50.50.100",
+            "mask": "31",
+            "sap": {
+             "port": "lag-5",
+             "vlan": "5"
+            }
+           },
+           "bgp-interface": {
+            "address": "10.50.50.200",
+            "mask": "31",
+            "sap": {
+             "port": "lag-1",
+             "vlan": "602"
+            }
+           }
+          }
+         ],
+         "bgp": {
+          "peergroups": [
+           {
+            "remote_as": "4444",
+            "name": "eBGP",
+            "neighbors": [
+             {
+              "address": "10.50.50.201"
+             }
+            ]
+           }
+          ],
+          "admin_enabled": "True"
+         },
+         "ospf": {
+          "area": "0.0.0.0",
+          "interfaces": [
+           {
+            "passive": "True",
+            "name": "interface-two"
+           }
+          ]
+         },
+         "admin_enabled": "True"
+        }
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_45_for_junos_cfg",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_45_for_junos_cfg",
+  "template": "\n<group name=\"system_level\">\nsystem { {{ _start_ }}\n    host-name {{ HOSTNAME }};\n    time-zone {{ TZ }};\n    default-address-selection; {{ default_address_selection | set(True) }}\n    no-redirects; {{ no_redirects | set(True) }}\n    no-ping-record-route; {{ no_ping_record_route | set(True) }}\n    no-ping-time-stamp; {{ no_ping_time_stamp | set(True) }}\n    \n <group name=\"services\">\n    services { {{ _start_ }}\n    <group name=\"{{ service }}\">\n        {{ service }} {\n            http; {{ http | set(true) }}\n            https; {{ https | set(true) }}\n            no-tcp-forwarding; {{ no-tcp-fwding | set(true) }}\n            protocol-version {{ ssh-proto }};\n            connection-limit {{ connection-limit | DIGIT }};\n            rate-limit {{rate-limit | DIGIT }};\n            root-login deny; {{ root-login | set(false) }}\n            max-sessions-per-connection {{ max-sessions | DIGIT }};\n            client-alive-count-max {{ client-alive-count-max | DIGIT }};\n            client-alive-interval {{ client-alive-interval | DIGIT }};\n          <group name=\"ssh\">\n            ssh; {{ ssh | set(true) }}\n          </group>\n          <group name=\"ssh\">\n            ssh { {{ _start_ }}\n                connection-limit {{ connection-limit | DIGIT }};\n                rate-limit {{ rate-limit | DIGIT }};\n            } {{ _end_ }}\n          </group>\n        } {{ _end_ }}\n    </group>\n    } {{ _end_ }}\n </group>\n <group name=\"internet-options\">\n    internet-options { {{ _start_ }}\n        icmpv4-rate-limit packet-rate {{ packet-rate| DIGIT }};\n        icmpv6-rate-limit packet-rate {{ packet-rate| DIGIT }};\n        no-source-quench; {{ no-source-quench | set(true) }}\n        tcp-drop-synfin-set; {{ tcp-drop-synfin-set | set(true) }}\n        no-tcp-reset {{ no-tcp-reset }};\n    } {{ _end_ }}\n </group>\n    authentication-order [{{ authentication-order }}];\n <group name=\"ports\">\n    ports { {{ _start_ }}\n        auxiliary disable; {{ auxiliary | set(false) }}\n    } {{ _end_ }}\n </group>\n <group name=\"root-authentication\">\n    root-authentication { {{ _start_ }}\n        encrypted-password \"{{ encrypted-password }}\"; ## SECRET-DATA\n    } {{ _end_ }}\n </group>\n <group name=\"dns\" itemize=\"name_server\">\n    name-server {  {{ _start_ }}\n        {{ name_server | IP | _line_ | to_list }};\n    } {{ _end_ }}\n </group>\n <group name=\"commit\">\n    commit { {{ _start_ }}\n        synchronize; {{ commit_sync | set(true) }}\n        persist-groups-inheritance; {{ commit_persist-groups-inherit | set(true) }}\n    } {{ _end_ }}\n </group> \n <group name=\"tacacs\">\n    tacplus-server { {{ _start_ }}\n       <group name=\"tacacs-servers.{{ tac_server }}\">\n        {{ tac_server | IP }} {\n            port {{ tac_port }};\n            secret \"{{ tac_secret }}\"; ## SECRET-DATA\n            source-address {{ tac_source | IP }};\n        } {{ end }}\n        </group>\n    } {{ end }}\n </group>\n} {{ end }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nsystem {\n    host-name LAB-MX-1;\n    time-zone some/time;\n    default-address-selection;\n    no-redirects;\n    no-ping-record-route;\n    no-ping-time-stamp;\n    tacplus-server {\n        1.1.1.1 {\n            port 49;\n            secret \"<SECRET_HASH>\"; ## SECRET-DATA\n            source-address 5.5.5.5;\n        }\n        2.2.2.2 {\n            port 49;\n            secret \"<SECRET_HASH>\"; ## SECRET-DATA\n            source-address 5.5.5.5;\n        }\n        4.4.4.4 {\n            port 49;\n            secret \"<SECRET_HASH>\"; ## SECRET-DATA\n            source-address 5.5.5.5;\n        }\n    }\n    services {\n        ssh {\n            root-login deny;\n            no-tcp-forwarding;\n            protocol-version v2;\n            max-sessions-per-connection 32;\n            client-alive-count-max 3;\n            client-alive-interval 10;\n            connection-limit 10;\n            rate-limit 5;\n        }\n        netconf {\n            ssh {\n                connection-limit 10;\n                rate-limit 4;\n            }\n        }\n    }\n}\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "system_level": {
+      "no_ping_time_stamp": true,
+      "no_ping_record_route": true,
+      "no_redirects": true,
+      "default_address_selection": true,
+      "TZ": "some/time",
+      "HOSTNAME": "LAB-MX-1",
+      "tacacs": {
+       "tacacs-servers": {
+        "1.1.1.1": {
+         "tac_source": "5.5.5.5",
+         "tac_secret": "<SECRET_HASH>",
+         "tac_port": "49"
+        },
+        "2.2.2.2": {
+         "tac_source": "5.5.5.5",
+         "tac_secret": "<SECRET_HASH>",
+         "tac_port": "49"
+        },
+        "4.4.4.4": {
+         "tac_source": "5.5.5.5",
+         "tac_secret": "<SECRET_HASH>",
+         "tac_port": "49"
+        }
+       }
+      },
+      "services": {
+       "ssh": {
+        "rate-limit": "5",
+        "connection-limit": "10",
+        "client-alive-interval": "10",
+        "client-alive-count-max": "3",
+        "max-sessions": "32",
+        "ssh-proto": "v2",
+        "no-tcp-fwding": true,
+        "root-login": false
+       },
+       "netconf": {
+        "ssh": {
+         "rate-limit": "4",
+         "connection-limit": "10"
+        }
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_faq_multiline_output_matching",
+  "source": "test/pytest/test_answers_and_docs.py::test_faq_multiline_output_matching",
+  "template": "\n<group>\nLocal Intf: {{ local_intf }}\nSystem Name: {{ peer_name }}\n\n<group name=\"peer_system_description\">\nSystem Description: {{ _start_ }}\n{{ sys_description | _line_ | joinmatches(\" \") }}\nTime remaining: {{ ignore }} seconds {{ _end_ }}\n</group>\n\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nLocal Intf: Te2/1/23\nSystem Name: r1.lab.local\n\nSystem Description: \nCisco IOS Software, Catalyst 1234 L3 Switch Software (cat1234e-ENTSERVICESK9-M), Version 1534.1(1)SG, RELEASE SOFTWARE (fc3)\nTechnical Support: http://www.cisco.com/techsupport\nCopyright (c) 1986-2012 by Cisco Systems, Inc.\nCompiled Sun 15-Apr-12 02:35 by p\n\nTime remaining: 92 seconds    \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "peer_name": "r1.lab.local",
+      "local_intf": "Te2/1/23",
+      "peer_system_description": {
+       "sys_description": "Cisco IOS Software, Catalyst 1234 L3 Switch Software (cat1234e-ENTSERVICESK9-M), Version 1534.1(1)SG, RELEASE SOFTWARE (fc3) Technical Support: http://www.cisco.com/techsupport Copyright (c) 1986-2012 by Cisco Systems, Inc. Compiled Sun 15-Apr-12 02:35 by p"
+      }
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_52_answer",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_52_answer",
+  "template": "\n<macro>\ndef process(data):\n    lines = data[\"match\"].splitlines()\n    name = lines[0]\n    address = lines[1]\n    return {\"name\": name, \"address\": address}\n</macro>\n\n<group name=\"origin*\" macro=\"process\">\nOrigin: {{ _start_ }}\n{{ match | _line_ | joinmatches }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nOrigin:\nSome random name\nExample Address, example number, example city\n\nOrigin:\nSome random name 2\nExample Address, example number, example city 2\n\nOrigin:\nSome random name 3\nExample Address, example number, example city 3\nOne more string\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "origin": [
+      {
+       "name": "Some random name",
+       "address": "Example Address, example number, example city"
+      },
+      {
+       "name": "Some random name 2",
+       "address": "Example Address, example number, example city 2"
+      },
+      {
+       "name": "Some random name 3",
+       "address": "Example Address, example number, example city 3"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_51_answer",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_51_answer",
+  "template": "\n<group name=\"people\">\nName:{{ name }}&lt;br&gt;\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nName:Jane<br>\nName:Michael<br>\nName:July<br>\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "people": [
+      {
+       "name": "Jane"
+      },
+      {
+       "name": "Michael"
+      },
+      {
+       "name": "July"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_50",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_50",
+  "template": "\n<input load=\"text\">\n\n        interface \"BNG-RH201-CORE\"\n            address 11.11.11.11/31\n            description \"BNG-RH201-CORE\"\n            ldp-sync-timer 10\n            port lag-107:709\n            ipv6\n                address 1111:0:1111:1111::1/64\n            exit\n            bfd 150 receive 150 multiplier 3\n            no shutdown\n        exit\n        interface \"BNG-RH202-CORE\"\n            address 22.22.22.22/31\n            description \"BNG-RH201-CORE\"\n            ldp-sync-timer 10\n            port lag-108:809\n            ipv6\n                address 2222:0:2222:2222::2/64\n            exit\n            bfd 150 receive 150 multiplier 3\n            no shutdown\n        exit\n        interface \"system\"\n            address 33.33.33.33/32\n            ipv6\n                address 3333:0:3333:3333::3/128\n            exit\n            no shutdown\n        exit\n\n        ies 97 name \"OTDR-MGT\" customer 1 create\n            description \"OTDR-MGT\"\n            interface \"OTDR-MGT\" create\n                address 44.44.44.44/25\n                vrrp 97\n                    backup 10.20.30.1\n                    priority 200\n                exit\n                vpls \"OTDR-MGT-VPLS\"\n                exit\n            exit\n            no shutdown\n        exit\n\n        ies 99 name \"OLT-MGT\" customer 1 create\n            description \"OLT-INBAND-MGT\"\n            interface \"OLT-MGT\" create\n                address 55.55.55.55/25\n                vrrp 1\n                    backup 10.20.40.1\n                    priority 200\n                exit\n                vpls \"OLT-MGT-VPLS\"\n                exit\n            exit\n            no shutdown\n        exit\n        ies 100 name \"100\" customer 1 create\n            description \"IES 100 for subscribers\"\n            redundant-interface \"shunt\" create\n                address 66.66.66.66/31\n                spoke-sdp 1:100 create\n                    no shutdown\n                exit\n            exit\n            subscriber-interface \"s100\" create\n                description \" Subscriber interface for subscribers\"\n                allow-unmatching-subnets\n                address 77.77.77.77/22 gw-ip-address 77.77.77.1\n                address 88.88.88.88/20 gw-ip-address 88.88.88.1\n                group-interface \"s100-lag210-vlan101\" create\n                    tos-marking-state trusted\n                    ipv6\n                        router-advertisements\n                            managed-configuration\n                            no shutdown\n                        exit\n                        dhcp6\n                            proxy-server\n                                no shutdown\n                            exit\n                        exit\n                    exit\n                exit\n            exit\n</input>\n\n\n<group name=\"ifaces.{{ name }}\" contains=\"ipv4,ipv6\">\n## group to match top level interfaces\n        interface \"{{ name }}\"\n            description {{ description | re(\".+\") | strip('\"') }}\n            address  {{ ipv4 | joinmatches('; ') }}\n                address {{ ipv6 | contains(\":\") | joinmatches('; ') }}\n        exit {{ _end_ }}\n</group>\n\n<group name=\"ifaces.{{ name }}\" contains=\"ipv4,ipv6\">\n## group to match lower level interfaces\n            interface \"{{ name | _start_ }}\" create\n            {{ iftype }}-interface \"{{ name | _start_ }}\" create\n                description {{ description | re(\".+\") | strip('\"') | strip }}\n                address {{ ipv4 | contains(\".\") | joinmatches('; ') }}\n                address {{ ipv4 | contains(\".\") | joinmatches('; ') }} gw-ip-address {{ ignore }}\n            exit {{ _end_ }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "ifaces": {
+      "BNG-RH201-CORE": {
+       "description": "BNG-RH201-CORE",
+       "ipv4": "11.11.11.11/31",
+       "ipv6": "1111:0:1111:1111::1/64"
+      },
+      "BNG-RH202-CORE": {
+       "description": "BNG-RH201-CORE",
+       "ipv4": "22.22.22.22/31",
+       "ipv6": "2222:0:2222:2222::2/64"
+      },
+      "system": {
+       "ipv4": "33.33.33.33/32",
+       "ipv6": "3333:0:3333:3333::3/128"
+      },
+      "OTDR-MGT": {
+       "ipv4": "44.44.44.44/25"
+      },
+      "OLT-MGT": {
+       "ipv4": "55.55.55.55/25"
+      },
+      "shunt": {
+       "iftype": "redundant",
+       "ipv4": "66.66.66.66/31"
+      },
+      "s100": {
+       "description": "Subscriber interface for subscribers",
+       "iftype": "subscriber",
+       "ipv4": "77.77.77.77/22; 88.88.88.88/20"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_start_with_set",
+  "source": "test/pytest/test_answers_and_docs.py::test_start_with_set",
+  "template": "\nauthentication { {{ inactive | set(False) | _start_ }}\ninactive: authentication { {{ inactive | set(True) | _start_ }}\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nauthentication { \ninactive: authentication { \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "inactive": false
+     },
+     {
+      "inactive": true
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_ios_bgp_pers_pars",
+  "source": "test/pytest/test_answers_and_docs.py::test_ios_bgp_pers_pars",
+  "template": "\n<vars>\ndefaults_bgp_peers = {\n \"description\": \"\",\n \"remote-as\": \"\",\n \"shutdown\": \"no\",\n \"inherit_peer-session\": \"\",\n \"update-source\": \"\",\n \"password\": \"\"\n}\n</vars>\n\n<group name=\"bgp_peers\">\n<group name=\"{{ ASN }}\">\nrouter bgp {{ ASN }}\n <group name=\"{{ PeerIP }}\" default=\"defaults_bgp_peers\">\n neighbor {{ PeerIP }} remote-as {{ remote-as }}\n neighbor {{ PeerIP }} description {{ description | ORPHRASE }}\n neighbor {{ PeerIP | let(\"shutdown\", \"yes\") }} shutdown\n neighbor {{ PeerIP }} inherit peer-session {{ inherit_peer-session }}\n neighbor {{ PeerIP }} password {{ password | ORPHRASE }}\n neighbor {{ PeerIP }} update-source {{ update-source }}\n </group>\n </group>\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nrouter bgp 65100\n neighbor 1.1.1.1 remote-as 1234\n neighbor 1.1.1.1 description Some Description here\n neighbor 1.1.1.1 shutdown\n neighbor 1.1.1.1 inherit peer-session session_1\n neighbor 1.1.1.1 password 12345678\n neighbor 1.1.1.1 update-source Loopback 1\n neighbor 1.1.1.2 remote-as 1234\n neighbor 1.1.1.2 inherit peer-session session_1\n neighbor 1.1.1.2 update-source Loopback 1\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "bgp_peers": {
+      "65100": {
+       "1.1.1.1": {
+        "password": "12345678",
+        "inherit_peer-session": "session_1",
+        "shutdown": "yes",
+        "description": "Some Description here",
+        "remote-as": "1234",
+        "update-source": ""
+       },
+       "1.1.1.2": {
+        "inherit_peer-session": "session_1",
+        "remote-as": "1234",
+        "description": "",
+        "shutdown": "no",
+        "update-source": "",
+        "password": ""
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_ip_address_parsing",
+  "source": "test/pytest/test_answers_and_docs.py::test_ip_address_parsing",
+  "template": "\n<group name=\"interface\">\ninterface {{ interface }}\n description {{ description }}\n ip address {{ ipv4_addr | PHRASE | exclude(\"secondary\") | to_ip | with_prefixlen  }}\n load-interval {{ load-interval }}\n bandwidth {{ bandwidth }}\n <group name=\"ipv4_secondary*\">\n ip address {{ ipv4_addr | PHRASE | let(\"is_secondary\", True) | to_ip | with_prefixlen }} secondary\n </group>\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface Vlan99\n description vlan99_interface\n ip address 20.99.10.1 255.255.255.0 secondary\n ip address 30.99.10.1 255.255.255.0 secondary\n ip address 10.99.10.1 255.255.255.0\n load-interval 60\n bandwidth 10000000\n!\ninterface Vlan100\n description vlan100_interface\n ip address 10.100.10.1 255.255.255.0\n load-interval 60\n bandwidth 10000000\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "interface": [
+      {
+       "description": "vlan99_interface",
+       "interface": "Vlan99",
+       "ipv4_secondary": [
+        {
+         "ipv4_addr": "20.99.10.1/24",
+         "is_secondary": true
+        },
+        {
+         "ipv4_addr": "30.99.10.1/24",
+         "is_secondary": true
+        }
+       ],
+       "bandwidth": "10000000",
+       "load-interval": "60",
+       "ipv4_addr": "10.99.10.1/24"
+      },
+      {
+       "bandwidth": "10000000",
+       "load-interval": "60",
+       "ipv4_addr": "10.100.10.1/24",
+       "description": "vlan100_interface",
+       "interface": "Vlan100"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_vlans_parsing",
+  "source": "test/pytest/test_answers_and_docs.py::test_vlans_parsing",
+  "template": "\n            <group name=\"ports_summary*\">\n            {{ port }}  {{ mode }}  {{ encap }}  {{ satus }}  {{ native_vlan | DIGIT }}\n            </group>\n\n            <group name=\"vlans_allowed\">\n            Port      Vlans allowed on trunk {{ _start_ }}\n            <group name=\"interfaces*\">\n            {{ port }}    {{ vlans | unrange('-', ',') | split(\",\") }}\n            </group>\n{{ _end_ }}\n            </group>\n\n            <group name=\"vlans_active\">\n            Port      Vlans allowed and active in management domain {{ _start_ }}\n            <group name=\"interfaces*\">\n            {{ port }}    {{ vlans | unrange('-', ',') | split(\",\") }}\n            </group>\n{{ _end_ }}\n            </group>\n\n            <group name=\"vlans_forwarding\">\n            Port      Vlans in spanning tree forwarding state and not pruned {{ _start_ }}\n            <group name=\"interfaces*\">\n            {{ port }}    {{ vlans | unrange('-', ',') | split(\",\") }}\n            </group>\n{{ _end_ }}\n            </group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n            Port      Mode         Encapsulation  Status        Native vlan\n            Gi0       on           802.1q         trunking      1\n            Gi7       on           802.1q         trunking      1\n\n            Port      Vlans allowed on trunk\n            Gi0       1,8,999,1002-1005\n            Gi7       1,100,120,1000,1002-1005\n\n            Port      Vlans allowed and active in management domain\n            Gi0       1,8,999\n            Gi7       1,100,120,1000\n\n            Port      Vlans in spanning tree forwarding state and not pruned\n            Gi0       1,8,999\n            Gi7       1,100,120,1000\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "ports_summary": [
+      {
+       "port": "Gi0",
+       "mode": "on",
+       "encap": "802.1q",
+       "satus": "trunking",
+       "native_vlan": "1"
+      },
+      {
+       "port": "Gi7",
+       "mode": "on",
+       "encap": "802.1q",
+       "satus": "trunking",
+       "native_vlan": "1"
+      }
+     ],
+     "vlans_allowed": {
+      "interfaces": [
+       {
+        "port": "Gi0",
+        "vlans": [
+         "1",
+         "8",
+         "999",
+         "1002",
+         "1003",
+         "1004",
+         "1005"
+        ]
+       },
+       {
+        "port": "Gi7",
+        "vlans": [
+         "1",
+         "100",
+         "120",
+         "1000",
+         "1002",
+         "1003",
+         "1004",
+         "1005"
+        ]
+       }
+      ]
+     },
+     "vlans_active": {
+      "interfaces": [
+       {
+        "port": "Gi0",
+        "vlans": [
+         "1",
+         "8",
+         "999"
+        ]
+       },
+       {
+        "port": "Gi7",
+        "vlans": [
+         "1",
+         "100",
+         "120",
+         "1000"
+        ]
+       }
+      ]
+     },
+     "vlans_forwarding": {
+      "interfaces": [
+       {
+        "port": "Gi0",
+        "vlans": [
+         "1",
+         "8",
+         "999"
+        ]
+       },
+       {
+        "port": "Gi7",
+        "vlans": [
+         "1",
+         "100",
+         "120",
+         "1000"
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_asa_acls_issue_55_uses_itemize_with_dynamic_path",
+  "source": "test/pytest/test_answers_and_docs.py::test_asa_acls_issue_55_uses_itemize_with_dynamic_path",
+  "template": "\n<vars>\nSVC_PORTS = \"tcp-udp|tcp|udp\"\n</vars>\n\n<group name=\"object-{{ object_type }}-groups**.{{ object_name }}**\">\nobject-group {{ object_type }} {{ object_name | _start_ }}\nobject-group {{ object_type }} {{ object_name | _start_ }} {{ protocol | re(\"SVC_PORTS\")}}\n description {{ description | re(\".*\") }}\n\n <group name=\"{{ type }}-objects\" itemize=\"obj_name\" method=\"table\">\n network-object object   {{ obj_name | let(\"type\", \"network\") }}\n network-object host     {{ obj_name | IP | let(\"type\", \"network\") }}\n group-object            {{ obj_name | let(\"type\", \"group\") }}\n service-object object   {{ obj_name | let(\"type\", \"service\") }}\n service-object          {{ obj_name | let(\"type\", \"service\") }}\n </group>\n\n <group name=\"service-object-ports*\">\n service-object {{ protocol | re(\"SVC_PORTS\") }} destination eq {{port}}\n </group>\n \n <group name=\"service-object-port-ranges*\">\n service-object {{ protocol | re(\"SVC_PORTS\") }} destination range {{port_begin}} {{port_end}}\n </group>\n\n <group name=\"service-port-objects\" itemize=\"port_obj\">\n port-object eq {{ port_obj }}\n </group>\n \n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nobject-group service gokuhead\n service-object tcp-udp destination eq gokurpc \n service-object tcp destination eq 902 \n service-object tcp destination eq https \n service-object tcp destination eq nfs \n service-object tcp destination eq 10025 \nobject-group network gohan\n network-object object gohan-01\n network-object object gohan-02\n network-object object vlan_944\n network-object object gohan-03\n network-object object gohan-05\n network-object object gohan-06\nobject-group service sql tcp\n port-object eq 1433\nobject-group network vegeta\n group-object trunks\n network-object object vegeta-01\nobject-group network Space-Users\n network-object object ab\n network-object object ac\n network-object object ad\n network-object object ae\n network-object object af\n network-object object ag\n network-object object ah\n network-object object ai\n network-object object aj\nobject-group network dalmatians\n network-object object dog-01\n group-object trunks\n network-object object vlan_950\n group-object Space-Users\n network-object object Darts-Summary            \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "object-service-groups": {
+      "gokuhead": {
+       "service-object-ports": [
+        {
+         "protocol": "tcp-udp",
+         "port": "gokurpc"
+        },
+        {
+         "protocol": "tcp",
+         "port": "902"
+        },
+        {
+         "protocol": "tcp",
+         "port": "https"
+        },
+        {
+         "protocol": "tcp",
+         "port": "nfs"
+        },
+        {
+         "protocol": "tcp",
+         "port": "10025"
+        }
+       ]
+      },
+      "sql": {
+       "protocol": "tcp",
+       "service-port-objects": [
+        "1433"
+       ]
+      }
+     },
+     "object-network-groups": {
+      "gohan": {
+       "network-objects": [
+        "gohan-01",
+        "gohan-02",
+        "vlan_944",
+        "gohan-03",
+        "gohan-05",
+        "gohan-06"
+       ]
+      },
+      "vegeta": {
+       "group-objects": [
+        "trunks"
+       ],
+       "network-objects": [
+        "vegeta-01"
+       ]
+      },
+      "Space-Users": {
+       "network-objects": [
+        "ab",
+        "ac",
+        "ad",
+        "ae",
+        "af",
+        "ag",
+        "ah",
+        "ai",
+        "aj"
+       ]
+      },
+      "dalmatians": {
+       "network-objects": [
+        "dog-01",
+        "vlan_950",
+        "Darts-Summary"
+       ],
+       "group-objects": [
+        "trunks",
+        "Space-Users"
+       ]
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_asa_acls_issue_55",
+  "source": "test/pytest/test_answers_and_docs.py::test_asa_acls_issue_55",
+  "template": "\n<vars>\nSVC_PORTS = \"tcp-udp|tcp|udp\"\n</vars>\n\n<group name=\"object-{{ object_type }}-groups**.{{ object_name }}**\">\nobject-group {{ object_type }} {{ object_name | _start_ }}\nobject-group {{ object_type }} {{ object_name | _start_ }} {{ protocol | re(\"SVC_PORTS\")}}\n description {{ description | re(\".*\") }}\n\n <group name=\"network-objects\" itemize=\"obj_name\" method=\"table\">\n network-object object   {{ obj_name | }}\n network-object host     {{ obj_name | IP }}\n </group> \n\n <group name=\"group-objects\" itemize=\"obj_name\" method=\"table\">\n group-object            {{ obj_name }}\n </group>\n \n <group name=\"group-objects\" itemize=\"obj_name\" method=\"table\">\n service-object object   {{ obj_name }}\n service-object          {{ obj_name }}\n </group>\n\n <group name=\"service-object-ports*\">\n service-object {{ protocol | re(\"SVC_PORTS\") }} destination eq {{port}}\n </group>\n \n <group name=\"service-object-port-ranges*\">\n service-object {{ protocol | re(\"SVC_PORTS\") }} destination range {{port_begin}} {{port_end}}\n </group>\n\n <group name=\"service-port-objects\" itemize=\"port_obj\">\n port-object eq {{ port_obj }}\n </group>\n \n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nobject-group service gokuhead\n service-object tcp-udp destination eq gokurpc \n service-object tcp destination eq 902 \n service-object tcp destination eq https \n service-object tcp destination eq nfs \n service-object tcp destination eq 10025 \nobject-group network gohan\n network-object object gohan-01\n network-object object gohan-02\n network-object object vlan_944\n network-object object gohan-03\n network-object object gohan-05\n network-object object gohan-06\nobject-group service sql tcp\n port-object eq 1433\nobject-group network vegeta\n group-object trunks\n network-object object vegeta-01\nobject-group network Space-Users\n network-object object ab\n network-object object ac\n network-object object ad\n network-object object ae\n network-object object af\n network-object object ag\n network-object object ah\n network-object object ai\n network-object object aj\nobject-group network dalmatians\n network-object object dog-01\n group-object trunks\n network-object object vlan_950\n group-object Space-Users\n network-object object Darts-Summary            \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "object-service-groups": {
+      "gokuhead": {
+       "service-object-ports": [
+        {
+         "protocol": "tcp-udp",
+         "port": "gokurpc"
+        },
+        {
+         "protocol": "tcp",
+         "port": "902"
+        },
+        {
+         "protocol": "tcp",
+         "port": "https"
+        },
+        {
+         "protocol": "tcp",
+         "port": "nfs"
+        },
+        {
+         "protocol": "tcp",
+         "port": "10025"
+        }
+       ]
+      },
+      "sql": {
+       "protocol": "tcp",
+       "service-port-objects": [
+        "1433"
+       ]
+      }
+     },
+     "object-network-groups": {
+      "gohan": {
+       "network-objects": [
+        "gohan-01",
+        "gohan-02",
+        "vlan_944",
+        "gohan-03",
+        "gohan-05",
+        "gohan-06"
+       ]
+      },
+      "vegeta": {
+       "group-objects": [
+        "trunks"
+       ],
+       "network-objects": [
+        "vegeta-01"
+       ]
+      },
+      "Space-Users": {
+       "network-objects": [
+        "ab",
+        "ac",
+        "ad",
+        "ae",
+        "af",
+        "ag",
+        "ah",
+        "ai",
+        "aj"
+       ]
+      },
+      "dalmatians": {
+       "network-objects": [
+        "dog-01",
+        "vlan_950",
+        "Darts-Summary"
+       ],
+       "group-objects": [
+        "trunks",
+        "Space-Users"
+       ]
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_57_headers_parsing",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_57_headers_parsing",
+  "template": "\n<group name = \"interfaces\">\n<group name=\"routed\">\nBrief information on interfaces in route mode: {{ _start_ }}\n<group name = \"{{Interface}}\">\nInterface            Link Protocol Primary_IP      Description {{ _headers_ }}\n</group>\n{{ _end_ }}\n</group>\n\n<group name=\"bridged\">\nBrief information on interfaces in bridge mode: {{ _start_ }}\n<group name = \"{{Interface}}\">\nInterface            Link Speed   Duplex Type PVID Description {{ _headers_ }}\n</group>\n{{ _end_ }}\n</group>\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nBrief information on interfaces in route mode:\nLink: ADM - administratively down; Stby - standby\nProtocol: (s) - spoofing\nInterface            Link Protocol Primary IP      Description                \nInLoop0              UP   UP(s)    --                                         \nREG0                 UP   --       --                                         \nVlan401              UP   UP       10.251.147.36       HSSBC_to_inband_mgmt_r4\n\nBrief information on interfaces in bridge mode:\nLink: ADM - administratively down; Stby - standby\nSpeed: (a) - auto\nDuplex: (a)/A - auto; H - half; F - full\nType: A - access; T - trunk; H - hybrid\nInterface            Link Speed   Duplex Type PVID Description                \nBAGG1                UP   20G(a)  F(a)   T    1            to-KDC-R4.10-Core-1\nBAGG14               UP   10G(a)  F(a)   T    1    KDC-R429-E1 BackUp Chassis \nBAGG22               UP   20G(a)  F(a)   T    1                    HSSBC-NS-01\nFGE1/0/49            DOWN auto    A      A    1                               \nXGE1/0/1             UP   10G(a)  F(a)   T    1    KDC-R402-E1 Backup Chassis \n\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "interfaces": {
+      "routed": {
+       "Link: ADM - administr": {
+        "Link": "ative",
+        "Protocol": "ly down;",
+        "Primary_IP": "Stby - standby",
+        "Description": ""
+       },
+       "InLoop0": {
+        "Link": "UP",
+        "Protocol": "UP(s)",
+        "Primary_IP": "--",
+        "Description": ""
+       },
+       "REG0": {
+        "Link": "UP",
+        "Protocol": "--",
+        "Primary_IP": "--",
+        "Description": ""
+       },
+       "Vlan401": {
+        "Link": "UP",
+        "Protocol": "UP",
+        "Primary_IP": "10.251.147.36",
+        "Description": "HSSBC_to_inband_mgmt_r4"
+       }
+      },
+      "bridged": {
+       "Link: ADM - administr": {
+        "Link": "ative",
+        "Speed": "ly down;",
+        "Duplex": "Stby -",
+        "Type": "stan",
+        "PVID": "dby",
+        "Description": ""
+       },
+       "BAGG1": {
+        "Link": "UP",
+        "Speed": "20G(a)",
+        "Duplex": "F(a)",
+        "Type": "T",
+        "PVID": "1",
+        "Description": "to-KDC-R4.10-Core-1"
+       },
+       "BAGG14": {
+        "Link": "UP",
+        "Speed": "10G(a)",
+        "Duplex": "F(a)",
+        "Type": "T",
+        "PVID": "1",
+        "Description": "KDC-R429-E1 BackUp Chassis"
+       },
+       "BAGG22": {
+        "Link": "UP",
+        "Speed": "20G(a)",
+        "Duplex": "F(a)",
+        "Type": "T",
+        "PVID": "1",
+        "Description": "HSSBC-NS-01"
+       },
+       "FGE1/0/49": {
+        "Link": "DOWN",
+        "Speed": "auto",
+        "Duplex": "A",
+        "Type": "A",
+        "PVID": "1",
+        "Description": ""
+       },
+       "XGE1/0/1": {
+        "Link": "UP",
+        "Speed": "10G(a)",
+        "Duplex": "F(a)",
+        "Type": "T",
+        "PVID": "1",
+        "Description": "KDC-R402-E1 Backup Chassis"
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_57_headers_parsing_using_columns",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_57_headers_parsing_using_columns",
+  "template": "\n<group name = \"interfaces\">\n<group name=\"routed\">\nBrief information on interfaces in route mode: {{ _start_ }}\n<group name = \"{{Interface}}\">\nInterface            Link Protocol Primary_IP      Description {{ _headers_ | columns(5)}}\n</group>\n{{ _end_ }}\n</group>\n\n<group name=\"bridged\">\nBrief information on interfaces in bridge mode: {{ _start_ }}\n<group name = \"{{Interface}}\">\nInterface            Link Speed   Duplex Type PVID Description {{ _headers_ | columns(7) }}\n</group>\n{{ _end_ }}\n</group>\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nBrief information on interfaces in route mode:\nLink: ADM - administratively down; Stby - standby\nProtocol: (s) - spoofing\nInterface            Link Protocol Primary IP      Description                \nInLoop0              UP   UP(s)    --                                         \nREG0                 UP   --       --                                         \nVlan401              UP   UP       10.251.147.36       HSSBC_to_inband_mgmt_r4\n\nBrief information on interfaces in bridge mode:\nLink: ADM - administratively down; Stby - standby\nSpeed: (a) - auto\nDuplex: (a)/A - auto; H - half; F - full\nType: A - access; T - trunk; H - hybrid\nInterface            Link Speed   Duplex Type PVID Description                \nBAGG1                UP   20G(a)  F(a)   T    1            to-KDC-R4.10-Core-1\nBAGG14               UP   10G(a)  F(a)   T    1    KDC-R429-E1 BackUp Chassis \nBAGG22               UP   20G(a)  F(a)   T    1                    HSSBC-NS-01\nFGE1/0/49            DOWN auto    A      A    1                               \nXGE1/0/1             UP   10G(a)  F(a)   T    1    KDC-R402-E1 Backup Chassis \n\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "interfaces": {
+      "routed": {
+       "InLoop0": {
+        "Link": "UP",
+        "Protocol": "UP(s)",
+        "Primary_IP": "--",
+        "Description": ""
+       },
+       "REG0": {
+        "Link": "UP",
+        "Protocol": "--",
+        "Primary_IP": "--",
+        "Description": ""
+       },
+       "Vlan401": {
+        "Link": "UP",
+        "Protocol": "UP",
+        "Primary_IP": "10.251.147.36",
+        "Description": "HSSBC_to_inband_mgmt_r4"
+       }
+      },
+      "bridged": {
+       "BAGG1": {
+        "Link": "UP",
+        "Speed": "20G(a)",
+        "Duplex": "F(a)",
+        "Type": "T",
+        "PVID": "1",
+        "Description": "to-KDC-R4.10-Core-1"
+       },
+       "BAGG14": {
+        "Link": "UP",
+        "Speed": "10G(a)",
+        "Duplex": "F(a)",
+        "Type": "T",
+        "PVID": "1",
+        "Description": "KDC-R429-E1 BackUp Chassis"
+       },
+       "BAGG22": {
+        "Link": "UP",
+        "Speed": "20G(a)",
+        "Duplex": "F(a)",
+        "Type": "T",
+        "PVID": "1",
+        "Description": "HSSBC-NS-01"
+       },
+       "FGE1/0/49": {
+        "Link": "DOWN",
+        "Speed": "auto",
+        "Duplex": "A",
+        "Type": "A",
+        "PVID": "1",
+        "Description": ""
+       },
+       "XGE1/0/1": {
+        "Link": "UP",
+        "Speed": "10G(a)",
+        "Duplex": "F(a)",
+        "Type": "T",
+        "PVID": "1",
+        "Description": "KDC-R402-E1 Backup Chassis"
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_interface_template_not_collecting_all_data_solution",
+  "source": "test/pytest/test_answers_and_docs.py::test_interface_template_not_collecting_all_data_solution",
+  "template": "\n<doc>\nTemplate for capturing interface configuration data from IOS-XR devices\n\nNote: In order to different interface appearances, the interface block has been replicated.\n      Be sure to update all blocks accordingly when adding any new values to capture.\n</doc>\n\n<vars>\nintf_defaults = {\n    \"description\": None,\n    \"speed\": None,\n    \"negotiation\": None,\n    \"disabled\": False,\n    \"mode\": None,\n}\n</vars>\n\n<macro>\n## parses ipv4 addresses to determine which is primary and which are secondary\n## and converts dotted-quad subnet mask into cidr format\ndef ipv4_macro(data):\n    data_list = list(data.split(\" \"))\n    addr = str(data_list[0])\n    mask = str(data_list[1])\n    mask = str(sum(bin(int(x)).count('1') for x in mask.split('.')))\n    ipv4 = addr+\"/\"+mask\n    if 'secondary' in data:\n        is_secondary = True\n    else:\n        is_secondary = False\n    result = { \"ipv4\" : ipv4, \"is_secondary\" : is_secondary }\n    return result\n</macro>\n\n<group name=\"interfaces\" default=\"intf_defaults\">\ninterface {{ interface | _start_}}                                            \ninterface {{ interface | let(\"mode\", \"l2transport\") | _start_ }} l2transport      \ninterface preconfigure {{ interface | let(\"mode\", \"preconfigure\") | _start_ }}      \n description {{ description | re(\".+\") }}\n speed {{ speed }}\n negotiation {{ negotiation }}\n shutdown {{ disabled | set(True) }}\n mac-address {{ mac_address }}\n <group name=\"ipv4*\" method=\"table\" containsall=\"ipv4\">\n ipv4 address {{ ipv4 | PHRASE | _exact_ | macro(\"ipv4_macro\") }}\n </group>\n <group name=\"ipv6*\" method=\"table\" containsall=\"ipv6\">\n ipv6 address {{ ipv6 | ORPHRASE | _exact_ }}\n </group>\n! {{ _end_ }}\n</group> \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface Bundle-Ether10\n description Bundle-Ether10\n bfd mode ietf\n bfd address-family ipv4 multiplier 3\n bfd address-family ipv4 destination 192.168.1.7\n bfd address-family ipv4 fast-detect\n bfd address-family ipv4 minimum-interval 100\n mtu 9114\n ipv4 address 192.168.1.6 255.255.255.254\n ipv6 address fc00::1:5/127\n load-interval 30\n!\ninterface Bundle-Ether51\n description Bundle-Ether51\n bfd mode ietf\n bfd address-family ipv4 multiplier 3\n bfd address-family ipv4 destination 192.168.1.2\n bfd address-family ipv4 fast-detect\n bfd address-family ipv4 minimum-interval 100\n mtu 9114\n ipv4 address 192.168.1.3 255.255.255.254\n ipv6 address fc00::1:3/127\n load-interval 30\n!\ninterface Loopback0\n description Loopback0\n ipv4 address 10.1.1.1 255.255.255.255\n ipv4 address 10.2.2.2 255.255.255.255 secondary\n ipv6 address fc00::1/128\n ipv6 address fc00::101/128\n!\ninterface Loopback1\n description Loopback1\n ipv4 address 10.100.0.1 255.255.255.0\n ipv4 address 10.100.1.1 255.255.255.0 secondary\n ipv4 address 10.100.2.1 255.255.255.0 secondary\n ipv6 address fc00:100::1/64\n ipv6 address fc00:100::101/64\n ipv6 address fc00:100::201/64\n!\ninterface MgmtEth0/RP0/CPU0/0\n description MgmtEth0/RP0/CPU0/0\n cdp\n vrf VRF-MGMT\n ipv4 address 172.23.136.21 255.255.252.0\n!\ninterface GigabitEthernet0/0/0/12\n description GigabitEthernet0/0/0/12\n mtu 9018\n lldp\n  receive disable\n  transmit disable\n !\n negotiation auto\n load-interval 30\n l2transport\n !\n!\ninterface TenGigE0/0/0/4\n description TenGigE0/0/0/4\n bundle id 51 mode active\n cdp\n load-interval 30\n!\ninterface TenGigE0/0/0/5\n shutdown\n!\ninterface TenGigE0/0/0/5.100 l2transport\n description TenGigE0/0/0/5.100\n!\ninterface TenGigE0/0/0/47\n description TenGigE0/0/0/47\n shutdown\n mac-address 201.b19.1234\n!\ninterface BVI101\n cdp\n description BVI101\n ipv4 address 192.168.101.1 255.255.255.0\n load-interval 30\n mac-address 200.b19.4321\n!\ninterface HundredGigE0/0/1/0\n description HundredGigE0/0/1/0\n bundle id 10 mode active\n cdp\n load-interval 30\n mac-address 200.b19.5678\n!\ninterface preconfigure GigabitEthernet0/0/0/11\n description GigabitEthernet0/0/0/11\n shutdown\n!\ninterface preconfigure GigabitEthernet0/0/0/16\n description GigabitEthernet0/0/0/16\n shutdown\n!\ninterface preconfigure GigabitEthernet0/0/0/17\n description GigabitEthernet0/0/0/17\n shutdown\n!    \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "interfaces": [
+      {
+       "description": "Bundle-Ether10",
+       "interface": "Bundle-Ether10",
+       "speed": null,
+       "negotiation": null,
+       "disabled": false,
+       "mode": null,
+       "ipv4": [
+        {
+         "ipv4": {
+          "ipv4": "192.168.1.6/31",
+          "is_secondary": false
+         }
+        }
+       ],
+       "ipv6": [
+        {
+         "ipv6": "fc00::1:5/127"
+        }
+       ]
+      },
+      {
+       "description": "Bundle-Ether51",
+       "interface": "Bundle-Ether51",
+       "speed": null,
+       "negotiation": null,
+       "disabled": false,
+       "mode": null,
+       "ipv4": [
+        {
+         "ipv4": {
+          "ipv4": "192.168.1.3/31",
+          "is_secondary": false
+         }
+        }
+       ],
+       "ipv6": [
+        {
+         "ipv6": "fc00::1:3/127"
+        }
+       ]
+      },
+      {
+       "description": "Loopback0",
+       "interface": "Loopback0",
+       "speed": null,
+       "negotiation": null,
+       "disabled": false,
+       "mode": null,
+       "ipv4": [
+        {
+         "ipv4": {
+          "ipv4": "10.1.1.1/32",
+          "is_secondary": false
+         }
+        },
+        {
+         "ipv4": {
+          "ipv4": "10.2.2.2/32",
+          "is_secondary": true
+         }
+        }
+       ],
+       "ipv6": [
+        {
+         "ipv6": "fc00::1/128"
+        },
+        {
+         "ipv6": "fc00::101/128"
+        }
+       ]
+      },
+      {
+       "description": "Loopback1",
+       "interface": "Loopback1",
+       "speed": null,
+       "negotiation": null,
+       "disabled": false,
+       "mode": null,
+       "ipv4": [
+        {
+         "ipv4": {
+          "ipv4": "10.100.0.1/24",
+          "is_secondary": false
+         }
+        },
+        {
+         "ipv4": {
+          "ipv4": "10.100.1.1/24",
+          "is_secondary": true
+         }
+        },
+        {
+         "ipv4": {
+          "ipv4": "10.100.2.1/24",
+          "is_secondary": true
+         }
+        }
+       ],
+       "ipv6": [
+        {
+         "ipv6": "fc00:100::1/64"
+        },
+        {
+         "ipv6": "fc00:100::101/64"
+        },
+        {
+         "ipv6": "fc00:100::201/64"
+        }
+       ]
+      },
+      {
+       "description": "MgmtEth0/RP0/CPU0/0",
+       "interface": "MgmtEth0/RP0/CPU0/0",
+       "speed": null,
+       "negotiation": null,
+       "disabled": false,
+       "mode": null,
+       "ipv4": [
+        {
+         "ipv4": {
+          "ipv4": "172.23.136.21/22",
+          "is_secondary": false
+         }
+        }
+       ]
+      },
+      {
+       "negotiation": "auto",
+       "description": "GigabitEthernet0/0/0/12",
+       "interface": "GigabitEthernet0/0/0/12",
+       "speed": null,
+       "disabled": false,
+       "mode": null
+      },
+      {
+       "description": "TenGigE0/0/0/4",
+       "interface": "TenGigE0/0/0/4",
+       "speed": null,
+       "negotiation": null,
+       "disabled": false,
+       "mode": null
+      },
+      {
+       "disabled": true,
+       "interface": "TenGigE0/0/0/5",
+       "description": null,
+       "speed": null,
+       "negotiation": null,
+       "mode": null
+      },
+      {
+       "description": "TenGigE0/0/0/5.100",
+       "interface": "TenGigE0/0/0/5.100",
+       "mode": "l2transport",
+       "speed": null,
+       "negotiation": null,
+       "disabled": false
+      },
+      {
+       "mac_address": "201.b19.1234",
+       "disabled": true,
+       "description": "TenGigE0/0/0/47",
+       "interface": "TenGigE0/0/0/47",
+       "speed": null,
+       "negotiation": null,
+       "mode": null
+      },
+      {
+       "description": "BVI101",
+       "interface": "BVI101",
+       "speed": null,
+       "negotiation": null,
+       "disabled": false,
+       "mode": null,
+       "ipv4": [
+        {
+         "ipv4": {
+          "ipv4": "192.168.101.1/24",
+          "is_secondary": false
+         }
+        }
+       ],
+       "mac_address": "200.b19.4321"
+      },
+      {
+       "mac_address": "200.b19.5678",
+       "description": "HundredGigE0/0/1/0",
+       "interface": "HundredGigE0/0/1/0",
+       "speed": null,
+       "negotiation": null,
+       "disabled": false,
+       "mode": null
+      },
+      {
+       "disabled": true,
+       "description": "GigabitEthernet0/0/0/11",
+       "interface": "GigabitEthernet0/0/0/11",
+       "mode": "preconfigure",
+       "speed": null,
+       "negotiation": null
+      },
+      {
+       "disabled": true,
+       "description": "GigabitEthernet0/0/0/16",
+       "interface": "GigabitEthernet0/0/0/16",
+       "mode": "preconfigure",
+       "speed": null,
+       "negotiation": null
+      },
+      {
+       "disabled": true,
+       "description": "GigabitEthernet0/0/0/17",
+       "interface": "GigabitEthernet0/0/0/17",
+       "mode": "preconfigure",
+       "speed": null,
+       "negotiation": null
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_interface_template_not_collecting_all_data_reduced",
+  "source": "test/pytest/test_answers_and_docs.py::test_interface_template_not_collecting_all_data_reduced",
+  "template": "\n<group name=\"interfaces\">\n\n## matches primary interfaces\n<group>\ninterface {{ interface }}\n <group name=\"ipv4*\" method=\"table\" containsall=\"ipv4\">\n ipv4 address {{ ipv4 | _line_ | _exact_ }}\n </group>\n mac-address {{ mac_address }}\n</group>\n\n## matches sub-interfaces\n<group>\ninterface {{ interface }} l2transport\n mac-address {{ mac_address }}\n</group>\n\n</group>      \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface TenGigE0/0/0/5.100 l2transport\n!\ninterface BVI101\n ipv4 address 192.168.101.1 255.255.255.0\n mac-address 200.b19.4321\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "interfaces": [
+      {
+       "interface": "TenGigE0/0/0/5.100"
+      },
+      {
+       "interface": "BVI101",
+       "ipv4": [
+        {
+         "ipv4": "192.168.101.1 255.255.255.0"
+        }
+       ],
+       "mac_address": "200.b19.4321"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_fortigate_intf_parsing",
+  "source": "test/pytest/test_answers_and_docs.py::test_fortigate_intf_parsing",
+  "template": "\n<group name=\"interfaces\">\nconfig system interface {{ _start_ }}\n    <group name=\"/interfaces*\">\n    edit \"{{ interface }}\"\n        set allowaccess {{ allowaccess }}\n        set description \"{{ description }}\"\n        set interface \"{{ phy_interface }}\"\n        set snmp-index {{ snmp_index }}\n        set type {{ fgt_int_type }}\n        set vdom \"{{ vdom }}\"\n        set vlanid {{ vlan }}\n    next {{ _end_ }}\n    </group>\nend {{ _end_ }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nconfig system np6\n    edit \"np6_0\"\n    next\nend\nconfig system interface\n    edit \"mgmt1\"\n        set vdom \"root\"\n        set ip 10.10.10.1 255.255.255.248\n        set allowaccess ping\n        set type physical\n        set description \"mgmt1\"\n        set snmp-index 1\n    next\n    edit \"port1\"\n        set vdom \"internal\"\n        set ip 20.20.20.1 255.255.255.248\n        set allowaccess ping\n        set type physical\n        set snmp-index 2\n    next\nend\nconfig system custom-language\n    edit \"en\"\n        set filename \"en\"\n    next\n    edit \"fr\"\n        set filename \"fr\"\n    next\nend    \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "interfaces": [
+      {
+       "snmp_index": "1",
+       "description": "mgmt1",
+       "fgt_int_type": "physical",
+       "allowaccess": "ping",
+       "vdom": "root",
+       "interface": "mgmt1"
+      },
+      {
+       "snmp_index": "2",
+       "fgt_int_type": "physical",
+       "allowaccess": "ping",
+       "vdom": "internal",
+       "interface": "port1"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_57_one_more",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_57_one_more",
+  "template": "\n<group name = \"portchannel.{{channel_number}}\">\nAggregate Interface: Bridge-Aggregation{{ channel_number}}\n\n<group name = \"local_members*\" void=\"\">\nLocal: {{_start_}}\n  <group>\n  {{interface  | exclude(\"Port\") }} {{status}} {{priority}} {{oper_key }} {{flag}}\n  </group>\n</group>\n\n<group name = \"remote_members*\">\n  {{interface }} {{status}} {{priority}} {{oper_key}} {{sys_id}}, {{ mac | MAC }} {{flag}}\n</group>\n\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nLoadsharing Type: Shar -- Loadsharing, NonS -- Non-Loadsharing\nPort Status: S -- Selected, U -- Unselected,\n             I -- Individual, * -- Management port\nFlags:  A -- LACP_Activity, B -- LACP_Timeout, C -- Aggregation,\n        D -- Synchronization, E -- Collecting, F -- Distributing,\n        G -- Defaulted, H -- Expired\n\nAggregate Interface: Bridge-Aggregation1\nAggregation Mode: Dynamic\nLoadsharing Type: Shar\nManagement VLAN : None\nSystem ID: 0x8000, d07e-28b5-a200\nLocal:\n  Port             Status  Priority Oper-Key  Flag\n--------------------------------------------------------------------------------\n  GE6/0/1          U       32768    1         {ACG}\n  GE6/0/2          U       32768    1         {ACG}\nRemote:\n  Actor            Partner Priority Oper-Key  SystemID               Flag\n--------------------------------------------------------------------------------\n  GE6/0/1          0       32768    0         0x8000, 0000-0000-0000 {EF}\n  GE6/0/2          0       32768    0         0x8000, 0000-0000-0000 {EF}\n\nAggregate Interface: Bridge-Aggregation2\nAggregation Mode: Dynamic\nLoadsharing Type: Shar\nManagement VLAN : None\nSystem ID: 0x8000, d07e-28b5-a200\nLocal:\n  Port             Status  Priority Oper-Key  Flag\n--------------------------------------------------------------------------------\n  GE6/0/3          U       32768    2         {ACG}\n  GE6/0/4          U       32768    2         {ACG}\nRemote:\n  Actor            Partner Priority Oper-Key  SystemID               Flag\n--------------------------------------------------------------------------------\n  GE6/0/3          0       32768    0         0x8000, 0000-0000-0000 {EF}\n  GE6/0/4          0       32768    0         0x8000, 0000-0000-0000 {EF}\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "portchannel": {
+      "1": {
+       "local_members": [
+        {
+         "interface": "GE6/0/1",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "1",
+         "flag": "{ACG}"
+        },
+        {
+         "interface": "GE6/0/2",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "1",
+         "flag": "{ACG}"
+        }
+       ],
+       "remote_members": [
+        {
+         "interface": "GE6/0/1",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        },
+        {
+         "interface": "GE6/0/2",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        }
+       ]
+      },
+      "2": {
+       "local_members": [
+        {
+         "interface": "GE6/0/3",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "2",
+         "flag": "{ACG}"
+        },
+        {
+         "interface": "GE6/0/4",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "2",
+         "flag": "{ACG}"
+        }
+       ],
+       "remote_members": [
+        {
+         "interface": "GE6/0/3",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        },
+        {
+         "interface": "GE6/0/4",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        }
+       ]
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_57_one_more_answer",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_57_one_more_answer",
+  "template": "\n<group name = \"portchannel.{{channel_number}}\">\nAggregate Interface: Bridge-Aggregation{{ channel_number}}\n\n<group name = \"local_members*\">\n  {{interface}} {{status}} {{priority | DIGIT}} {{oper_key | DIGIT}} {{flag}}\n</group>\n\n<group name = \"remote_members*\">\n  {{interface}} {{status}} {{priority | DIGIT}} {{oper_key | DIGIT}} {{sys_id}}, {{ mac | MAC }} {{flag}}\n</group>\n\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nLoadsharing Type: Shar -- Loadsharing, NonS -- Non-Loadsharing\nPort Status: S -- Selected, U -- Unselected,\n             I -- Individual, * -- Management port\nFlags:  A -- LACP_Activity, B -- LACP_Timeout, C -- Aggregation,\n        D -- Synchronization, E -- Collecting, F -- Distributing,\n        G -- Defaulted, H -- Expired\n\nAggregate Interface: Bridge-Aggregation1\nAggregation Mode: Dynamic\nLoadsharing Type: Shar\nManagement VLAN : None\nSystem ID: 0x8000, d07e-28b5-a200\nLocal:\n  Port             Status  Priority Oper-Key  Flag\n--------------------------------------------------------------------------------\n  GE6/0/1          U       32768    1         {ACG}\n  GE6/0/2          U       32768    1         {ACG}\nRemote:\n  Actor            Partner Priority Oper-Key  SystemID               Flag\n--------------------------------------------------------------------------------\n  GE6/0/1          0       32768    0         0x8000, 0000-0000-0000 {EF}\n  GE6/0/2          0       32768    0         0x8000, 0000-0000-0000 {EF}\n\nAggregate Interface: Bridge-Aggregation2\nAggregation Mode: Dynamic\nLoadsharing Type: Shar\nManagement VLAN : None\nSystem ID: 0x8000, d07e-28b5-a200\nLocal:\n  Port             Status  Priority Oper-Key  Flag\n--------------------------------------------------------------------------------\n  GE6/0/3          U       32768    2         {ACG}\n  GE6/0/4          U       32768    2         {ACG}\nRemote:\n  Actor            Partner Priority Oper-Key  SystemID               Flag\n--------------------------------------------------------------------------------\n  GE6/0/3          0       32768    0         0x8000, 0000-0000-0000 {EF}\n  GE6/0/4          0       32768    0         0x8000, 0000-0000-0000 {EF}\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "portchannel": {
+      "1": {
+       "local_members": [
+        {
+         "interface": "GE6/0/1",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "1",
+         "flag": "{ACG}"
+        },
+        {
+         "interface": "GE6/0/2",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "1",
+         "flag": "{ACG}"
+        }
+       ],
+       "remote_members": [
+        {
+         "interface": "GE6/0/1",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        },
+        {
+         "interface": "GE6/0/2",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        }
+       ]
+      },
+      "2": {
+       "local_members": [
+        {
+         "interface": "GE6/0/3",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "2",
+         "flag": "{ACG}"
+        },
+        {
+         "interface": "GE6/0/4",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "2",
+         "flag": "{ACG}"
+        }
+       ],
+       "remote_members": [
+        {
+         "interface": "GE6/0/3",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        },
+        {
+         "interface": "GE6/0/4",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        }
+       ]
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_57_one_more_empty_dict_in_res",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_57_one_more_empty_dict_in_res",
+  "template": "\n<group name = \"portchannel.{{channel_number}}\">\nAggregate Interface: Bridge-Aggregation{{ channel_number}}\n\n<group name = \"local_members*\">\nLocal: {{_start_}}\n  <group>\n  {{interface }} {{status}} {{priority}} {{oper_key | DIGIT }} {{flag}}\n  </group>\n</group>\n\n<group name = \"remote_members*\">\nRemote: {{_start_}}\n  <group>\n  {{interface }} {{status}} {{priority}} {{oper_key}} {{sys_id}}, {{ mac | MAC }} {{flag}}\n  </group>\n</group>\n\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nLoadsharing Type: Shar -- Loadsharing, NonS -- Non-Loadsharing\nPort Status: S -- Selected, U -- Unselected,\n             I -- Individual, * -- Management port\nFlags:  A -- LACP_Activity, B -- LACP_Timeout, C -- Aggregation,\n        D -- Synchronization, E -- Collecting, F -- Distributing,\n        G -- Defaulted, H -- Expired\n\nAggregate Interface: Bridge-Aggregation1\nAggregation Mode: Dynamic\nLoadsharing Type: Shar\nManagement VLAN : None\nSystem ID: 0x8000, d07e-28b5-a200\nLocal:\n  Port             Status  Priority Oper-Key  Flag\n--------------------------------------------------------------------------------\n  GE6/0/1          U       32768    1         {ACG}\n  GE6/0/2          U       32768    1         {ACG}\nRemote:\n  Actor            Partner Priority Oper-Key  SystemID               Flag\n--------------------------------------------------------------------------------\n  GE6/0/1          0       32768    0         0x8000, 0000-0000-0000 {EF}\n  GE6/0/2          0       32768    0         0x8000, 0000-0000-0000 {EF}\n\nAggregate Interface: Bridge-Aggregation2\nAggregation Mode: Dynamic\nLoadsharing Type: Shar\nManagement VLAN : None\nSystem ID: 0x8000, d07e-28b5-a200\nLocal:\n  Port             Status  Priority Oper-Key  Flag\n--------------------------------------------------------------------------------\n  GE6/0/3          U       32768    2         {ACG}\n  GE6/0/4          U       32768    2         {ACG}\nRemote:\n  Actor            Partner Priority Oper-Key  SystemID               Flag\n--------------------------------------------------------------------------------\n  GE6/0/3          0       32768    0         0x8000, 0000-0000-0000 {EF}\n  GE6/0/4          0       32768    0         0x8000, 0000-0000-0000 {EF}\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "portchannel": {
+      "1": {
+       "local_members": [
+        {
+         "interface": "GE6/0/1",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "1",
+         "flag": "{ACG}"
+        },
+        {
+         "interface": "GE6/0/2",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "1",
+         "flag": "{ACG}"
+        }
+       ],
+       "remote_members": [
+        {
+         "interface": "GE6/0/1",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        },
+        {
+         "interface": "GE6/0/2",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        }
+       ]
+      },
+      "2": {
+       "local_members": [
+        {
+         "interface": "GE6/0/3",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "2",
+         "flag": "{ACG}"
+        },
+        {
+         "interface": "GE6/0/4",
+         "status": "U",
+         "priority": "32768",
+         "oper_key": "2",
+         "flag": "{ACG}"
+        }
+       ],
+       "remote_members": [
+        {
+         "interface": "GE6/0/3",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        },
+        {
+         "interface": "GE6/0/4",
+         "status": "0",
+         "priority": "32768",
+         "oper_key": "0",
+         "sys_id": "0x8000",
+         "mac": "0000-0000-0000",
+         "flag": "{EF}"
+        }
+       ]
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_62",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_62",
+  "template": "\n<group name = '{{ nameif }}'>\n{{ nameif | ORPHRASE }}:\n{{ ignore(r'\\s+') }}received{{ ignore('.*') }}\n{{ ignore(r'\\s+') }}{{ rpps | DIGIT }} pkts/sec{{ ignore('.*') }}\n{{ ignore(r'\\s+') }}trasmitted{{ ignore('.*') }}\n{{ ignore(r'\\s+') }}{{ tpps | DIGIT }} pkts/sec{{ ignore('.*') }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nsecurity:\n    received (in 351815.564 secs):\n        220203204 packets    14522703007 bytes\n        3 pkts/sec    41010 bytes/sec\n    transmitted (in 351815 secs):\n        0 packets    0 bytes\n        0 pkts/sec    0 bytes/sec\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "security": {
+      "rpps": "3"
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_62_fix",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_62_fix",
+  "template": "\n<group name = '{{ nameif }}'>\n{{ nameif | ORPHRASE }}:\n\n<group name=\"rx\">\n    received (in {{ ignore }} secs): {{ _start_ }}\n        {{ rpps }} pkts/sec    41010 bytes/sec\n</group>\n\n<group name=\"tx\">\n    transmitted (in {{ ignore }} secs): {{ _start_ }}\n        {{ tpps }} pkts/sec    0 bytes/sec\n</group>\n\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nsecurity:\n    received (in 351815.564 secs):\n        220203204 packets    14522703007 bytes\n        3 pkts/sec    41010 bytes/sec\n    transmitted (in 351815 secs):\n        0 packets    0 bytes\n        0 pkts/sec    0 bytes/sec\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "security": {
+      "rx": {
+       "rpps": "3"
+      },
+      "tx": {
+       "tpps": "0"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_answer_hpe_bgp",
+  "source": "test/pytest/test_answers_and_docs.py::test_answer_hpe_bgp",
+  "template": "\n<group name= \"bgp_af.{{vpn_instance}}.{{address_family}}\">\n {{address_family}}-family vpn-instance {{vpn_instance}}\n  router-id {{router_id}}\n  preference {{pref_internal}} {{pref_external}} {{pref_local}}\n\n <group name= \"bgp_peer.{{peer_id}}**\" method=\"table\">\n  peer {{peer_id}} as-number {{peer_as_number}}\n  peer {{peer_id}} group {{peer_group_id }}\n  peer {{peer_id}} label_route_capability {{label_router_capability | re(\"label-route-capability\")}}\n  peer {{peer_id}} {{bfd | re(\"bfd\") | let(\"enabled\") }}\n  peer {{peer_id}} route-policy {{peer_import_policy}} import\n  peer {{peer_id}} route-policy {{peer_export_policy}} export\n  peer {{peer_id}} ebgp-max-hop {{ebgp_max_hop}}\n  peer {{peer_id}} timer keepalive {{timet_keepalive}} hold {{timer_hold}}\n  peer {{peer_id}} route-update-interval {{timer_route_update}}\n  peer {{peer_id}} connect-interface {{source_interface}}\n  peer {{peer_id}} fake-as {{local_as}}\n </group>\n\n<group name=\"aggregate\">\n  aggregate {{network}} {{mask}} {{detail_suppressed }} attribute-policy {{attribute_policy}}\n</group>\n  \n<group name=\"networks\">\n  network {{network}} {{mask}} route-policy {{route_policy}}\n</group>  \n\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n ipv4-family vpn-instance FHA\n  router-id 10.251.0.15\n  peer 10.251.64.113 as-number 64991\n  peer 10.251.64.97 as-number 64991\n  aggregate 10.251.64.0 255.255.248.0 detail-suppressed attribute-policy IGP_into_FHA\n  aggregate 10.251.160.0 255.255.248.0 detail-suppressed attribute-policy IGP_into_FHA\n  preference 75 80 90\n  network 10.248.128.0 255.255.255.0 route-policy IGP_into_FHA\n  network 10.248.137.160 255.255.255.224 route-policy IGP_into_FHA\n  peer 10.251.64.97 route-policy fhadmz_to_fha import\n  peer 10.251.64.97 ebgp-max-hop 5\n  peer 10.251.64.97 timer keepalive 1 hold 5\n  peer 10.251.64.97 route-update-interval 1\n  peer 10.251.64.97 connect-interface LoopBack101\n  peer 10.251.64.97 fake-as 64881\n  peer 10.251.64.113 route-policy fha_to_fhaimz export\n  peer 10.251.64.113 route-policy fhaimz_to_fha import\n  peer 10.251.64.113 ebgp-max-hop 5\n  peer 10.251.64.113 timer keepalive 1 hold 5\n  peer 10.251.64.113 route-update-interval 1\n  peer 10.251.64.113 connect-interface LoopBack101\n  peer 10.251.64.113 fake-as 64881\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "bgp_af": {
+      "FHA": {
+       "ipv4": {
+        "router_id": "10.251.0.15",
+        "bgp_peer": {
+         "10.251.64.113": {
+          "peer_as_number": "64991",
+          "peer_export_policy": "fha_to_fhaimz",
+          "peer_import_policy": "fhaimz_to_fha",
+          "ebgp_max_hop": "5",
+          "timet_keepalive": "1",
+          "timer_hold": "5",
+          "timer_route_update": "1",
+          "source_interface": "LoopBack101",
+          "local_as": "64881"
+         },
+         "10.251.64.97": {
+          "peer_as_number": "64991",
+          "peer_import_policy": "fhadmz_to_fha",
+          "ebgp_max_hop": "5",
+          "timet_keepalive": "1",
+          "timer_hold": "5",
+          "timer_route_update": "1",
+          "source_interface": "LoopBack101",
+          "local_as": "64881"
+         }
+        },
+        "aggregate": [
+         {
+          "network": "10.251.64.0",
+          "mask": "255.255.248.0",
+          "detail_suppressed": "detail-suppressed",
+          "attribute_policy": "IGP_into_FHA"
+         },
+         {
+          "network": "10.251.160.0",
+          "mask": "255.255.248.0",
+          "detail_suppressed": "detail-suppressed",
+          "attribute_policy": "IGP_into_FHA"
+         }
+        ],
+        "pref_internal": "75",
+        "pref_external": "80",
+        "pref_local": "90",
+        "networks": [
+         {
+          "network": "10.248.128.0",
+          "mask": "255.255.255.0",
+          "route_policy": "IGP_into_FHA"
+         },
+         {
+          "network": "10.248.137.160",
+          "mask": "255.255.255.224",
+          "route_policy": "IGP_into_FHA"
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_stackoverflow_62421344_python_parse_text",
+  "source": "test/pytest/test_answers_and_docs.py::test_stackoverflow_62421344_python_parse_text",
+  "template": "\n<group contains=\"value\">\n1. main1: {{ _start_ }}\n     {{ ignore }} {{ date }} {{ hour | lessthan(\"12\") }} {{ value | greaterthan(\"4000\") }}\n</group>     \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nJAVA_OPTS=blablalba\nlbalbalba\n\n1. main1:\n\n     aelo1 2020-06-15 11 4001\n     sddg2 2020-06-12 19 422\n\n2. main2:\n\n     fdata3 2020-06-16 11 4422\n     gcontent4 2020-06-12 19 422\n\n3. main3:\n\n     hxvnt5 2020-06-17 11 4002\n     vcfdet6 2020-06-12 19 422\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "date": "2020-06-15",
+      "hour": "11",
+      "value": "4001"
+     },
+     {
+      "date": "2020-06-16",
+      "hour": "11",
+      "value": "4422"
+     },
+     {
+      "date": "2020-06-17",
+      "hour": "11",
+      "value": "4002"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_same_config_different_contexts",
+  "source": "test/pytest/test_answers_and_docs.py::test_same_config_different_contexts",
+  "template": "\n<group name=\"vrfs*.{{ vrf_name }}**\">\nvrf context {{ vrf_name | ORPHRASE | _start_ }}\n  ip name-server {{ name_servers | to_list | joinmatches}}\n    \n<group name=\"another_contexts\" void=\"\">\nfoo {{ _start_ }}\nbiz {{ _start_ }}\nbar {{ _start_ }}\n  ip name-server {{ name_servers | to_list | joinmatches}}\n</group>\n\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nbar\n  ip name-server 3.3.3.1\n  ip name-server 6.6.6.2\nvrf context management\n  foo bar\n  ip name-server 2.2.2.2\n  ip name-server 4.4.4.4\n  ip name-server 5.5.5.5\n  ip route 0.0.0.0/0 2.3.4.5\nfoo\n  ip name-server 3.3.3.3\n  ip name-server 6.6.6.6\nbiz\n  ip name-server 3.3.3.4\n  ip name-server 6.6.6.7\nvrf context main_vrf\n  ip name-server 1.2.3.4\n  ip route 0.0.0.0/0 4.5.6.7\nbar\n  ip name-server 3.3.3.1\n  ip name-server 6.6.6.2\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vrfs": [
+      {
+       "management": {
+        "name_servers": [
+         "2.2.2.2",
+         "4.4.4.4",
+         "5.5.5.5"
+        ]
+       },
+       "main_vrf": {
+        "name_servers": [
+         "1.2.3.4"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_77",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_77",
+  "template": "\n<group name=\"lsp**.{{ lspname }}**\">\nlsp \"{{ lspname | _start_ }}\"\n    <group name=\"primary**.{{ primaryname }}**\">\n    primary \"{{ primaryname | _start_ }}\"\n        <group name=\"include**.{{ item }}**\">\n        include \"{{ item | _start_ }}\"\n        </group>\n        <group name=\"exclude**.{{ item }}**\">\n        exclude \"{{ item | _start_ }}\"\n        </group>\n    exit{{ _end_ }}\n    </group>\n    <group name=\"secondary**.{{ secondaryname }}**\">\n    secondary \"{{ secondaryname | _start_ }}\"\n        <group name=\"include**.{{ item }}**\">\n        include \"{{ item | _start_ }}\"\n        </group>\n        <group name=\"exclude**.{{ item }}**\">\n        exclude \"{{ item | _start_ }}\"\n        </group>\n    exit{{ _end_ }}\n    </group>\nexit{{ _end_ }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nlsp \"lsp100\"\n    primary \"name\"\n        include \"1\"\n        exclude \"2\"\n    exit\n    secondary \"name\"\n        include \"3\"\n        exclude \"4\"\n    exit\nexit\nlsp \"lsp101\"\n    primary \"name\"\n        include \"5\"\n        exclude \"6\"\n    exit\n    secondary \"name\"\n        include \"7\"\n        exclude \"8\"\n    exit\nexit    \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "lsp": {
+      "lsp100": {
+       "primary": {
+        "name": {
+         "include": {
+          "1": {}
+         },
+         "exclude": {
+          "2": {}
+         }
+        }
+       },
+       "secondary": {
+        "name": {
+         "include": {
+          "3": {}
+         },
+         "exclude": {
+          "4": {}
+         }
+        }
+       }
+      },
+      "lsp101": {
+       "primary": {
+        "name": {
+         "include": {
+          "5": {}
+         },
+         "exclude": {
+          "6": {}
+         }
+        }
+       },
+       "secondary": {
+        "name": {
+         "include": {
+          "7": {}
+         },
+         "exclude": {
+          "8": {}
+         }
+        }
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_94",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_94",
+  "template": "\n<group name=\"routing.isis.LAB\" default=\"MISSING\">\nrouter isis LAB {{ _start_ |  _exact_ }}\n \n <group name=\"fa128\" default=\"MISSING\">\n flex-algo 128 {{ _start_ |  _exact_ }}\n  priority {{ priority | equal('999') }}\n  metric-type {{ metric_type | equal('delay') }}\n  advertise-definition {{ advertise_definition | set('true') }}\n  prefix-metric {{ prefix_metric | set('true') }}\n !{{ _end_ }}\n </group>\n \n <group name=\"LEFTOVER\">\n {{ LEFTOVER | _line_ | joinmatches }}\n </group>\n\n!{{ _end_ }}\n</group>    \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nrouter isis LAB\n flex-algo 128\n  priority 100\n  metric-type delay\n  advertise-definition\n  prefix-metric\n !\n address-family ipv4 unicast\n  metric-style wide\n !\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "routing": {
+      "isis": {
+       "LAB": {
+        "fa128": {
+         "priority": "MISSING",
+         "metric_type": "delay",
+         "advertise_definition": "true",
+         "prefix_metric": "true"
+        },
+        "LEFTOVER": [
+         {
+          "LEFTOVER": " priority 100"
+         },
+         {
+          "LEFTOVER": "address-family ipv4 unicast"
+         },
+         {
+          "LEFTOVER": " metric-style wide"
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_94_1",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_94_1",
+  "template": "\n<group name=\"routing.isis.LAB\" default=\"MISSING\">\nrouter isis LAB {{ _start_ |  _exact_ }}\n \n <group name=\"fa128\" default=\"MISSING\">\n flex-algo 128 {{ _start_ |  _exact_ }}\n  priority {{ priority | equal('999') }}\n  metric-type {{ metric_type | equal('delay') }}\n  advertise-definition {{ advertise_definition | set('true') }}\n  prefix-metric {{ prefix_metric | set('true') }}\n  {{ LEFTOVER | _line_  | joinmatches }}\n !{{ _end_ }}\n </group>\n \n <group name=\"LEFTOVER\">\n {{ LEFTOVER | _line_ | joinmatches }}\n </group>\n\n!{{ _end_ }}\n</group>    \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nrouter isis LAB\n flex-algo 128\n  priority 100\n  metric-type delay\n  advertise-definition\n  prefix-metric\n !\n address-family ipv4 unicast\n  metric-style wide\n  advertise passive-only\n  mpls traffic-eng level-2-only\n !\n interface Loopback0\n  passive\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "routing": {
+      "isis": {
+       "LAB": {
+        "fa128": {
+         "prefix_metric": "true",
+         "advertise_definition": "true",
+         "metric_type": "delay",
+         "LEFTOVER": "priority 100",
+         "priority": "MISSING"
+        },
+        "LEFTOVER": [
+         {
+          "LEFTOVER": "address-family ipv4 unicast"
+         },
+         {
+          "LEFTOVER": " metric-style wide"
+         },
+         {
+          "LEFTOVER": " advertise passive-only"
+         },
+         {
+          "LEFTOVER": " mpls traffic-eng level-2-only"
+         },
+         {
+          "LEFTOVER": "interface Loopback0"
+         },
+         {
+          "LEFTOVER": " passive"
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_answers_and_docs/test_issue_89",
+  "source": "test/pytest/test_answers_and_docs.py::test_issue_89",
+  "template": "\n<input load=\"text\">\ninterface Bundle-Ether801.101\n description TTP MACRO TEST INTERFACE\n mtu 9104\n ipv4 address 192.168.1.1 255.255.255.0\n ipv4 address 10.50.45.1 255.255.255.128 secondary\n load-interval 30\n encapsulation dot1q 101\n!\n</input>\n\n<macro>\ndef is_trunk(data):\n    if \"dot1q\" in data:\n        data['trunk'] = True\n    else:\n        data['trunk'] = False\n    return data\n\n</macro>\n\n<group name=\"interfaces.{{ interface }}\" macro=\"is_trunk\">\ninterface {{ interface }}\n description {{ description |ORPHRASE }}\n mtu {{ mtu }}\n vrf {{ vrf |default(None) }}\n service-policy input {{ sp_ingress |default(None) }}\n service-policy output {{ sp_egress |default(None) }}\n ipv4 address {{ ipv4_addr |default(None) }} {{ ipv4_mask |default(None) }}\n <group name=\"secondary\">\n ipv4 address {{ ipv4_addr |default(None) }} {{ ipv4_mask |default(None) }} secondary\n </group>\n ipv6 address {{ ipv6_addr |default(None) }}/{{ ipv6_mask |default(None) }}\n encapsulation dot1q {{ dot1q }}\n ipv4 access-group {{ ingress_acl_v4 |_exact_ |default(None) }} ingress\n ipv4 access-group {{ egress_acl_v4 |_exact_ |default(None) }} egress\n bundle id {{ lag_id }} mode {{ mode }}\n ipv6 access-group {{ ingress_acl_v6 |_exact_ |default(None) }} ingress\n ipv6 access-group {{ egress_acl_v6 |_exact_ |default(None) }} egress\n shutdown {{ disabled |set(True) }}\n! {{ _end_ }}\n</group>\n\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "interfaces": {
+      "Bundle-Ether801.101": {
+       "ipv4_addr": "192.168.1.1",
+       "ipv4_mask": "255.255.255.0",
+       "mtu": "9104",
+       "description": "TTP MACRO TEST INTERFACE",
+       "vrf": null,
+       "sp_ingress": null,
+       "sp_egress": null,
+       "ipv6_addr": null,
+       "ipv6_mask": null,
+       "ingress_acl_v4": null,
+       "egress_acl_v4": null,
+       "ingress_acl_v6": null,
+       "egress_acl_v6": null,
+       "trunk": true,
+       "secondary": {
+        "ipv4_addr": "10.50.45.1",
+        "ipv4_mask": "255.255.255.128"
+       },
+       "dot1q": "101"
+      }
+     }
+    }
+   ]
+  ]
+ }
+]

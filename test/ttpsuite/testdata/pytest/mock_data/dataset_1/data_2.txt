@@ -1,0 +1,8 @@
+interface Lo2
+ description data-2 file
+ ip address 2.2.2.2 32
+!
+interface Lo3
+ description this interface has description
+ ip address 3.3.3.3 32
+!

@@ -4,6 +4,8 @@ This document tracks known differences between GoTTP and Python TTP implementati
 
 **Last Updated**: Based on comprehensive comparison test suite results
 
+> **TTP's own test suite:** the compliance measure for Python TTP 0.10.1 is now [`test/ttpsuite`](../ttpsuite/README.md), which replays the 200 auto-portable cases from TTP's `test/pytest` and compares strictly (no list unwrapping). Every case that differs there is listed in `test/ttpsuite/known_failures.json` with its tracking issue, so that table, not this file, is the current list of known differences. Python `<macro>` code running as Starlark is recorded there as `design: python macro`.
+
 ## Test Coverage Summary
 
 The comparison test suite includes:

@@ -1,0 +1,14 @@
+# Python packages for record.py (not needed by the Go test).
+# The TTP pin itself lives in ../comparison/requirements.txt.
+-r ../comparison/requirements.txt
+# Optional TTP dependencies that the recorded cases exercise
+# (output formatters and functions). Without them the expectations change.
+Cerberus==1.3.8
+deepdiff==8.6.2
+Jinja2==3.1.6
+N2G==0.3.3
+tabulate==0.9.0
+yangson==1.6.7
+# Only for "record.py extract", which runs TTP's own pytest suite.
+pytest==9.2.0
+openpyxl==3.0.10

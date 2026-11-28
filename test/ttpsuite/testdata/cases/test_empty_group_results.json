@@ -1,0 +1,24 @@
+[
+ {
+  "name": "test_empty_group_results/test_empty_group_results",
+  "source": "test/pytest/test_empty_group_results.py::test_empty_group_results",
+  "template": "\n<input load=\"text\">\nvlan 1234\n name some_vlan\nvlan 5678\nvlan 910\n name one_more\nvlan 777\n</input>\n\n<group name=\"vlans.{{ vlan }}\">\nvlan {{ vlan }}\n name {{ name }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "vlans": {
+      "1234": {
+       "name": "some_vlan"
+      },
+      "5678": {},
+      "910": {
+       "name": "one_more"
+      },
+      "777": {}
+     }
+    }
+   ]
+  ]
+ }
+]

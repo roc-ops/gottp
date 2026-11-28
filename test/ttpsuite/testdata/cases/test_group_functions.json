@@ -1,0 +1,667 @@
+[
+ {
+  "name": "test_group_functions/test_group_validate_function",
+  "source": "test/pytest/test_group_functions.py::test_group_validate_function",
+  "template": "\n<input load=\"text\">\ndevice-1#\ninterface Lo0\n!\ninterface Lo1\n description this interface has description\n</input>\n\n<input load=\"text\">\ndevice-2#\ninterface Lo10\n!\ninterface Lo11\n description another interface with description\n</input>\n\n<vars>\nintf_description_validate = {\n    'description': {'required': True, 'type': 'string'}\n}\nhostname_1=\"gethostname\"\n</vars>\n\n<group validate=\"intf_description_validate, info='{interface} has description', result='validation_result', errors='err_details'\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n {{ hostname | set(hostname_1) }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Lo0",
+      "hostname": "device-1",
+      "validation_result": false,
+      "info": "Lo0 has description",
+      "err_details": {
+       "description": [
+        "required field"
+       ]
+      }
+     },
+     {
+      "description": "this interface has description",
+      "interface": "Lo1",
+      "hostname": "device-1",
+      "validation_result": true,
+      "info": "Lo1 has description",
+      "err_details": {}
+     }
+    ],
+    [
+     {
+      "interface": "Lo10",
+      "hostname": "device-2",
+      "validation_result": false,
+      "info": "Lo10 has description",
+      "err_details": {
+       "description": [
+        "required field"
+       ]
+      }
+     },
+     {
+      "description": "another interface with description",
+      "interface": "Lo11",
+      "hostname": "device-2",
+      "validation_result": true,
+      "info": "Lo11 has description",
+      "err_details": {}
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_default_referencing_variable_parent_group_no_re_two_inputs",
+  "source": "test/pytest/test_group_functions.py::test_group_default_referencing_variable_parent_group_no_re_two_inputs",
+  "template": "\n<input load=\"text\">\nHi World\n</input>\n\n<input load=\"text\">\nHello World\n</input>\n\n<vars>\nvar_name = {\"audiences\": []}\n</vars>\n\n<group name='demo**' default=\"var_name\">\n<group name='audiences*'>\nHello {{ audience }}\n</group>\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "demo": {
+      "audiences": []
+     }
+    },
+    {
+     "demo": {
+      "audiences": [
+       {
+        "audience": "World"
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_default_referencing_variable_parent_group_no_re_one_input",
+  "source": "test/pytest/test_group_functions.py::test_group_default_referencing_variable_parent_group_no_re_one_input",
+  "template": "\n<input load=\"text\">\nHi World\n</input>\n\n<vars>\nvar_name = {\"audiences\": []}\n</vars>\n\n<group name='demo' default=\"var_name\">\n<group name='audiences*'>\nHello {{ audience }}\n</group>\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "demo": {
+      "audiences": []
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_top_group_default_referencing_variable_dictionary",
+  "source": "test/pytest/test_group_functions.py::test_top_group_default_referencing_variable_dictionary",
+  "template": "\n<input load=\"text\">\ndevice-1#\ninterface Lo0\n!\ninterface Lo1\n description this interface has description\n</input>\n\n<input load=\"text\">\ndevice-2#\ninterface Lo10\n!\ninterface Lo11\n description another interface with description\n</input>\n\n<vars>\nvar_name = {\n    \"switchport\": False,\n    \"is_l3\": True,\n    \"description\": \"Undefined\"\n}\n</vars>\n\n<group name=\"interfaces\" default=\"var_name\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "interfaces": [
+      {
+       "interface": "Lo0",
+       "switchport": false,
+       "is_l3": true,
+       "description": "Undefined"
+      },
+      {
+       "description": "this interface has description",
+       "interface": "Lo1",
+       "switchport": false,
+       "is_l3": true
+      }
+     ]
+    },
+    {
+     "interfaces": [
+      {
+       "interface": "Lo10",
+       "switchport": false,
+       "is_l3": true,
+       "description": "Undefined"
+      },
+      {
+       "description": "another interface with description",
+       "interface": "Lo11",
+       "switchport": false,
+       "is_l3": true
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_default",
+  "source": "test/pytest/test_group_functions.py::test_group_default",
+  "template": "\n<input load=\"text\">\ndevice-hostame uptime is 27 weeks, 3 days, 10 hours, 46 minutes, 10 seconds\n</input>\n\n<group name=\"uptime**\">\ndevice-hostame uptime is {{ uptime | PHRASE }}\n<group name=\"software\">\n software version {{ version | default(\"uncknown\") }}\n</group>\n</group>\n\n<group name=\"domain\" default=\"Uncknown\">\nDefault domain is {{ fqdn }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "uptime": {
+      "uptime": "27 weeks, 3 days, 10 hours, 46 minutes, 10 seconds",
+      "software": {
+       "version": "uncknown"
+      }
+     },
+     "domain": {
+      "fqdn": "Uncknown"
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_child_group_default_referencing_variable",
+  "source": "test/pytest/test_group_functions.py::test_child_group_default_referencing_variable",
+  "template": "\n<input load=\"text\">\ninterface Lo0\n ip address 1.1.1.1 255.255.255.255\n!\ninterface Lo1\n description this interface has description\n</input>\n\n<input load=\"text\">\ninterface Lo10\n ip address 1.1.1.2 255.255.255.255\n!\ninterface Lo11\n description another interface with description\n ip address 1.1.1.3 255.255.255.255\n</input>\n\n<vars>\nvar_name = {\n    \"L3\": True,\n    \"has_ip\": True\n}\n</vars>\n\n<group name=\"interfaces\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n <group name=\"IPv4_addresses\" default=\"var_name\">\n ip address {{ IP }} {{ MASK }}\n </group>\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "interfaces": [
+      {
+       "interface": "Lo0",
+       "IPv4_addresses": {
+        "IP": "1.1.1.1",
+        "MASK": "255.255.255.255",
+        "L3": true,
+        "has_ip": true
+       }
+      },
+      {
+       "description": "this interface has description",
+       "interface": "Lo1"
+      }
+     ]
+    },
+    {
+     "interfaces": [
+      {
+       "interface": "Lo10",
+       "IPv4_addresses": {
+        "IP": "1.1.1.2",
+        "MASK": "255.255.255.255",
+        "L3": true,
+        "has_ip": true
+       }
+      },
+      {
+       "description": "another interface with description",
+       "interface": "Lo11",
+       "IPv4_addresses": {
+        "IP": "1.1.1.3",
+        "MASK": "255.255.255.255",
+        "L3": true,
+        "has_ip": true
+       }
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_set_function_source_from_global_vars",
+  "source": "test/pytest/test_group_functions.py::test_group_set_function_source_from_global_vars",
+  "template": "\n<input name=\"cfg\" load=\"text\">\nhostname router_1\n</input>\n\n<input name=\"intf\" load=\"text\">\ninterface Lo0\n ip address 1.1.1.1 255.255.255.255\n!\ninterface Lo0\n ip address 1.1.1.2 255.255.255.255\n</input>\n\n<group input=\"cfg\" record=\"hostname\">\nhostname {{ hostname }}\n</group>\n\n<group name=\"interfaces\" set=\"hostname\" input=\"intf\">\ninterface {{ interface }}\n ip address {{ IP }} {{ MASK }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "hostname": "router_1"
+     }
+    ],
+    {
+     "interfaces": [
+      {
+       "IP": "1.1.1.1",
+       "MASK": "255.255.255.255",
+       "interface": "Lo0",
+       "hostname": "router_1"
+      },
+      {
+       "IP": "1.1.1.2",
+       "MASK": "255.255.255.255",
+       "interface": "Lo0",
+       "hostname": "router_1"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_macro_returns_false",
+  "source": "test/pytest/test_group_functions.py::test_group_macro_returns_false",
+  "template": "\n<input load=\"text\">\ninterface Lo0\n!\ninterface Lo1\n description this interface has description\n</input>\n\n<macro>\ndef check(data):\n    if not \"description\" in data:\n        return False\n</macro>\n\n<group macro=\"check\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "this interface has description",
+      "interface": "Lo1"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_macro_returns_true",
+  "source": "test/pytest/test_group_functions.py::test_group_macro_returns_true",
+  "template": "\n<input load=\"text\">\ninterface Lo0\n!\ninterface Lo1\n description this interface has description\n</input>\n\n<macro>\ndef check(data):\n    if \"description\" in data:\n        return True\n</macro>\n\n<group macro=\"check\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Lo0"
+     },
+     {
+      "description": "this interface has description",
+      "interface": "Lo1"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_macro_returns_none",
+  "source": "test/pytest/test_group_functions.py::test_group_macro_returns_none",
+  "template": "\n<input load=\"text\">\ninterface Lo0\n!\ninterface Lo1\n description this interface has description\n</input>\n\n<macro>\ndef check(data):\n    return None\n</macro>\n\n<group macro=\"check\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Lo0"
+     },
+     {
+      "description": "this interface has description",
+      "interface": "Lo1"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_macro_chaining",
+  "source": "test/pytest/test_group_functions.py::test_group_macro_chaining",
+  "template": "\n<input load=\"text\">\ninterface Lo0\n!\ninterface Lo1\n description this interface has description\n</input>\n\n<macro>\ndef check_1(data):\n    if not \"description\" in data:\n        data[\"has_description\"] = False\n    else:\n        data[\"has_description\"] = True\n\ndef check_2(data):\n    if \"Lo\" in data[\"interface\"]:\n        data[\"is_loopback\"] = True\n</macro>\n\n<group macro=\"check_1, check_2\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Lo0",
+      "has_description": false,
+      "is_loopback": true
+     },
+     {
+      "description": "this interface has description",
+      "interface": "Lo1",
+      "has_description": true,
+      "is_loopback": true
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_macro_chaining_returns_dictionary",
+  "source": "test/pytest/test_group_functions.py::test_group_macro_chaining_returns_dictionary",
+  "template": "\n<input load=\"text\">\ninterface Lo0\n!\ninterface Lo1\n description this interface has description\n</input>\n\n<macro>\ndef check_1(data):\n    if not \"description\" in data:\n        return {\"completely_new_data\": True}\n\ndef check_2(data):\n    if \"Lo\" in data.get(\"interface\", \"\"):\n        data[\"is_loopback\"] = True\n    else:\n        data.update({\"completely_new_data_2\": True})\n        return data\n</macro>\n\n<group macro=\"check_1, check_2\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "completely_new_data": true,
+      "completely_new_data_2": true
+     },
+     {
+      "description": "this interface has description",
+      "interface": "Lo1",
+      "is_loopback": true
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_itemize",
+  "source": "test/pytest/test_group_functions.py::test_itemize",
+  "template": "\n<input load=\"text\">\ninterface Vlan778\n description some description 1\n ip address 2002:fd37::91/124\n!\ninterface Vlan779\n description some description 2\n!\ninterface Vlan780\n switchport port-security mac 4\n ip address 192.168.1.1/124\n!\ninterface Vlan790\n description some description 790\n switchport port-security mac 4\n ip address 192.168.190.1/124\n!\n</input>\n\n<group name=\"interfaces_list**\" functions=\"contains('ip') | itemize(key='interface')\">\ninterface {{ interface | upper | append(\"a\") }}\n ip address {{ ip }}\n</group>\n\n<group name=\"ips_list\" functions=\"contains('description') | itemize(key='ip')\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {{ ip }}\n !{{ _end_ }}\n</group>\n\n<group name=\"bla\" functions=\"contains('ip') | itemize(key='interface', path='interfaces.l3')\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {{ ip }}\n !{{ _end_ }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "interfaces_list": [
+      "VLAN778a",
+      "VLAN780a",
+      "VLAN790a"
+     ],
+     "ips_list": [
+      "2002:fd37::91/124",
+      "192.168.190.1/124"
+     ],
+     "interfaces": {
+      "l3": [
+       "Vlan778",
+       "Vlan780",
+       "Vlan790"
+      ]
+     },
+     "bla": [
+      {
+       "ip": "2002:fd37::91/124",
+       "description": "some description 1",
+       "interface": "Vlan778"
+      },
+      {
+       "ip": "192.168.1.1/124",
+       "interface": "Vlan780"
+      },
+      {
+       "ip": "192.168.190.1/124",
+       "description": "some description 790",
+       "interface": "Vlan790"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_itemize_dynamic_path",
+  "source": "test/pytest/test_group_functions.py::test_itemize_dynamic_path",
+  "template": "\n<input load=\"text\">\ninterface Loopback0\n ip address 2002:fd37::91/124\n!\ninterface Vlan779\n!\ninterface Loopback1\n switchport port-security mac 4\n ip address 192.168.1.1/124\n!\ninterface Vlan790\n switchport port-security mac 4\n ip address 192.168.190.1/124\n!\n</input>\n\n<group name=\"l3_interfaces_list.{{ intf_type }}\" itemize=\"interface\">\ninterface {{ interface | contains(\"Vlan\") | let(\"intf_type\", \"vlans\") }}\n ip address {{ ip }}\n</group>\n\n<group name=\"l3_interfaces_list.{{ intf_type }}\" itemize=\"interface\">\ninterface {{ interface | contains(\"Loop\") | let(\"intf_type\", \"loopbacks\") }}\n ip address {{ ip }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "l3_interfaces_list": {
+      "vlans": [
+       "Vlan779",
+       "Vlan790"
+      ],
+      "loopbacks": [
+       "Loopback0",
+       "Loopback1"
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_itemize_dynamic_path_attribute",
+  "source": "test/pytest/test_group_functions.py::test_itemize_dynamic_path_attribute",
+  "template": "\n<input load=\"text\">\ninterface Loopback0\n ip address 2002:fd37::91/124\n!\ninterface Vlan779\n!\ninterface Loopback1\n switchport port-security mac 4\n ip address 192.168.1.1/124\n!\ninterface Vlan790\n switchport port-security mac 4\n ip address 192.168.190.1/124\n!\n</input>\n\n<group name=\"interfaces\" itemize=\"interface, 'l3_interfaces_list.{{ intf_type }}'\">\ninterface {{ interface | contains(\"Vlan\") | let(\"intf_type\", \"vlans\") }}\n ip address {{ ip }}\n</group>\n\n<group name=\"interfaces\" itemize=\"interface, 'l3_interfaces_list.{{ intf_type }}'\">\ninterface {{ interface | contains(\"Loop\") | let(\"intf_type\", \"loopbacks\") }}\n ip address {{ ip }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "l3_interfaces_list": {
+      "vlans": [
+       "Vlan779",
+       "Vlan790"
+      ],
+      "loopbacks": [
+       "Loopback0",
+       "Loopback1"
+      ]
+     },
+     "interfaces": [
+      {
+       "interface": "Vlan779"
+      },
+      {
+       "ip": "192.168.190.1/124",
+       "interface": "Vlan790"
+      },
+      {
+       "ip": "2002:fd37::91/124",
+       "interface": "Loopback0"
+      },
+      {
+       "ip": "192.168.1.1/124",
+       "interface": "Loopback1"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_items2dict_function",
+  "source": "test/pytest/test_group_functions.py::test_items2dict_function",
+  "template": "\n<input load=\"text\">\nvlan 123\n name SERVERS\n!\nvlan 456\n name WORKSTATIONS\n</input>\n\n<group name=\"vlans*\" items2dict=\"vlan, name\">\nvlan {{ vlan }}\n name {{ name }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "vlans": [
+      {
+       "123": "SERVERS"
+      },
+      {
+       "456": "WORKSTATIONS"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_expand",
+  "source": "test/pytest/test_group_functions.py::test_expand",
+  "template": "\n<input load=\"text\">\ninterface GigabitEthernet1/1\n   description to core-1\n   mtu 9100\n   switchport mode trunk\n!\n</input>\n\n<group name=\"interfaces.interface*\" expand=\"\" >\ninterface {{ name }}\n   description {{ config.description | ORPHRASE }}\n   mtu {{ config.mtu | to_int }}\n   <group name=\"switched-vlan\">\n   switchport mode {{ mode }}\n   </group>\n! {{_end_}}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "interfaces": {
+      "interface": [
+       {
+        "config": {
+         "mtu": 9100,
+         "description": "to core-1"
+        },
+        "name": "GigabitEthernet1/1",
+        "switched-vlan": {
+         "mode": "trunk"
+        }
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_expand_issue_65",
+  "source": "test/pytest/test_group_functions.py::test_expand_issue_65",
+  "template": "\n<input load=\"text\">\ninterface GigabitEthernet1/1\n   description to core-1\n   switchport mode trunk\n   mtu 9100\n   vrf ABC\n!\ninterface GigabitEthernet1/2\n   description to AGG-1\n   switchport mode access\n   mtu 9200\n   vrf XYZ\n!\n</input>\n\n<group name=\"interfaces.interface*\" expand=\"\">\ninterface {{ name }}\n   description {{ config.description | ORPHRASE }}\n   mtu {{ config.mtu | to_int }}\n   vrf {{ vrf }}\n   <group name=\"switched-vlan\">\n   switchport mode {{ mode }}\n   </group>\n! {{_end_}}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "interfaces": {
+      "interface": [
+       {
+        "config": {
+         "description": "to core-1",
+         "mtu": 9100
+        },
+        "name": "GigabitEthernet1/1",
+        "switched-vlan": {
+         "mode": "trunk"
+        },
+        "vrf": "ABC"
+       },
+       {
+        "config": {
+         "description": "to AGG-1",
+         "mtu": 9200
+        },
+        "name": "GigabitEthernet1/2",
+        "switched-vlan": {
+         "mode": "access"
+        },
+        "vrf": "XYZ"
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_to_int_for_non_integer",
+  "source": "test/pytest/test_group_functions.py::test_group_to_int_for_non_integer",
+  "template": "\n<input load=\"text\">\ninterface GigabitEthernet1/1\n   mtu ABC\n!\ninterface GigabitEthernet1/2\n   mtu 8000\n!    \ninterface GigabitEthernet1/2\n   mtu 9200.0\n!    \n</input>\n\n<group to_int=\"\">\ninterface {{ name }}\n   mtu {{ mtu }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "mtu": "ABC",
+      "name": "GigabitEthernet1/1"
+     },
+     {
+      "mtu": 8000,
+      "name": "GigabitEthernet1/2"
+     },
+     {
+      "mtu": 9200.0,
+      "name": "GigabitEthernet1/2"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_to_int_missing_key_issue_109",
+  "source": "test/pytest/test_group_functions.py::test_group_to_int_missing_key_issue_109",
+  "template": "\n<input load=\"text\">\ninterface GigabitEthernet1/1\n   mtu ABC\n!\ninterface GigabitEthernet1/2\n   mtu 8000\n!    \ninterface GigabitEthernet1/2\n   mtu 9200.0\n!    \n</input>\n\n<group to_int=\"mtu, foo, bar\">\ninterface {{ name }}\n   mtu {{ mtu }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "mtu": "ABC",
+      "name": "GigabitEthernet1/1"
+     },
+     {
+      "mtu": 8000,
+      "name": "GigabitEthernet1/2"
+     },
+     {
+      "mtu": 9200.0,
+      "name": "GigabitEthernet1/2"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_to_int_with_intlist_true_issue_109",
+  "source": "test/pytest/test_group_functions.py::test_group_to_int_with_intlist_true_issue_109",
+  "template": "\n<input load=\"text\">\ninterface GigabitEthernet1/1\n   switchport trunk allowed vlan 1,2,3,4\n!\ninterface GigabitEthernet1/2\n   switchport trunk allowed vlan 123\n!    \ninterface GigabitEthernet1/3\n   switchport trunk allowed vlan foo,bar\n!    \ninterface GigabitEthernet1/4\n! \n</input>\n\n<group to_int=\"trunk_vlan, intlist=True\">\ninterface {{ name }}\n   switchport trunk allowed vlan {{ trunk_vlan | split(',') }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "trunk_vlan": [
+       1,
+       2,
+       3,
+       4
+      ],
+      "name": "GigabitEthernet1/1"
+     },
+     {
+      "trunk_vlan": [
+       123
+      ],
+      "name": "GigabitEthernet1/2"
+     },
+     {
+      "trunk_vlan": [
+       "foo",
+       "bar"
+      ],
+      "name": "GigabitEthernet1/3"
+     },
+     {
+      "name": "GigabitEthernet1/4"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_to_int_with_intlist_false_issue_109",
+  "source": "test/pytest/test_group_functions.py::test_group_to_int_with_intlist_false_issue_109",
+  "template": "\n<input load=\"text\">\ninterface GigabitEthernet1/1\n   switchport trunk allowed vlan 1,2,3,4\n!\ninterface GigabitEthernet1/2\n   switchport trunk allowed vlan 123\n!    \ninterface GigabitEthernet1/3\n   switchport trunk allowed vlan foo,bar\n!    \ninterface GigabitEthernet1/4\n! \n</input>\n\n<group to_int=\"trunk_vlan\">\ninterface {{ name }}\n   switchport trunk allowed vlan {{ trunk_vlan | split(',') }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "trunk_vlan": [
+       "1",
+       "2",
+       "3",
+       "4"
+      ],
+      "name": "GigabitEthernet1/1"
+     },
+     {
+      "trunk_vlan": [
+       "123"
+      ],
+      "name": "GigabitEthernet1/2"
+     },
+     {
+      "trunk_vlan": [
+       "foo",
+       "bar"
+      ],
+      "name": "GigabitEthernet1/3"
+     },
+     {
+      "name": "GigabitEthernet1/4"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_functions/test_group_to_int_with_intlist_with_not_all_integers",
+  "source": "test/pytest/test_group_functions.py::test_group_to_int_with_intlist_with_not_all_integers",
+  "template": "\n<input load=\"text\">\ninterface GigabitEthernet1/1\n   switchport trunk allowed vlan 1,foo,3,4\n!\n</input>\n\n<group to_int=\"trunk_vlan, intlist=True\">\ninterface {{ name }}\n   switchport trunk allowed vlan {{ trunk_vlan | split(',') }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "trunk_vlan": [
+       1,
+       "foo",
+       3,
+       4
+      ],
+      "name": "GigabitEthernet1/1"
+     }
+    ]
+   ]
+  ]
+ }
+]

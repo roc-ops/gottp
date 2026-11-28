@@ -1,0 +1,8 @@
+interface Lo0
+ description data_1.log file
+ ip address 1.0.0.0 32
+!
+interface Lo1
+ description this interface has description
+ ip address 1.1.1.1 32    
+!

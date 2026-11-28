@@ -1,0 +1,78 @@
+"""pytest plugin used by record.py extract: records each TTP test's top-level
+ttp() calls (constructor, add_input, parse, result, ...) as one JSON line.
+
+Output file: $TTPREC_OUT. Not imported by the Go test.
+"""
+import copy
+import json
+import os
+
+import pytest
+from ttp.ttp import ttp as TTP
+
+OUT = os.environ["TTPREC_OUT"]
+_cur = {"calls": None, "depth": 0}
+
+
+def _maybe_file(v):
+    if isinstance(v, str) and len(v) < 400 and "\n" not in v and os.path.isfile(v):
+        with open(v, encoding="utf-8") as f:
+            return {"file": v, "text": f.read()}
+    if isinstance(v, str) and len(v) < 400 and "\n" not in v and os.path.isdir(v):
+        return {"dir": v}
+    return v
+
+
+def _jsonable(o):
+    try:
+        json.dumps(o)
+        return o
+    except Exception:
+        return {"__nonjson__": repr(o)[:2000]}
+
+
+def _wrap(name):
+    orig = getattr(TTP, name)
+
+    def w(self, *a, **kw):
+        rec = {"m": name, "id": id(self),
+               "args": [_jsonable(_maybe_file(x)) for x in a],
+               "kwargs": {k: _jsonable(_maybe_file(v)) for k, v in kw.items()}}
+        if _cur["calls"] is not None and _cur["depth"] == 0:
+            _cur["calls"].append(rec)
+        _cur["depth"] += 1
+        try:
+            r = orig(self, *a, **kw)
+        finally:
+            _cur["depth"] -= 1
+        if name == "result":
+            rec["ret"] = _jsonable(copy.deepcopy(r)) if not isinstance(r, str) else r
+        return r
+
+    setattr(TTP, name, w)
+
+
+for _n in ["__init__", "add_input", "add_template", "add_vars", "add_lookup",
+           "add_function", "parse", "result", "set_input", "get_input_load",
+           "clear_result", "get_template", "get_variables", "clear_input"]:
+    if hasattr(TTP, _n):
+        _wrap(_n)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    before = dict(os.environ)
+    _cur["calls"] = []
+    outcome = yield
+    calls, _cur["calls"] = _cur["calls"], None
+    # TTP_* variables the test set itself (e.g. TTP_TEMPLATES_DIR), as paths
+    # relative to test/pytest. Restore the environment so a variable doesn't
+    # leak into later tests.
+    env = {k: os.path.relpath(v) if os.path.isabs(v) else v
+           for k, v in os.environ.items()
+           if k.startswith("TTP") and before.get(k) != v}
+    os.environ.clear()
+    os.environ.update(before)
+    with open(OUT, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"test": item.nodeid, "passed": outcome.excinfo is None,
+                            "env": env, "calls": calls}) + "\n")

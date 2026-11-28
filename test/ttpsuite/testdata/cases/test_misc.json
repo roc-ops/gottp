@@ -1,0 +1,719 @@
+[
+ {
+  "name": "test_misc/test_match_vars_with_hyphen",
+  "source": "test/pytest/test_misc.py::test_match_vars_with_hyphen",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface-name }}\n  description {{ description-bla }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description-bla": "Storage",
+      "interface-name": "Port-Channel11"
+     },
+     {
+      "description-bla": "RID",
+      "interface-name": "Loopback0"
+     },
+     {
+      "description-bla": "Management",
+      "interface-name": "Port-Channel12"
+     },
+     {
+      "description-bla": "Management",
+      "interface-name": "Vlan777"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_match_vars_with_dot",
+  "source": "test/pytest/test_misc.py::test_match_vars_with_dot",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface.name }}\n  description {{ description.bla }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description.bla": "Storage",
+      "interface.name": "Port-Channel11"
+     },
+     {
+      "description.bla": "RID",
+      "interface.name": "Loopback0"
+     },
+     {
+      "description.bla": "Management",
+      "interface.name": "Port-Channel12"
+     },
+     {
+      "description.bla": "Management",
+      "interface.name": "Vlan777"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_match_vars_starts_with_digit",
+  "source": "test/pytest/test_misc.py::test_match_vars_starts_with_digit",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ 77interface.name }}\n  description {{ 77description.bla }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "77description.bla": "Storage",
+      "77interface.name": "Port-Channel11"
+     },
+     {
+      "77description.bla": "RID",
+      "77interface.name": "Loopback0"
+     },
+     {
+      "77description.bla": "Management",
+      "77interface.name": "Port-Channel12"
+     },
+     {
+      "77description.bla": "Management",
+      "77interface.name": "Vlan777"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_match_vars_multiple_non_alpha_chars",
+  "source": "test/pytest/test_misc.py::test_match_vars_multiple_non_alpha_chars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ 77interface.#$%name }}\n  description {{ 77description.*(-bla }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "77description.*(-bla": "Storage",
+      "77interface.#$%name": "Port-Channel11"
+     },
+     {
+      "77description.*(-bla": "RID",
+      "77interface.#$%name": "Loopback0"
+     },
+     {
+      "77description.*(-bla": "Management",
+      "77interface.#$%name": "Port-Channel12"
+     },
+     {
+      "77description.*(-bla": "Management",
+      "77interface.#$%name": "Vlan777"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_match_vars_set_with_hyphen",
+  "source": "test/pytest/test_misc.py::test_match_vars_set_with_hyphen",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\n  no switchport\ninterface Vlan777\n  description Management\ninterface Port-Channel27\n  no switchport\n</input>\n\n<group>\ninterface {{ interface-name }}\n  description {{ description-bla | default(\"Undefined\") }}\n  no switchport {{ no-switchport | set(True) }}\n  {{ is-shutdown | set(False) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description-bla": "Storage",
+      "interface-name": "Port-Channel11",
+      "is-shutdown": false
+     },
+     {
+      "description-bla": "RID",
+      "interface-name": "Loopback0",
+      "is-shutdown": false
+     },
+     {
+      "no-switchport": true,
+      "description-bla": "Management",
+      "interface-name": "Port-Channel12",
+      "is-shutdown": false
+     },
+     {
+      "description-bla": "Management",
+      "interface-name": "Vlan777",
+      "is-shutdown": false
+     },
+     {
+      "no-switchport": true,
+      "interface-name": "Port-Channel27",
+      "description-bla": "Undefined",
+      "is-shutdown": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_newline_with_carriage_return",
+  "source": "test/pytest/test_misc.py::test_newline_with_carriage_return",
+  "template": "\n<group name=\"interfaces*\">\ninterface {{ interface }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface Port-Chanel11\r\n\r\n\r\n  description Storage_Management\r\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\r\n",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "interfaces": [
+      {
+       "description": "Storage_Management",
+       "interface": "Port-Chanel11"
+      },
+      {
+       "description": "RID",
+       "interface": "Loopback0"
+      },
+      {
+       "description": "Management",
+       "interface": "Vlan777"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_groups_with_defaults_only_and_with_children_with_defaults_only",
+  "source": "test/pytest/test_misc.py::test_groups_with_defaults_only_and_with_children_with_defaults_only",
+  "template": "\n<input load=\"text\">\ndevice-hostame uptime is 27 weeks, 3 days, 10 hours, 46 minutes, 10 seconds\n</input>\n\n<group name=\"uptime-1**\">\ndevice-hostame uptime is {{ uptime | PHRASE }}\n<group name=\"child_with_default\">\n some line with {{ var1 | default(\"val1\") }}\n</group>\n</group>\n\n<group name=\"domain\" default=\"Uncknown\">\nDefault domain is {{ fqdn }}\n</group>\n\n<group name=\"ntp-1**\">\nntp server {{ server | default('Unconfigured') }}\n ntp source {{ source | default(\"undefined\") }}\n<group name=\"another_child_grp_with_default**\">\n npt peer {{ val2 | default(\"None\") }}\n<group name=\"deeper_child_with_defaults\" default=\"something\">\n another string {{ val5 }}\n my string {{ val4 }}\n</group>\n</group>\n<group name=\"another_child_grp_without_default\">\n npt peers {{ val3 }}\n</group>\n</group>\n\n<group name=\"ntp-2\">\nntp server {{ server }}\n ntp source {{ source | default(\"undefined\") }}\n</group>\n\n<group name=\"snmp-1\" default=\"Uncknown\">\nsnmp community {{ community }}\nsnmp acl {{ acl }}\n</group>\n\n\n<group name=\"snmp-2-with-group-output**\" default=\"Uncknown\" output=\"out-1\">\nsnmp community {{ community }}\nsnmp acl {{ acl }}\n<group name=\"snmp_child_with_defaults\" default=\"None\">\n snmp source {{ ip }}\n</group>\n<group name=\"snmp_child_without_defaults\">\n snmp community {{ comm_val }}\n</group>\n</group>\n\n<output name=\"out-1\"/>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "uptime-1": {
+       "uptime": "27 weeks, 3 days, 10 hours, 46 minutes, 10 seconds",
+       "child_with_default": {
+        "var1": "val1"
+       }
+      },
+      "domain": {
+       "fqdn": "Uncknown"
+      },
+      "ntp-1": {
+       "server": "Unconfigured",
+       "source": "undefined",
+       "another_child_grp_with_default": {
+        "val2": "None",
+        "deeper_child_with_defaults": {
+         "val5": "something",
+         "val4": "something"
+        }
+       }
+      },
+      "snmp-1": {
+       "community": "Uncknown",
+       "acl": "Uncknown"
+      }
+     },
+     {
+      "snmp-2-with-group-output": {
+       "community": "Uncknown",
+       "acl": "Uncknown",
+       "snmp_child_with_defaults": {
+        "ip": "None"
+       }
+      }
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_hierarch_template",
+  "source": "test/pytest/test_misc.py::test_hierarch_template",
+  "template": "\n<vars>\nhostname='gethostname' \n</vars>\n\n<group name=\"{{ hostname }}.bgp_config.AS_{{ loca_as }}\">\nrouter bgp {{ bgp_as | record(\"loca_as\") }}\n  router-id {{ rid }}\n  <group name=\"vrfs*.{{ VRF }}\">\n  vrf {{ VRF }}\n    {{ hostname | set(\"hostname\") }}\n    {{ local_as | set(\"loca_as\") }}\n    <group name=\"afi**\">\n      <group name=\"Unicast**.{{ AFI }}\">\n    address-family {{ AFI }} unicast\n      network {{ network | joinmatches() }}\n      redistribute direct route-map {{ redistr_direct_rpl }}\n      </group>\n    </group>\n    <group name=\"peers**.{{ PEER }}\">    \n    neighbor {{ PEER }}\n      remote-as {{ remote_as }}\n      description {{ description }}\n      <group name=\"afi**.{{ AFI }}\">\n       <group name=\"Unicast**\">\n      address-family {{ AFI }} unicast\n        shutdown {{ shutdown | set(\"True\") }}\n        allowas-in {{ allow_as_in | set(\"True\") }}\n        route-map {{ rpl_in }} in\n        route-map {{ rpl_out }} out\n       </group>\n      </group>\n    </group>\n  </group>\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nsw1# show run | sec bgp\nrouter bgp 65000\n  router-id 10.1.2.2\n  vrf cust1\n    address-family ipv4 unicast\n      network 1.1.1.10/26\n      redistribute direct route-map VRF-DIRECT->BGP-V4\n    neighbor 1.1.1.1\n      remote-as 65001\n      description FIREWALLs\n      no dynamic-capability\n      address-family ipv4 unicast\n        allowas-in\n        route-map 65001-BGP-IMPORT-V4 in\n        route-map 65001-BGP-EXPORT-V4 out\n    neighbor 2.2.2.2\n      remote-as 65002\n      description SLB Front\n      address-family ipv4 unicast\n        allowas-in\n        route-map SLB-BGP-IMPORT-V4 in\n        route-map SLB-BGP-EXPORT-V4 out\n    neighbor 3.3.3.3\n      remote-as 1234\n      description Internet BDR\n      address-family ipv4 unicast\n        route-map INTERNET-IMPORT-V4 in\n        route-map INTERNET-EXPORT-V4 out\n  vrf cust2\n    address-family ipv4 unicast\n      redistribute direct route-map  VRF-DIRECT->BGP-V4\n    neighbor 4.4.4.4\n      remote-as 4567\n      description SLB Back\n      address-family ipv4 unicast\n        allowas-in\n        route-map SLBB-BGP-IMPORT-V4 in\n        route-map SLBB-BGP-EXPORT-V4 out\n  vrf cust3\n    router-id 10.227.146.9\n    address-family ipv4 unicast\n      redistribute direct route-map C3-DIRECT->BGP-V4\n    neighbor 5.5.5.5\n      remote-as 65100\n      description cist2 core\n      no dynamic-capability\n      address-family ipv4 unicast\n        route-map C3-BGP-IMPORT-V4 in\n        route-map C3-BGP-EXPORT-V4 out\n    neighbor 6.6.6.6\n      remote-as 65200\n      description C3: Firewalls\n      address-family ipv4 unicast\n        allowas-in 1\n        route-map C3-FW-BGP-IMPORT-V4 in\n        route-map C3-FW-BGP-EXPORT-V4 out    \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "sw1": {
+      "bgp_config": {
+       "AS_65000": {
+        "rid": "10.1.2.2",
+        "bgp_as": "65000",
+        "vrfs": [
+         {
+          "cust1": {
+           "local_as": "65000",
+           "afi": {
+            "Unicast": {
+             "ipv4": {
+              "redistr_direct_rpl": "VRF-DIRECT->BGP-V4",
+              "network": "1.1.1.10/26"
+             }
+            }
+           },
+           "peers": {
+            "1.1.1.1": {
+             "description": "FIREWALLs",
+             "remote_as": "65001",
+             "afi": {
+              "ipv4": {
+               "Unicast": {
+                "rpl_out": "65001-BGP-EXPORT-V4",
+                "rpl_in": "65001-BGP-IMPORT-V4",
+                "allow_as_in": "True"
+               }
+              }
+             }
+            },
+            "2.2.2.2": {
+             "remote_as": "65002",
+             "afi": {
+              "ipv4": {
+               "Unicast": {
+                "rpl_out": "SLB-BGP-EXPORT-V4",
+                "rpl_in": "SLB-BGP-IMPORT-V4",
+                "allow_as_in": "True"
+               }
+              }
+             }
+            },
+            "3.3.3.3": {
+             "remote_as": "1234",
+             "afi": {
+              "ipv4": {
+               "Unicast": {
+                "rpl_out": "INTERNET-EXPORT-V4",
+                "rpl_in": "INTERNET-IMPORT-V4"
+               }
+              }
+             }
+            }
+           }
+          },
+          "cust2": {
+           "local_as": "65000",
+           "afi": {
+            "Unicast": {
+             "ipv4": {
+              "redistr_direct_rpl": "VRF-DIRECT->BGP-V4"
+             }
+            }
+           },
+           "peers": {
+            "4.4.4.4": {
+             "remote_as": "4567",
+             "afi": {
+              "ipv4": {
+               "Unicast": {
+                "rpl_out": "SLBB-BGP-EXPORT-V4",
+                "rpl_in": "SLBB-BGP-IMPORT-V4",
+                "allow_as_in": "True"
+               }
+              }
+             }
+            }
+           }
+          },
+          "cust3": {
+           "local_as": "65000",
+           "afi": {
+            "Unicast": {
+             "ipv4": {
+              "redistr_direct_rpl": "C3-DIRECT->BGP-V4"
+             }
+            }
+           },
+           "peers": {
+            "5.5.5.5": {
+             "remote_as": "65100",
+             "afi": {
+              "ipv4": {
+               "Unicast": {
+                "rpl_out": "C3-BGP-EXPORT-V4",
+                "rpl_in": "C3-BGP-IMPORT-V4"
+               }
+              }
+             }
+            },
+            "6.6.6.6": {
+             "remote_as": "65200",
+             "afi": {
+              "ipv4": {
+               "Unicast": {
+                "rpl_out": "C3-FW-BGP-EXPORT-V4",
+                "rpl_in": "C3-FW-BGP-IMPORT-V4"
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_child_group_do_not_start_if_no_parent_started",
+  "source": "test/pytest/test_misc.py::test_child_group_do_not_start_if_no_parent_started",
+  "template": "\n<group name=\"ospf_processes.{{ pid }}**\">\n            OSPF Router with ID ({{ local_rid }}) (Process ID {{ pid }})\n            \n<group name=\"router_lsa*\" functions=\"record('area') | del('area') | void\">\n                Router Link States (Area {{ area }})\n\n  <group set=\"area\">\n  LS age: {{ age }}\n  Advertising Router: {{ originator_rid }}\n\n    <group name=\"ptp_peers*\">\n    Link connected to: another Router (point-to-point) {{ _start_ }}\n     (Link Data) Router Interface address: {{ link_data }}\n    </group>\n  </group>\n</group>\n\n<group name=\"external_lsa\">\n                Type-5 AS External Link States {{ _start_ }}\n\n  <group>\n  LS age: {{ age }}\n{{ _end_ }}\n  </group>\n</group>\n\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nRP/0/RP0/CPU0:router-1#show ospf database router \n\n            OSPF Router with ID (10.0.1.1) (Process ID 1)\n\n                Router Link States (Area 0.0.0.0)\n\n  LS age: 406\n  Options: (No TOS-capability, DC)\n  LS Type: Router Links\n  Link State ID: 10.0.1.1\n  Advertising Router: 10.0.1.1\n  LS Seq Number: 8000010c\n  Checksum: 0x24dd\n  Length: 132\n   Number of Links: 9\n\n    Link connected to: another Router (point-to-point)\n     (Link ID) Neighboring Router ID: 10.0.1.4\n     (Link Data) Router Interface address: 0.0.0.12\n      Number of TOS metrics: 0\n       TOS 0 Metrics: 1100\n\n    Link connected to: another Router (point-to-point)\n     (Link ID) Neighboring Router ID: 10.0.1.2\n     (Link Data) Router Interface address: 0.0.0.10\n      Number of TOS metrics: 0\n       TOS 0 Metrics: 1100    \n       \n  Routing Bit Set on this LSA\n  LS age: 1604\n  Options: (No TOS-capability, DC)\n  LS Type: Router Links\n  Link State ID: 10.0.1.2\n  Advertising Router: 10.0.1.2\n  LS Seq Number: 8000010b\n  Checksum: 0xdc96\n  Length: 132\n   Number of Links: 9\n\n    Link connected to: another Router (point-to-point)\n     (Link ID) Neighboring Router ID: 10.0.1.3\n     (Link Data) Router Interface address: 0.0.0.52\n      Number of TOS metrics: 0\n       TOS 0 Metrics: 1100\n\n    Link connected to: another Router (point-to-point)\n     (Link ID) Neighboring Router ID: 10.0.1.4\n     (Link Data) Router Interface address: 0.0.0.53\n      Number of TOS metrics: 0\n       TOS 0 Metrics: 1100\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "ospf_processes": {
+      "1": {
+       "local_rid": "10.0.1.1",
+       "router_lsa": [
+        {
+         "originator_rid": "10.0.1.1",
+         "age": "406",
+         "area": "0.0.0.0",
+         "ptp_peers": [
+          {
+           "link_data": "0.0.0.12"
+          },
+          {
+           "link_data": "0.0.0.10"
+          }
+         ]
+        },
+        {
+         "originator_rid": "10.0.1.2",
+         "age": "1604",
+         "area": "0.0.0.0",
+         "ptp_peers": [
+          {
+           "link_data": "0.0.0.52"
+          },
+          {
+           "link_data": "0.0.0.53"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_group_end_indicator_when_last_start_is_bigger_than_last_end",
+  "source": "test/pytest/test_misc.py::test_group_end_indicator_when_last_start_is_bigger_than_last_end",
+  "template": "\n<group name=\"ospf_processes.{{ pid }}**\">\n            OSPF Router with ID ({{ local_rid }}) (Process ID {{ pid }})\n            \n<group name=\"router_lsa*\" functions=\"record('area') | del('area') | void\">\n                Router Link States (Area {{ area }}) \n                \n  <group set=\"area\">\n  LS Type: Router Links {{ _start_ }}\n  Advertising Router: {{ originator_rid }}\n  AS Boundary Router {{ asbr | set(True) | default(False) }}\n  \n    <group name=\"ptp_peers*\">\n    Link connected to: another Router (point-to-point) {{ _start_ }}\n     (Link ID) Neighboring Router ID: {{ link_id }}\n     (Link Data) Router Interface address: {{ link_data }}\n       TOS 0 Metrics: {{ metric }}\n{{ _end_ }}\n    </group>\n\n  </group>\n</group>\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nIOL4#show ip ospf database router\n\n            OSPF Router with ID (10.0.0.4) (Process ID 1)\n            \n                Router Link States (Area 100)\n\n  LS Type: Router Links\n  Link State ID: 10.0.0.4\n  Advertising Router: 10.0.0.4\n\n    Link connected to: another Router (point-to-point)\n     (Link ID) Neighboring Router ID: 10.0.5.101\n     (Link Data) Router Interface address: 10.1.45.2\n      Number of MTID metrics: 0\n       TOS 0 Metrics: 10\n\n  LS Type: Router Links\n  Link State ID: 10.0.5.101\n  Advertising Router: 10.0.5.101\n\n    Link connected to: another Router (point-to-point)\n     (Link ID) Neighboring Router ID: 10.0.0.4\n     (Link Data) Router Interface address: 10.1.45.3\n      Number of MTID metrics: 0\n       TOS 0 Metrics: 10",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "ospf_processes": {
+      "1": {
+       "local_rid": "10.0.0.4",
+       "router_lsa": [
+        {
+         "originator_rid": "10.0.0.4",
+         "asbr": false,
+         "area": "100",
+         "ptp_peers": [
+          {
+           "metric": "10",
+           "link_data": "10.1.45.2",
+           "link_id": "10.0.5.101"
+          }
+         ]
+        },
+        {
+         "originator_rid": "10.0.5.101",
+         "asbr": false,
+         "area": "100",
+         "ptp_peers": [
+          {
+           "metric": "10",
+           "link_data": "10.1.45.3",
+           "link_id": "10.0.0.4"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_inner_group_strange_parsing_results",
+  "source": "test/pytest/test_misc.py::test_inner_group_strange_parsing_results",
+  "template": "\n<template name=\"Cisco_IOSXR\" results=\"per_template\">\n\n<macro>\ndef add_network(data):\n    if \"netmask\" in data:\n        ip_obj, _ = _ttp_[\"match\"][\"to_ip\"](\"{}/{}\".format(data[\"ip\"], data[\"netmask\"]))\n    else:\n        ip_obj, _ = _ttp_[\"match\"][\"to_ip\"](data[\"ip\"])\n    data[\"network\"] = str(ip_obj.network)\n    data[\"netmask\"] = str(ip_obj.network.prefixlen)\n    return data\n</macro>\n\n<group record=\"local_hostname\" void=\"\">\nhostname {{ local_hostname }}\n</group>\n\n<group name=\"{{ local_hostname }}.interfaces.{{ interface }}\">\ninterface {{ interface }}\n description {{ port_description | re(\".+\") }}\n vrf {{ vrf }}\n \n <group name=\"ip_addresses*\" macro=\"add_network\" method=\"table\">\n ipv4 address {{ ip | IP }} {{ netmask }}\n </group>\n \n! {{ _end_ }}\n</group>\n\n</template>    \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nhostname ROUTER1234\n\ninterface GigabitEthernet0/0/0/23\n description GigabitEthernet0/0/0/23 description\n vrf IPRAN-MGMT\n ipv4 address 10.1.1.253 255.255.255.252\n load-interval 30\n!\ninterface HundredGigE0/0/1/0\n description Hu0/0/1/0 interface description\n bundle id 2 mode active\n ptp\n  profile any\n !\n load-interval 30\n frequency synchronization\n  selection input\n  priority 20\n  wait-to-restore 0\n !\n!\ninterface HundredGigE0/0/2/0\n description Hu0/0/2/0 interface description\n bundle id 1 mode active\n ptp\n  profile slave\n !\n load-interval 30\n frequency synchronization\n  selection input\n  priority 10\n  wait-to-restore 0\n !\n!\ninterface preconfigure GigabitEthernet0/0/0/0/23\n ipv4 address 10.1.1.253 255.255.255.252\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   {
+    "ROUTER1234": {
+     "interfaces": {
+      "GigabitEthernet0/0/0/23": {
+       "vrf": "IPRAN-MGMT",
+       "port_description": "GigabitEthernet0/0/0/23 description",
+       "ip_addresses": [
+        {
+         "ip": "10.1.1.253",
+         "netmask": "30",
+         "network": "10.1.1.252/30"
+        }
+       ]
+      },
+      "HundredGigE0/0/1/0": {
+       "port_description": "Hu0/0/1/0 interface description"
+      },
+      "HundredGigE0/0/2/0": {
+       "port_description": "Hu0/0/2/0 interface description"
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "test_misc/test_ttp_templates_dir_env_variable",
+  "source": "test/pytest/test_misc.py::test_ttp_templates_dir_env_variable",
+  "env": {
+   "TTP_TEMPLATES_DIR": "assets/TTP_TEMPLATES_DIR_TEST"
+  },
+  "template": "test_ttp_templates_dir_env_variable.txt",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvlan 1234\n name some_vlan\n!\nvlan 910\n name one_more\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vlans": {
+      "1234": {
+       "name": "some_vlan"
+      },
+      "910": {
+       "name": "one_more"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_nested_group_processing_order",
+  "source": "test/pytest/test_misc.py::test_nested_group_processing_order",
+  "template": "\n<group name=\"interfaces*\" contains=\"name\">\ninterface {{ name }}\n description {{ description | re(\".*\") }}\n mtu {{ mtu | to_int }}\n mac-address {{ mac_address }}\n arp timeout {{ arp_timeout }}\n \n <group name=\"ipv4*\" method=\"table\">\n ipv4 address {{ ip | _exact_ }} {{ mask }}\n </group>\n \n!{{ _end_ }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface Gig123\n description foo\n mtu 1234\n ipv4 address 1.2.3.4 255.255.255.0\n arp timeout 123\n mac-address 123.123.1\n!\ninterface Gig321\n description foo\n mtu 4321\n ipv4 address 1.2.3.5 255.255.255.0\n arp-timeout 4321\n mac-address 123.123.2\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "interfaces": [
+      {
+       "mtu": 1234,
+       "description": "foo",
+       "name": "Gig123",
+       "ipv4": [
+        {
+         "ip": "1.2.3.4",
+         "mask": "255.255.255.0"
+        }
+       ],
+       "mac_address": "123.123.1",
+       "arp_timeout": "123"
+      },
+      {
+       "mtu": 4321,
+       "description": "foo",
+       "name": "Gig321",
+       "ipv4": [
+        {
+         "ip": "1.2.3.5",
+         "mask": "255.255.255.0"
+        }
+       ],
+       "mac_address": "123.123.2"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_asterisk_issue_97",
+  "source": "test/pytest/test_misc.py::test_asterisk_issue_97",
+  "template": "\n<group name=\"interfaces.{{ sap }}**\">\ninterface \"{{ interface | ORPHRASE | _start_ }}\" {{ ignore }}\n    sap {{ sap | _exact_ }} {{ ignore }}\nexit {{ _end_ }}\n</group>\n",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface \"port lag-4:1629\" create\n    sap lag-4:1629.* create\nexit\n",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "interfaces": {
+      "lag-4:1629.*": {
+       "interface": "port lag-4:1629"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_issue_98_special_char_in_match_path",
+  "source": "test/pytest/test_misc.py::test_issue_98_special_char_in_match_path",
+  "template": "\n<group name=\"interfaces.{{ ri }}**\">\nrouting-instances {{ ignore }} \n    {{ ri | _start_ }} { \n    } {{ _end_ }}\n</group>\n",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nrouting-instances {\n    \"some_routing_instance_70\\1\" {\n        instance-type vrf;\n    }\n}\n",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "interfaces": {
+      "\"some_routing_instance_70\\1\"": {}
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_misc/test_tail_match_no_group_functions_processing",
+  "source": "test/pytest/test_misc.py::test_tail_match_no_group_functions_processing",
+  "template": "\n<template name=\"netbox_data\" results=\"per_template\">\n<macro>\ndef add_interface_type(data):\n    data[\"interface_type\"] = \"other\"    \n    if any(\n        i in data[\"name\"].lower() for i in [\n            \".\", \"loopback\", \"tunnel\"\n        ]\n    ):\n        data[\"interface_type\"] = \"virtual\"\n    elif any(\n        i in data[\"name\"].lower() for i in [\n            \"bvi\"\n        ]\n    ):\n        data[\"interface_type\"] = \"bridge\"\n    elif \"bundle\" in data[\"name\"].lower():\n        data[\"interface_type\"] = \"lag\"    \n    return data\n    \ndef add_parent_interface(data):\n    if \"lag_id\" in data:\n        data[\"parent\"] = \"Bundle-Ether{}\".format(data[\"lag_id\"])\n    elif \".\" in data[\"name\"]:\n        data[\"parent\"] = data[\"name\"].split(\".\")[0]\n    return data    \n</macro>\n\n## ------------------------------------------------------------------------------------------\n## Interfaces configuration\n## ------------------------------------------------------------------------------------------\n<group name=\"interfaces*\" functions=\"contains('name') | macro('add_interface_type') | macro('add_parent_interface')\">\ninterface {{ name | _start_ }}\ninterface {{ name | _start_ }} l2transport\ninterface preconfigure {{ name | _start_ | let(\"preconfigure\", True) }}\ninterface preconfigure {{ name | _start_ | let(\"preconfigure\", True) }} l2transport\n description {{ description | re(\".*\") | default(\"\") }}\n mtu {{ mtu | to_int }}\n service-policy input {{ qos_policy_in }}\n service-policy output {{ qos_policy_out }}\n encapsulation dot1q {{ dot1q }}\n vrf {{ vrf }}\n bundle id {{ lag_id }} mode {{ lacp_mode }}\n lacp period {{ lacp_period }}\n shutdown {{ enabled | set(False) | default(True) }}\n rewrite ingress tag {{ rewrite_ingress_tag | PHRASE }}\n ipv4 access-group {{ ipv4_acl_in | _exact_ }} ingress\n ipv4 access-group {{ ipv4_acl_out | _exact_ }} egress\n ipv6 access-group {{ ipv6_acl_in | _exact_ }} ingress\n ipv6 access-group {{ ipv6_acl_out | _exact_ }} egress\n mac-address {{ mac_address }}\n host-routing {{ host_routing | set(True) }}\n arp timeout {{ arp_timeout }}\n load-interval {{ load_interval }}\n \n <group name=\"ipv4*\" method=\"table\">\n ipv4 address {{ ip | _exact_ }} {{ mask }}\n ipv4 address {{ ip | _exact_ | let(\"secondary\", True) }} {{ mask}} secondary\n </group>\n \n <group name=\"ipv6*\" method=\"table\"> \n ipv6 address {{ ip | _exact_ }}/{{ mask }}\n </group>\n \n <group name=\"lldp\">\n lldp {{ _start_ }}\n  enable {{ lldp_enabled | set(True) }}\n  transmit disable {{ transmit_disabled | set(True) }}\n </group>\n\n!{{ _end_ }}\n</group>\n\n\n</template>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface TenGigE0/0/0/42\n description ELO ISP FCS1234456#\n bundle id 1 mode active\n lacp period short\n lldp\n  enable\n  transmit disable\n !\n!\ninterface BVI200\n description EPPINGHTHON office subnet\n mtu 1700\n vrf DATA\n ipv4 address 10.231.2.2 255.255.255.0\n ipv6 address fd51:231:2::2/64\n ipv4 access-group OFFICE_IN_v4 ingress\n ipv6 access-group OFFICE_IN_v6 ingress\n!    \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   {
+    "interfaces": [
+     {
+      "lacp_period": "short",
+      "lag_id": "1",
+      "lacp_mode": "active",
+      "description": "ELO ISP FCS1234456#",
+      "name": "TenGigE0/0/0/42",
+      "enabled": true,
+      "interface_type": "other",
+      "parent": "Bundle-Ether1",
+      "lldp": {
+       "transmit_disabled": true,
+       "lldp_enabled": true
+      }
+     },
+     {
+      "vrf": "DATA",
+      "mtu": 1700,
+      "description": "EPPINGHTHON office subnet",
+      "name": "BVI200",
+      "enabled": true,
+      "interface_type": "bridge",
+      "ipv4": [
+       {
+        "ip": "10.231.2.2",
+        "mask": "255.255.255.0"
+       }
+      ],
+      "ipv6": [
+       {
+        "ip": "fd51:231:2::2",
+        "mask": "64"
+       }
+      ],
+      "ipv6_acl_in": "OFFICE_IN_v6",
+      "ipv4_acl_in": "OFFICE_IN_v4"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "test_misc/test_issue_95",
+  "source": "test/pytest/test_misc.py::test_issue_95",
+  "template": "\n<macro>\ndef title(data):\n    data['interface'] = data['interface'].upper()\n</macro>\n\n<group name='results*' macro='title' >\ninterface {{ interface }}\n  description {{ description }}\n<group name = \"ips\">\n  ip address {{ ip }}/{{ mask }}\n</group>\n  vrf {{ vrf }}\n!{{_end_}}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface Port-Chanel11\n  description Storage\n!\ninterface Loopback0\n  description RID\n  ip address 10.0.0.3/24\n!\ninterface Vlan777\n  description Management\n  ip address 192.168.0.1/24\n  vrf MGMT\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "results": [
+      {
+       "description": "Storage",
+       "interface": "PORT-CHANEL11"
+      },
+      {
+       "description": "RID",
+       "interface": "LOOPBACK0",
+       "ips": {
+        "ip": "10.0.0.3",
+        "mask": "24"
+       }
+      },
+      {
+       "description": "Management",
+       "interface": "VLAN777",
+       "ips": {
+        "ip": "192.168.0.1",
+        "mask": "24"
+       },
+       "vrf": "MGMT"
+      }
+     ]
+    }
+   ]
+  ]
+ }
+]
