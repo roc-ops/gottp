@@ -1,0 +1,7 @@
+{
+ "records": [
+  {"group_path":"r","src_range":[0,5],"record":{"direction":"UP","id":"1"}},
+  {"group_path":"r","src_range":[5,10],"record":{"direction":"--","id":"2"}},
+  {"group_path":"r","src_range":[10,17],"record":{"direction":"DOWN","id":"3"}}
+ ]
+}

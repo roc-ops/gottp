@@ -1,0 +1,3 @@
+<group name="r">
+{{ id }} {{ direction | re("UP|DOWN") }}
+</group>

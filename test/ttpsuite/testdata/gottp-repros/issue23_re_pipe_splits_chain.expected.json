@@ -1,0 +1,20 @@
+[
+ [
+  {
+   "r": [
+    {
+     "id": "1",
+     "direction": "UP"
+    },
+    {
+     "id": "2",
+     "direction": "--"
+    },
+    {
+     "id": "3",
+     "direction": "DOWN"
+    }
+   ]
+  }
+ ]
+]
