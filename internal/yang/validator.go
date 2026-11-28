@@ -3,6 +3,7 @@ package yang
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -235,19 +236,21 @@ func (v *Validator) validateValueType(value interface{}, yangType *yang.YangType
 		_, ok := value.(string)
 		return ok
 	case yang.Yint8, yang.Yint16, yang.Yint32, yang.Yint64:
-		switch value.(type) {
-		case int, int8, int16, int32, int64, float64:
+		switch val := value.(type) {
+		case int, int8, int16, int32, int64:
 			return true
+		case float64:
+			// RFC 7950 9.2: integer types admit whole numbers only. A
+			// whole float64 is what a JSON round trip makes of an int.
+			return isWhole(val)
 		}
 		return false
 	case yang.Yuint8, yang.Yuint16, yang.Yuint32, yang.Yuint64:
-		switch value.(type) {
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float64:
-			// Check if it's non-negative
-			if f, ok := value.(float64); ok {
-				return f >= 0
-			}
+		switch val := value.(type) {
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 			return true
+		case float64:
+			return val >= 0 && isWhole(val)
 		}
 		return false
 	case yang.Ybool:
@@ -465,3 +468,7 @@ func (v *Validator) validateLength(value string, lengths yang.YangRange) bool {
 	return false
 }
 
+// isWhole reports whether f is a finite number with no fractional part.
+func isWhole(f float64) bool {
+	return !math.IsInf(f, 0) && !math.IsNaN(f) && f == math.Trunc(f)
+}
