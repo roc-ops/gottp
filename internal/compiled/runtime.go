@@ -497,22 +497,30 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 					if matches, ok := groupResults.([]map[string]interface{}); ok {
 						// Group results by resolved path
 						groupedResults := make(map[string][]map[string]interface{})
+						var resolvedOrder []string // first-seen order; Go map order is random (#78)
 						for _, match := range matches {
 							// Resolve dynamic group name using match values
 							resolvedName, err := r.pathResolver.ResolvePath(group.Name, match, vars)
 							if err == nil && resolvedName != "" && resolvedName != group.Name {
 								// Remove variables used in path from match
 								cleanedMatch := removePathVars(match)
+								if _, seen := groupedResults[resolvedName]; !seen {
+									resolvedOrder = append(resolvedOrder, resolvedName)
+								}
 								groupedResults[resolvedName] = append(groupedResults[resolvedName], cleanedMatch)
 							} else {
 								// Fallback to original name
 								cleanedMatch := removePathVars(match)
+								if _, seen := groupedResults[group.Name]; !seen {
+									resolvedOrder = append(resolvedOrder, group.Name)
+								}
 								groupedResults[group.Name] = append(groupedResults[group.Name], cleanedMatch)
 							}
 						}
 						// Store grouped results using path-based storage
 						// Python TTP: top-level groups - single match = map, multiple matches = list
-						for resolvedName, matches := range groupedResults {
+						for _, resolvedName := range resolvedOrder {
+							matches := groupedResults[resolvedName]
 							var valueToStore interface{}
 							if len(matches) == 1 {
 								// Single match - store as map (matches Python TTP behavior for top-level groups)
@@ -1220,17 +1228,25 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 			if matches, ok := groupResults.([]map[string]interface{}); ok {
 				// Multiple matches - group by resolved path
 				groupedResults := make(map[string][]map[string]interface{})
+				var resolvedOrder []string // first-seen order; Go map order is random (#78)
 				for _, match := range matches {
 					resolvedName, err := r.pathResolver.ResolvePath(group.Name, match, vars)
 					if err == nil && resolvedName != "" && resolvedName != group.Name {
 						cleanedMatch := removePathVars(match)
+						if _, seen := groupedResults[resolvedName]; !seen {
+							resolvedOrder = append(resolvedOrder, resolvedName)
+						}
 						groupedResults[resolvedName] = append(groupedResults[resolvedName], cleanedMatch)
 					} else {
 						cleanedMatch := removePathVars(match)
+						if _, seen := groupedResults[group.Name]; !seen {
+							resolvedOrder = append(resolvedOrder, group.Name)
+						}
 						groupedResults[group.Name] = append(groupedResults[group.Name], cleanedMatch)
 					}
 				}
-				for resolvedName, matches := range groupedResults {
+				for _, resolvedName := range resolvedOrder {
+					matches := groupedResults[resolvedName]
 					var valueToStore interface{}
 					if len(matches) == 1 {
 						valueToStore = matches[0]
@@ -3366,6 +3382,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 									match map[string]interface{}
 								}
 								groupedNestedResults := make(map[string][]pathMatch)
+								var nestedPathOrder []string // first-seen order; Go map order is random (#78)
 								for _, nestedMatch := range v {
 									// Resolve dynamic path using nested match values and parent match context
 									// Merge parent match vars with nested match for path resolution
@@ -3428,6 +3445,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 									// Store resolved parts with the match for later processing
 									if _, exists := groupedNestedResults[pathKey]; !exists {
 										groupedNestedResults[pathKey] = make([]pathMatch, 0)
+										nestedPathOrder = append(nestedPathOrder, pathKey)
 									}
 									groupedNestedResults[pathKey] = append(groupedNestedResults[pathKey], pathMatch{
 										parts: resolvedParts,
@@ -3436,7 +3454,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 								}
 
 								// Store grouped results using storeAtPathSegments to handle formatters
-								for _, pathMatches := range groupedNestedResults {
+								for _, pathKey := range nestedPathOrder {
+									pathMatches := groupedNestedResults[pathKey]
 									if len(pathMatches) == 0 {
 										continue
 									}
@@ -3608,7 +3627,10 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	if recordAttr, ok := group.Attributes["record"]; ok && recordAttr != "" {
 		recordVar := strings.TrimSpace(recordAttr)
 
+		// recordOrder keeps record values in first-seen order so output order
+		// follows input order (Python TTP) rather than Go map order (#78).
 		groupedByRecord := make(map[string][]map[string]interface{})
+		var recordOrder []string
 
 		for _, match := range mergedMatches {
 			// Get the value of the record variable from the match
@@ -3617,13 +3639,17 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				// Convert to string for grouping
 				recordValue = fmt.Sprintf("%v", val)
 			}
+			if _, seen := groupedByRecord[recordValue]; !seen {
+				recordOrder = append(recordOrder, recordValue)
+			}
 			groupedByRecord[recordValue] = append(groupedByRecord[recordValue], match)
 		}
 
 		// Convert grouped matches to a list (Python TTP behavior: record groups matches as a list)
 		// Each unique record value becomes a separate entry in the list
 		var groupedMatches []map[string]interface{}
-		for _, matches := range groupedByRecord {
+		for _, recordValue := range recordOrder {
+			matches := groupedByRecord[recordValue]
 			// For each group of matches with the same record value, merge them into one match
 			// Python TTP: when record is used, matches with the same record value are grouped together
 			if len(matches) > 0 {
