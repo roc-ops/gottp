@@ -6533,8 +6533,7 @@ func parseArguments(argStr string, vars map[string]interface{}) []string {
 			}
 			// Include empty strings if they were quoted (e.g., '' or "")
 			if arg != "" || wasQuoted {
-				// Resolve variable if not quoted
-				arg = resolveVariable(arg, vars)
+				arg = resolveArgument(arg, wasQuoted, vars)
 				args = append(args, arg)
 			}
 			current.Reset()
@@ -6556,12 +6555,24 @@ func parseArguments(argStr string, vars map[string]interface{}) []string {
 	}
 	// Include empty strings if they were quoted (e.g., '' or "")
 	if arg != "" || wasQuoted {
-		// Resolve variable if not quoted
-		arg = resolveVariable(arg, vars)
+		arg = resolveArgument(arg, wasQuoted, vars)
 		args = append(args, arg)
 	}
 
 	return args
+}
+
+// resolveArgument resolves one parsed argument. A quoted argument has already
+// lost its quotes, so quote characters left in it are content (strip('"')
+// passes a double quote): only a vars lookup applies to it.
+func resolveArgument(arg string, wasQuoted bool, vars map[string]interface{}) string {
+	if !wasQuoted {
+		return resolveVariable(arg, vars)
+	}
+	if val, ok := vars[arg]; ok {
+		return fmt.Sprintf("%v", val)
+	}
+	return arg
 }
 
 // resolveVariable resolves a variable name from vars map, or returns the original string

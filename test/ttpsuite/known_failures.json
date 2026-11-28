@@ -29,13 +29,9 @@
    "issue": 34,
    "reason": "split() | joinmatches returns a joined string instead of a merged list"
   },
-  "gottp-repros/issue35_strip_characters_argument": {
-   "issue": 35,
-   "reason": "strip(\"()\") ignores its characters argument"
-  },
   "gottp-repros/issue36_unknown_function_falls_back_to_str_method": {
    "issue": 36,
-   "reason": "rstrip(\",\") (str method fallback) is silently skipped"
+   "reason": "swapcase (str method fallback) is silently skipped"
   },
   "test_N2G_formatter/test_n2g_formatter": {
    "issue": 80,
@@ -141,8 +137,8 @@
    "reason": "chain(var) naming a <vars> list is ignored"
   },
   "test_answers_and_docs/test_issue_50": {
-   "issue": 35,
-   "reason": "strip('\"') does not strip the quotes"
+   "issue": 30,
+   "reason": "indented template lines also match the deeper ipv6 address lines"
   },
   "test_answers_and_docs/test_issue_52_answer": {
    "issue": 79,
@@ -196,8 +192,8 @@
    "reason": "nested port/ethernet sections lose captures; root cause not isolated"
   },
   "test_answers_and_docs/test_slack_answer_3": {
-   "issue": 35,
-   "reason": "strip('\"') does not strip the quotes"
+   "issue": 100,
+   "reason": "sibling ospf/ospf3 groups: the ospf3 lines join the ospf record, nesting an extra ospf level; root cause not isolated"
   },
   "test_answers_and_docs/test_slack_answer_3_full": {
    "issue": 100,

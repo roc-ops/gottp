@@ -178,6 +178,22 @@ func TestParseArguments(t *testing.T) {
 			argStr:   "''",
 			expected: []string{""},
 		},
+		// Issue #35: strip('"') must pass a double quote, not an empty string.
+		{
+			name:     "quoted double quote",
+			argStr:   `'"'`,
+			expected: []string{`"`},
+		},
+		{
+			name:     "quoted single quote",
+			argStr:   `"'"`,
+			expected: []string{`'`},
+		},
+		{
+			name:     "quoted value wrapped in the other quote",
+			argStr:   `'"a"', "'b'"`,
+			expected: []string{`"a"`, `'b'`},
+		},
 	}
 
 	for _, tt := range tests {

@@ -1,1 +1,1 @@
-x {{ v | rstrip(",") }}
+x {{ v | swapcase }}
