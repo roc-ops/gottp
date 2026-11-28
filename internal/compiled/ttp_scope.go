@@ -2,6 +2,7 @@ package compiled
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/roc-ops/gottp/internal/compiler"
 )
@@ -55,9 +56,12 @@ type runReScope struct {
 	certain bool
 }
 
+// scopeSpan is a regex match's input offsets. rawEnd is the end of its
+// line before a trailing \r is trimmed (end otherwise), so the next line
+// starts at rawEnd+1 on CRLF input too.
 type scopeSpan struct {
-	start, end int
-	ok         bool
+	start, end, rawEnd int
+	ok                 bool
 }
 
 type scopeRaise struct {
@@ -73,10 +77,11 @@ func newRunReScope(group *compiler.CompiledGroup) *runReScope {
 func (sc *runReScope) role(pi int) compiler.PatternRole { return sc.prof.Pattern(pi).Role }
 
 // observe records a regex match of pattern pi at [start, end) (input
-// offsets) and the exception its functions raised, if any.
-func (sc *runReScope) observe(pi, start, end int, raise error) {
+// offsets; rawEnd as in scopeSpan) and the exception its functions raised,
+// if any.
+func (sc *runReScope) observe(pi, start, end, rawEnd int, raise error) {
 	if role := sc.role(pi); role == compiler.RoleStart || role == compiler.RoleEnd {
-		sc.last[pi] = scopeSpan{start, end, true}
+		sc.last[pi] = scopeSpan{start, end, rawEnd, true}
 		if role == compiler.RoleStart && (!sc.found || start < sc.s) {
 			sc.found = true
 			sc.s = start
@@ -162,28 +167,159 @@ func (sc *runReScope) firstRaise(n int, in func(pi, pos int) bool) error {
 }
 
 // endLine is run_re's narrowing of the region to the last end match: the
-// input offset of the line it ends at, and whether it narrows at all. As in
-// tree.go's runRe, offsets are DATATEXT's (input offset + 1), and se, an
-// absolute offset, is compared with relative ones as TTP does.
+// input offset of the line it ends at, and whether it narrows at all.
 func (sc *runReScope) endLine() (int, bool) {
-	start := sc.s + 1
+	line, _, _, ok := sc.narrow()
+	return line, ok
+}
+
+// narrow ports run_re's s, se and e for a top group. TTP's line regexes
+// start with the newline before the line, so in DATATEXT ("\n" + data) a
+// match of a line starting at input offset L starts at L and ends at its
+// input end + 1. se, an absolute offset, is compared with relative ones as
+// TTP does. It returns the input offset of the line of the last end match
+// that narrows the region, the region's new end (DATATEXT), the input
+// offset of the line after that end match's line (the new end too, unless
+// the end line ends in \r\n), and whether it narrows at all.
+func (sc *runReScope) narrow() (line, end, after int, ok bool) {
+	if !sc.found {
+		return 0, 0, 0, false
+	}
+	start := sc.s
 	se := 0
 	for pi, l := range sc.last {
 		if !l.ok || sc.role(pi) != compiler.RoleStart {
 			continue
 		}
-		if se < l.start+1 && !sc.prof.IsLine(pi) {
+		if se < l.start && !sc.prof.IsLine(pi) {
 			se = l.end + 1
 		}
 	}
-	e, line := -1, 0
+	e := -1
 	for pi, l := range sc.last {
-		if !l.ok || sc.role(pi) != compiler.RoleEnd {
+		if !l.ok || sc.role(pi) != compiler.RoleEnd || l.start < start {
 			continue
 		}
 		if lastEnd := l.end + 1 - start; e < lastEnd && lastEnd > se {
-			e, line = lastEnd, l.start
+			e, line, after = lastEnd, l.start, l.rawEnd+1
 		}
 	}
-	return line, e != -1
+	if e == -1 {
+		return 0, 0, 0, false
+	}
+	return line, start + e, after, true
+}
+
+// cutKeep returns, when run_re narrows the region to the last end match,
+// which of the group's matches it keeps; nil when it doesn't narrow. As in
+// run_re, a start match is dropped when it starts past the new end (so the
+// line right after the end line is kept: its match starts at the end
+// line's newline, which is the end), and an ordinary match is kept only
+// when it ends before the end, since TTP's regexes need the newline after
+// the line. End matches are all kept. pi is the pattern, start and end the
+// match's input offsets. With \r trimmed from lines (#33), the line right
+// after a CRLF end line is kept too, as on LF input. parseFlat and
+// parseGroupStream apply it (#139).
+func (sc *runReScope) cutKeep() func(pi, start, end int) bool {
+	_, cut, after, ok := sc.narrow()
+	if !ok {
+		return nil
+	}
+	return func(pi, start, end int) bool {
+		switch sc.role(pi) {
+		case compiler.RoleStart:
+			return start <= after
+		case compiler.RoleEnd:
+			return true
+		default:
+			return end+1 < cut
+		}
+	}
+}
+
+// scanCut is ParseStream's first pass for a group with an end line: it
+// finds run_re's cut before any record is streamed, so the stream drops the
+// matches past it as they come instead of holding them until the end of
+// the input shows the cut (#139). The cut needs only the first start match
+// and each start and end pattern's last regex match (before conditions, as
+// run_re's own arithmetic uses them), so it runs only those regexes: start
+// patterns forward up to the first line one matches, then the end
+// patterns and the start patterns that aren't _line_ backward from the end
+// of the input until each has matched (and not before the first start
+// line, where an end match doesn't count). It returns cutKeep's result.
+func scanCut(group *compiler.CompiledGroup, inputData string) func(pi, start, end int) bool {
+	prof := group.Profile()
+	sc := newRunReScope(group)
+	// match runs pattern pi on the line at [start, start+len(raw)) as
+	// parseGroupStream does, observing a match. Its line rules (\r trim,
+	// blank skip, lines without variables skipped) must stay the same as
+	// parseGroupStream's in runtime.go, or Parse and ParseStream cut apart.
+	match := func(pi, start int, raw string) bool {
+		line := strings.TrimRight(raw, "\r")
+		if !prof.MatchesBlank(pi) && isBlank(line) {
+			return false
+		}
+		if !group.Patterns[pi].Regex.MatchString(line) {
+			return false
+		}
+		sc.observe(pi, start, start+len(line), start+len(raw), nil)
+		return true
+	}
+
+	var starts, back []int
+	for pi := range group.Patterns {
+		if !prof.Matches(pi) {
+			continue // a line without variables: Python TTP skips it
+		}
+		switch sc.role(pi) {
+		case compiler.RoleStart:
+			starts = append(starts, pi)
+			if !prof.IsLine(pi) {
+				back = append(back, pi)
+			}
+		case compiler.RoleEnd:
+			back = append(back, pi)
+		}
+	}
+
+	// Forward to the first start match.
+	firstLine := -1
+	for pos := 0; pos <= len(inputData) && firstLine < 0; {
+		nl := strings.IndexByte(inputData[pos:], '\n')
+		raw := inputData[pos:]
+		if nl >= 0 {
+			raw = inputData[pos : pos+nl]
+		}
+		for _, pi := range starts {
+			if match(pi, pos, raw) {
+				firstLine = pos
+			}
+		}
+		pos += len(raw) + 1
+	}
+	if firstLine < 0 {
+		return nil // no start match: run_re doesn't narrow
+	}
+
+	// Backward to each remaining pattern's last match.
+	for end := len(inputData); len(back) > 0; {
+		nl := strings.LastIndexByte(inputData[:end], '\n')
+		start := nl + 1
+		if start < firstLine {
+			break
+		}
+		raw := inputData[start:end]
+		rest := back[:0]
+		for _, pi := range back {
+			if !match(pi, start, raw) {
+				rest = append(rest, pi)
+			}
+		}
+		back = rest
+		if nl < 0 {
+			break
+		}
+		end = nl
+	}
+	return sc.cutKeep()
 }

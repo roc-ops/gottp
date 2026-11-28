@@ -1,0 +1,5 @@
+<group name="g">
+{{ l | _line_ }}
+end {{ e | _end_ }}
+stop {{ f | _end_ }}
+</group>

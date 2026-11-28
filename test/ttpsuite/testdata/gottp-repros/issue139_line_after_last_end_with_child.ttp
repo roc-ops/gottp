@@ -1,0 +1,7 @@
+<group name="g">
+{{ l | _line_ | joinmatches }}
+end {{ e | _end_ }}
+<group name="c">
+child {{ c }}
+</group>
+</group>

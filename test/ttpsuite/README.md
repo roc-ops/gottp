@@ -2,7 +2,7 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (baseline clusters 6 and 2: #68, #136, #121):
+Current result (baseline clusters 6 and 2: #68, #136, #121, #139):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
@@ -10,9 +10,9 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 
 ```
 TTP 0.10.1 suite: pass 123 / skipped-by-issue 71 / design 6 of 200
-gottp repros: pass 180 / skipped-by-issue 2 / design 3 of 185
-source-map parity: same 388 / diverge 0 of 388
-stream snapshots: 195 streamable of 388 cases
+gottp repros: pass 193 / skipped-by-issue 2 / design 3 of 198
+source-map parity: same 401 / diverge 0 of 401
+stream snapshots: 206 streamable of 401 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -92,6 +92,19 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue136_end_then_vars_get_whole_line` | passes; every variable after `{{ _end_ }}` gets the whole matched line (indent and trailing spaces kept), its functions run on it, and `default()` fills a record without the line (#136) |
 | `issue136_mixed_blank_before_start` | passes; a space and a tab before `{{ _start_ }}` are cut as one run (#136) |
 | `mixed_blank_run_is_one_space` | passes; a run of mixed spaces and tabs in a template line is one `[ \t]+`, as in TTP |
+| `issue139_line_after_last_end_dropped` | passes; `_line_` records more than one line past the last `_end_` are dropped; the line right after it is kept (#139) |
+| `issue139_line_joinmatches_after_last_end_dropped` | passes; the same with `_line_ \| joinmatches` (#139) |
+| `issue139_line_after_last_end_with_child` | passes; the same in a group with a child group, which dropped the line right after the end too (#139) |
+| `issue139_second_end_moves_the_cut` | passes; only the last `_end_` cuts (#139) |
+| `issue139_start_after_end_keeps_lines` | passes; a `_start_` match after the `_end_` means nothing is cut (#139) |
+| `issue139_ordinary_line_after_end_dropped` | passes; an ordinary line past the last `_end_` is not added to the kept `_line_` record (#139) |
+| `issue139_end_condition_fails_still_cuts` | passes; an `_end_` match whose `equal()` condition fails still cuts the group, in `Parse` and `ParseStream` (#139) |
+| `issue139_end_contains_fails_still_cuts` | passes; the same with `contains()` (#139) |
+| `issue139_end_condition_fails_with_start` | passes; the same in a group with a `_start_` line (#139) |
+| `issue139_no_trailing_newline` | passes; the cut on input without a trailing newline (#139) |
+| `issue139_end_last_line_no_newline` | passes; an `_end_` line that is the last line, without a newline, doesn't match, as in TTP (#139) |
+| `issue139_two_end_patterns` | passes; with two `_end_` lines, the later match cuts, whichever pattern it is (#139) |
+| `issue139_two_end_patterns_later_second` | passes; the same with the patterns' matches in the other order (#139) |
 
 Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Since refactor C1 gottp assembles records with a port of `_results_class` (`internal/compiled/assembler.go`), and since C2 a group with children and all its descendants go through one assembler (`internal/compiled/tree.go`), so most of them pass. Those gottp still gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
 

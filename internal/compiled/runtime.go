@@ -578,6 +578,17 @@ func (r *Runtime) parseFlat(group *compiler.CompiledGroup, inputData string, var
 		r.raised.set(err)
 		return nil, nil, nil
 	}
+	// run_re narrows the region to the last end match: matches past it are
+	// dropped (#139).
+	if keep := sc.cutKeep(); keep != nil {
+		kept := allMatches[:0]
+		for _, m := range allMatches {
+			if keep(m.patternIdx, m.spanStart, m.spanEnd) {
+				kept = append(kept, m)
+			}
+		}
+		allMatches = kept
+	}
 
 	// Sort matches by position; at one position, in pattern order.
 	sort.Slice(allMatches, func(i, j int) bool {
@@ -741,7 +752,7 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 			result, raise := r.extractMatchTTP(match, compiledPattern, vars)
 			spanStart, spanEnd := in.offsets[lineIdx], in.offsets[lineIdx]+len(line)
 			if sc != nil {
-				sc.observe(patternIdx, spanStart, spanEnd, raise)
+				sc.observe(patternIdx, spanStart, spanEnd, in.offsets[lineIdx]+len(in.lines[lineIdx]), raise)
 			} else if raise != nil {
 				r.raised.set(raise)
 			}
@@ -782,7 +793,7 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 		}
 		result, raise := r.extractMatchTTP(matchGroups, compiledPattern, vars)
 		if sc != nil {
-			sc.observe(patternIdx, lo+indices[0], lo+indices[1], raise)
+			sc.observe(patternIdx, lo+indices[0], lo+indices[1], lo+indices[1], raise)
 		} else if raise != nil {
 			r.raised.set(raise)
 		}
@@ -924,7 +935,9 @@ func startLineDefaultsRecord(group *compiler.CompiledGroup) map[string]interface
 // parseGroup uses for a group without children (assembler.go), invoking fn
 // for each finished record instead of collecting them. The assembler holds
 // only the current line's matches and the current record, so memory stays
-// bounded however large the input is.
+// bounded however large the input is. In a group with an end line, a first
+// pass (scanCut) finds run_re's cut, so the matches past it are dropped as
+// they come (#139).
 //
 // Caller must verify group.Streamable == true. parseGroupStream does not
 // re-check (entry gate is in Runtime.ParseStream).
@@ -1007,6 +1020,13 @@ func (r *Runtime) parseGroupStream(
 	totalLen := len(inputData)
 	matchIdx := 0
 
+	// run_re's cut, known up front, drops the matches past the last end
+	// match (#139); nil keeps every match.
+	var keep func(pi, start, end int) bool
+	if prof.HasEnd() {
+		keep = scanCut(group, inputData)
+	}
+
 	pos := 0
 	for pos <= totalLen {
 		// Find next newline (or end of input).
@@ -1021,7 +1041,8 @@ func (r *Runtime) parseGroupStream(
 			pos = pos + nl + 1
 		}
 
-		// Trim only \r, as matchPattern does (#33).
+		// Trim only \r, as matchPattern does (#33). scanCut (ttp_scope.go)
+		// repeats these line rules for the _end_ cut; keep the two in step.
 		line := strings.TrimRight(rawLine, "\r")
 		blank := isBlank(line)
 
@@ -1042,15 +1063,19 @@ func (r *Runtime) parseGroupStream(
 			}
 
 			result, raise := r.extractMatchTTP(match, compiledPattern, vars)
-			sc.observe(patternIdx, lineStartOffset, lineStartOffset+len(line), raise)
+			sc.observe(patternIdx, lineStartOffset, lineStartOffset+len(line), lineStartOffset+len(rawLine), raise)
 			if result == nil && !prof.StartsRecord(patternIdx) {
+				continue
+			}
+			lineEnd := lineStartOffset + len(line)
+			if keep != nil && !keep(patternIdx, lineStartOffset, lineEnd) {
 				continue
 			}
 			if err := asm.add(asmMatch{
 				idx:     matchIdx,
 				pattern: patternIdx,
 				start:   lineStartOffset,
-				end:     lineStartOffset + len(line),
+				end:     lineEnd,
 				result:  result,
 			}); err != nil {
 				return err
