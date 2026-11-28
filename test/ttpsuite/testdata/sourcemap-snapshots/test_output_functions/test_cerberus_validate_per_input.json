@@ -3,7 +3,7 @@
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
    {"LineNumber":1,"Matched":false,"Matches":[]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"_","PatternIndex":0,"Variables":{"host_name":{"StartCol":9,"EndCol":13}},"ResultPath":"_"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"_","PatternIndex":0,"Variables":{"host_name":{"StartCol":9,"EndCol":13}},"ResultPath":""}]},
    {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"ntp_peers*","PatternIndex":0,"Variables":{"peer":{"StartCol":9,"EndCol":16}},"ResultPath":"ntp_peers[0]"}]},
    {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"ntp_peers*","PatternIndex":0,"Variables":{"peer":{"StartCol":9,"EndCol":16}},"ResultPath":"ntp_peers[1]"}]},
    {"LineNumber":5,"Matched":false,"Matches":[]}

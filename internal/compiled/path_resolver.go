@@ -92,13 +92,6 @@ func (pr *PathResolver) ResolvePath(pathTemplate string, matchResult map[string]
 	return result, nil
 }
 
-// UpdateCache updates the dynamic path cache with new values
-func (pr *PathResolver) UpdateCache(vars map[string]interface{}) {
-	for k, v := range vars {
-		pr.dynPathCache[k] = v
-	}
-}
-
 // ClearCache clears the dynamic path cache
 func (pr *PathResolver) ClearCache() {
 	pr.dynPathCache = make(map[string]interface{})

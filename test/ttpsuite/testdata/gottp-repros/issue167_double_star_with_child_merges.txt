@@ -1,0 +1,7 @@
+vrf A
+ rd 1
+ route-target 1:1
+vrf B
+ rd 2
+vrf A
+ route-target 1:2

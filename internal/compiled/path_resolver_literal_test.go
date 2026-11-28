@@ -82,7 +82,7 @@ func TestResolvePathLiteralReplacement(t *testing.T) {
 // the shared package-level regex change must not disturb.
 func TestResolvePathFallbackOrder(t *testing.T) {
 	pr := NewPathResolver()
-	pr.UpdateCache(map[string]interface{}{"host": "cached"})
+	pr.dynPathCache["host"] = "cached"
 
 	got, err := pr.ResolvePath("{{ host }}", nil, map[string]interface{}{"host": "fromvars"})
 	if err != nil {

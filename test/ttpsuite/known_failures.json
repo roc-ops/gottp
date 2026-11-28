@@ -26,10 +26,6 @@
    "issue": 70,
    "reason": "several inline <input> tags with the same name: only one is parsed"
   },
-  "test_answers_and_docs/test_answer_hpe_bgp": {
-   "issue": 87,
-   "reason": "group path with several {{var}} segments written without spaces is not substituted"
-  },
   "test_answers_and_docs/test_docs_ttp_dictionary_usage_example": {
    "reason": "design: python macro (uses _ttp_[\"match\"][\"to_ip\"] and the ipaddress object API)"
   },
@@ -53,8 +49,8 @@
    "reason": "chain(var) naming a <vars> list is ignored"
   },
   "test_answers_and_docs/test_issue_89": {
-   "issue": 76,
-   "reason": "dynamic-path value \"Bundle-Ether801.101\" is split on the dot"
+   "issue": 166,
+   "reason": "two default() variables separated by a space: the first captures empty (\"None\") and the second takes the rest"
   },
   "test_answers_and_docs/test_reddit_answer_1": {
    "issue": 101,
@@ -62,10 +58,6 @@
   },
   "test_answers_and_docs/test_reddit_answer_2": {
    "reason": "design: python macro (the macro block uses \"import ipaddress\")"
-  },
-  "test_answers_and_docs/test_slack_answer_3_full": {
-   "issue": 100,
-   "reason": "vprn records nest an extra id level; root cause not isolated"
   },
   "test_extend_tag/test_extend_tag_from_file_lookups_filter": {
    "issue": 93,
@@ -224,10 +216,6 @@
   "test_match_functions/test_multiple_joinmatches": {
    "issue": 73,
    "reason": "gethostname not resolved"
-  },
-  "test_misc/test_asterisk_issue_97": {
-   "issue": 76,
-   "reason": "dynamic-path value containing \".*\" is split into path segments"
   },
   "test_misc/test_groups_with_defaults_only_and_with_children_with_defaults_only": {
    "issue": 110,

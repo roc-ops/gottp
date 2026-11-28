@@ -1,0 +1,4 @@
+interface Gi1
+ description a
+interface Gi2
+ description b

@@ -1,0 +1,7 @@
+<group name="intf.{{ name }}" itemize="desc">
+interface {{ name }}
+ description {{ desc }}
+ <group name="ip">
+ ip {{ ip }}
+ </group>
+</group>

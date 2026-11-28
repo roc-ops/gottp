@@ -1,0 +1,6 @@
+<group name="first">
+site {{ site }}
+</group>
+<group name="s.{{ site }}">
+host {{ host }}
+</group>

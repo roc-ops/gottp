@@ -1,0 +1,4 @@
+interface Gi1
+ description a
+port Gi1
+ speed 10

@@ -1,0 +1,8 @@
+<group name="intf.{{ name }}">
+interface {{ name }}
+ description {{ desc }}
+</group>
+<group name="intf.{{ name }}">
+port {{ name }}
+ speed {{ speed }}
+</group>

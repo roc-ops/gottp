@@ -30,8 +30,9 @@ import (
 //     void=, record=, contains=, itemize=, custom attribute functions and
 //     so on all run in that list, and functions=/chain= expand in place.
 //     The first function that rejects the record drops it.
-//  4. Path formation, done by whoever saves the record: a path that can't
-//     be formed drops it.
+//  4. Path formation, done by whoever saves the record (Runtime.formPath,
+//     tree.go): the record's path is formed from its own values, and a
+//     path that can't be formed drops it.
 //
 // Parse (parseFlat, parseTree) and ParseStream (parseGroupStream) run the
 // same steps. The steps of a group are built once per template, or once per
@@ -78,9 +79,6 @@ type groupPipeline struct {
 	hasDefaultStr bool
 	defaultVars   []string
 	steps         []groupStep
-	// pathVars are the {{ variables }} of the group's name, found segment
-	// by segment as TTP's form_path finds them (topPathFormable).
-	pathVars []string
 	// itemizes is true when a step itemizes without a path, which makes the
 	// group's result the list of itemized values.
 	itemizes bool
@@ -167,13 +165,6 @@ func (r *Runtime) buildPipeline(g *compiler.CompiledGroup, vars map[string]inter
 		}
 	}
 	r.buildDefaults(pl, g, vars)
-	if strings.Contains(g.Name, "{{") {
-		for _, seg := range strings.Split(g.Name, ".") {
-			for _, sub := range dynPathVarRe.FindAllStringSubmatch(seg, -1) {
-				pl.pathVars = append(pl.pathVars, sub[1])
-			}
-		}
-	}
 
 	custom := r.customAttrGroupFunctions(g)
 	addAttr := func(name string) {
@@ -624,41 +615,19 @@ func (r *Runtime) runPipeline(pl *groupPipeline, rec map[string]interface{}, var
 }
 
 // itemizeToPath saves an itemized value at path in the input's results, as
-// TTP's itemize does with a path: the path's last segment ends in "*", and
-// its {{ variables }} take the record's values (removed from the record),
-// else the dynamic-path cache's, the recorded vars' or the parse's vars'. A
-// path that can't be formed saves nothing.
+// TTP's itemize does with a path: the path's last segment ends in a single
+// "*", and its {{ variables }} are formed as any record's path is
+// (Runtime.formPath: the record's values, removed from the record, else the
+// dynamic-path cache's, the recorded vars' or the parse's vars'). A path
+// that can't be formed saves nothing.
 func (r *Runtime) itemizeToPath(ic *itemizeCtx, path []string, rec map[string]interface{}, value interface{}, vars map[string]interface{}) {
-	parts := make([]pathPart, 0, len(path))
-	for i, seg := range path {
-		key := strings.TrimRight(seg, "*")
-		formatter := strings.Repeat("*", len(seg)-len(key))
-		if i == len(path)-1 && formatter != "*" {
-			formatter = "*"
-		}
-		if strings.Contains(key, "{{") {
-			for _, sub := range dynPathVarRe.FindAllStringSubmatch(key, -1) {
-				name := sub[1]
-				var v interface{}
-				if rv, ok := rec[name]; ok {
-					v = rv
-					ic.dyn[name] = rv
-					delete(rec, name)
-				} else if dv, ok := ic.dyn[name]; ok {
-					v = dv
-				} else if gv, ok := r.recordedVars[name]; ok {
-					v = gv
-				} else if pv, ok := vars[name]; ok {
-					v = pv
-				} else {
-					return
-				}
-				key = strings.ReplaceAll(key, sub[0], fmt.Sprintf("%v", v))
-			}
-		}
-		parts = append(parts, pathPart{key: key, formatter: formatter})
+	if ic.root == nil || len(path) == 0 {
+		return
 	}
-	if ic.root == nil || len(parts) == 0 {
+	segs := append([]string(nil), path...)
+	segs[len(segs)-1] = strings.TrimRight(segs[len(segs)-1], "*") + "*"
+	parts, ok := r.formPath(segs, rec, vars)
+	if !ok {
 		return
 	}
 	saveCurElements(ic.root, parts, value)

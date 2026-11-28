@@ -89,7 +89,7 @@ func TestDynPathCacheScope(t *testing.T) {
 
 // TestSharedRuntimeConcurrentParseDynamicPath runs one Runtime's Parse from
 // many goroutines on a template with dynamic paths. Before #83 this crashed
-// with "fatal error: concurrent map writes" in PathResolver.UpdateCache and
+// with "fatal error: concurrent map writes" updating PathResolver's cache and
 // raced on every per-parse field Parse reset on the shared Runtime; run it
 // under -race. Each goroutine must also get exactly its own site back.
 func TestSharedRuntimeConcurrentParseDynamicPath(t *testing.T) {

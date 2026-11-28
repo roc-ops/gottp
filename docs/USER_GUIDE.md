@@ -297,7 +297,7 @@ The source map provides detailed information about matches:
 - **`LineMapping.Matches`**: Array of matches on this line
 - **`MatchMapping.StartCol`/`EndCol`**: Character range of the match (0-indexed)
 - **`MatchMapping.GroupName`**: Name of the group that matched
-- **`MatchMapping.ResultPath`**: Path in result structure (e.g., "interfaces[0]")
+- **`MatchMapping.ResultPath`**: Path in result structure (e.g., "interfaces[0]"). A `.` or `*` inside a key, and a `\`, get a `\` before them, so `interfaces.Gi0/0\.10` is the key `Gi0/0.10` under `interfaces`. A record merged into the root of the results (a top group named `_`) has an empty path.
 - **`MatchMapping.Variables`**: Map of variable names to their character ranges
 
 ### Use Cases

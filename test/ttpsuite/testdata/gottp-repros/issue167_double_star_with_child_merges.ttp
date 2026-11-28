@@ -1,0 +1,7 @@
+<group name="vrfs.{{ vrf }}**">
+vrf {{ vrf }}
+ rd {{ rd }}
+ <group name="rts*">
+ route-target {{ rt }}
+ </group>
+</group>

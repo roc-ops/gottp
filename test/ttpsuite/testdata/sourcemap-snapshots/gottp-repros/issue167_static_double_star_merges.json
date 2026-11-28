@@ -1,0 +1,13 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":6,"GroupName":"vprns**","PatternIndex":0,"Variables":{"id":{"StartCol":5,"EndCol":6}},"ResultPath":"vprns"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"vprns**","PatternIndex":1,"Variables":{"a":{"StartCol":3,"EndCol":4}},"ResultPath":"vprns"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":6,"GroupName":"vprns**","PatternIndex":0,"Variables":{"id":{"StartCol":5,"EndCol":6}},"ResultPath":"vprns"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"vprns**","PatternIndex":1,"Variables":{"a":{"StartCol":3,"EndCol":4}},"ResultPath":"vprns"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":6,"GroupName":"vprns**","PatternIndex":0,"Variables":{"id":{"StartCol":5,"EndCol":6}},"ResultPath":"vprns"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"vprns**","PatternIndex":2,"Variables":{"b":{"StartCol":3,"EndCol":4}},"ResultPath":"vprns"}]},
+   {"LineNumber":6,"Matched":false,"Matches":[]}
+  ]
+ }
+}

@@ -28,10 +28,16 @@ import (
 // are offsets in the input's (processed) data: a top group and all its
 // descendants are matched on the whole input (tree.go).
 type smObserver struct {
-	input       string      // input the current top-level group is parsing
-	lineOffsets []int       // byte offset of each line of that input's (processed) data, plus a sentinel
-	lastNodes   []*smRecord // records behind the most recent parseGroup result
+	input       string // input the current top-level group is parsing
+	lineOffsets []int  // byte offset of each line of that input's (processed) data, plus a sentinel
 	matches     []*smMatch
+	// owners maps each record map stored as itself in the results to its
+	// smRecord, so a record merged into it (a "**" path) takes its path.
+	owners map[uintptr]*smRecord
+}
+
+func newSMObserver() *smObserver {
+	return &smObserver{owners: make(map[uintptr]*smRecord)}
 }
 
 // smRecord follows one record from the merge phase to the results.
@@ -82,7 +88,6 @@ func submatchStrings(s string, loc []int) []string {
 // beginInput starts a top-level group on one input's (processed) data.
 func (o *smObserver) beginInput(input, data string) {
 	o.input = input
-	o.lastNodes = nil
 	o.lineOffsets = o.lineOffsets[:0]
 	o.lineOffsets = append(o.lineOffsets, 0)
 	for i := 0; i < len(data); i++ {
@@ -91,13 +96,6 @@ func (o *smObserver) beginInput(input, data string) {
 		}
 	}
 	o.lineOffsets = append(o.lineOffsets, len(data)+1)
-}
-
-// takeNodes returns and clears the records behind the last parseGroup result.
-func (o *smObserver) takeNodes() []*smRecord {
-	nodes := o.lastNodes
-	o.lastNodes = nil
-	return nodes
 }
 
 func (o *smObserver) newRecord(group *compiler.CompiledGroup) *smRecord {
@@ -111,17 +109,6 @@ func (o *smObserver) position(abs int) (line, col int) {
 		line = 0
 	}
 	return line, abs - o.lineOffsets[line]
-}
-
-// recordMatches creates one smRecord per merged record and an smMatch for
-// every match the record consumed (used[i] holds record i's indices into
-// allMatches).
-func (o *smObserver) recordMatches(group *compiler.CompiledGroup, allMatches []patternMatch, used [][]int) []*smRecord {
-	recs := make([]*smRecord, len(used))
-	for i, idxs := range used {
-		recs[i] = o.recordTree(group, allMatches, idxs)
-	}
-	return recs
 }
 
 // recordTree creates the smRecord of one record of group and an smMatch for
@@ -201,56 +188,6 @@ func (o *smObserver) varRanges(cp *pattern.CompiledPattern, info *smMatchInfo, l
 	return ranges
 }
 
-// smKeep returns the records of recs at the kept indices and marks the rest
-// dropped.
-func smKeep(recs []*smRecord, kept []int) []*smRecord {
-	out := make([]*smRecord, 0, len(kept))
-	k := 0
-	for i, rec := range recs {
-		if k < len(kept) && kept[k] == i {
-			out = append(out, rec)
-			k++
-		} else if rec != nil {
-			rec.dropped = true
-		}
-	}
-	return out
-}
-
-// smDrop marks every record dropped.
-func smDrop(recs []*smRecord) {
-	for _, rec := range recs {
-		if rec != nil {
-			rec.dropped = true
-		}
-	}
-}
-
-// smCollapse merges recs into one record without an identity of its own
-// (the group's result is not a list of these records any more, e.g.
-// itemize). Its path falls back to rel.
-func (o *smObserver) smCollapse(group *compiler.CompiledGroup, recs []*smRecord) *smRecord {
-	one := o.newRecord(group)
-	for _, rec := range recs {
-		if rec != nil {
-			rec.alias = one
-		}
-	}
-	return one
-}
-
-func smAt(recs []*smRecord, i int) *smRecord {
-	if i >= 0 && i < len(recs) {
-		return recs[i]
-	}
-	return nil
-}
-
-// trimFormatter removes a trailing * or ** path formatter.
-func trimFormatter(path string) string {
-	return strings.TrimSuffix(strings.TrimSuffix(path, "*"), "*")
-}
-
 // mapID identifies a map by its header pointer.
 func mapID(m map[string]interface{}) uintptr {
 	return reflect.ValueOf(m).Pointer()
@@ -272,9 +209,9 @@ func indexMaps(v interface{}, path string, out map[uintptr]string) {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			p := k
+			p := escapePathKey(k)
 			if path != "" {
-				p = path + "." + k
+				p = path + "." + p
 			}
 			indexMaps(t[k], p, out)
 		}
@@ -439,10 +376,10 @@ func (o *smObserver) aliasMacroRenames(root func(*smRecord) *smRecord) {
 // locateStored returns the paths of the last n values stored at keys (a
 // dotted path split into keys, formatters removed) in results, just after
 // they were stored there. A list met on the way is entered at its last
-// element, which is where storeAtPath put the newest value. It is the
-// fallback path of records whose maps were copied while being stored (a
-// "**" path merges a record into an existing dict) or later (a Starlark
-// macro on the parent), so they can't be found by identity.
+// element, which is where saveCurElements (dict_by_path) put the newest
+// value. It is the fallback path of records whose maps were copied while
+// being stored (a "**" path merges a record into an existing dict) or later
+// (a Starlark macro on the parent), so they can't be found by identity.
 func locateStored(results map[string]interface{}, keys []string, n int) []string {
 	var b strings.Builder
 	var cur interface{} = results
@@ -454,7 +391,7 @@ func locateStored(results map[string]interface{}, keys []string, n int) []string
 		if b.Len() > 0 {
 			b.WriteByte('.')
 		}
-		b.WriteString(key)
+		b.WriteString(escapePathKey(key))
 		cur = m[key]
 		if l, ok := cur.([]interface{}); ok && len(l) > 0 {
 			if i == len(keys)-1 {
@@ -480,36 +417,41 @@ func locateStored(results map[string]interface{}, keys []string, n int) []string
 	return paths
 }
 
-// pathKeys splits a dotted result path into keys without formatters.
-func pathKeys(path string) []string {
-	var keys []string
-	for _, p := range strings.Split(path, ".") {
-		if p = trimFormatter(p); p != "" {
-			keys = append(keys, p)
-		}
+// locatePath is the path of the value just stored at keys in results (see
+// locateStored), or "".
+func locatePath(results map[string]interface{}, keys []string) string {
+	if paths := locateStored(results, keys, 1); len(paths) == 1 {
+		return paths[0]
 	}
-	return keys
+	return ""
 }
 
-// setStoredRel sets the fallback path of recs, just stored together at keys
-// in results (the results map, or the parent record for a child group).
-func setStoredRel(results map[string]interface{}, keys []string, recs []*smRecord) {
-	paths := locateStored(results, keys, len(recs))
-	for j, rec := range recs {
-		if rec != nil && j < len(paths) {
-			rec.rel = paths[j]
-		}
+// escapePathKey escapes a result key for a ResultPath: a "." or "*" in a key
+// (a dynamic path value such as "lag-4:1629.*", #76) gets a "\" before it,
+// as does a "\", so neither can be read as a separator or a path formatter.
+func escapePathKey(k string) string {
+	if !strings.ContainsAny(k, ".*\\") {
+		return k
 	}
+	var b strings.Builder
+	for i := 0; i < len(k); i++ {
+		if c := k[i]; c == '.' || c == '*' || c == '\\' {
+			b.WriteByte('\\')
+		}
+		b.WriteByte(k[i])
+	}
+	return b.String()
 }
 
 // segmentKeys returns the keys of resolved path segments. A "_" segment
-// (TTP's null path) names no key: its records live in their parent.
+// (TTP's null path) is skipped as dict_by_path skips it (walkKeys).
 func segmentKeys(parts []pathPart) []string {
-	keys := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p.key != "" && p.key != "_" {
-			keys = append(keys, p.key)
+	keys := walkKeys(parts)
+	out := keys[:0]
+	for _, k := range keys {
+		if k != "" {
+			out = append(out, k)
 		}
 	}
-	return keys
+	return out
 }
