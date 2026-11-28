@@ -8,6 +8,7 @@ GoTTP supports the following output functions:
 * **traverse** - Get data at a specific path in results tree
 * **dict_to_list** - Transform dictionary to list of dictionaries
 * **is_equal** - Compare results with expected structure
+* **macro** - Pass the whole results through a macro function
 * **functions** - Pipe-separated list of output functions
 
 traverse
@@ -80,6 +81,36 @@ Compares results with expected structure loaded from output tag content.
    <output functions="is_equal">
    [{"interface": "GigabitEthernet0/0", "status": "up"}]
    </output>
+
+macro
+-----
+
+``macro="func_name1, func_name2"`` or ``functions="macro('func_name1') | macro('func_name2')"``
+
+Runs a macro defined in a ``<macro>`` tag (or a native Go macro) on the whole results, as Python TTP does:
+
+* The macro gets the template's results: with ``results="per_input"`` (the default) a list with one item per input, with ``results="per_template"`` the combined result.
+* Its return value replaces the results, including ``True`` and ``False``. If it returns ``None`` the results are kept, with any change the macro made to them in place.
+* A macro name that isn't defined leaves the results unchanged. A macro that fails is a parse error.
+* The ``macro`` attribute and the ``functions`` attribute run in the order they appear in the tag, before the formatter.
+* ``macro="a, b"`` (and ``macro('a', 'b')``) runs each macro in order, each on the result of the one before. This is a gottp extension: Python TTP 0.10.1 raises ``TypeError`` on it, so for templates that must also run in Python TTP use ``functions="macro('a') | macro('b')"``.
+* A native Go macro takes a map, so it runs on ``per_template`` results only; with ``per_input`` it is an error. Use a custom output function (``Functions.Output``) for the list.
+
+**Example:**
+
+.. code-block:: xml
+
+   <macro>
+   def add_flag(data):
+       data.append({"flag": True})
+       return data
+   </macro>
+   <group name="items">
+   item {{ name }}
+   </group>
+   <output macro="add_flag"/>
+
+With data ``item a`` / ``item b`` the result is ``[{"items": [{"name": "a"}, {"name": "b"}]}, {"flag": true}]``.
 
 functions
 ---------

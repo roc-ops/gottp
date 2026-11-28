@@ -70,14 +70,21 @@ type Input struct {
 
 // Output represents an output tag
 type Output struct {
-	Name       string
-	Format     string
-	Functions  string
-	Path       string
-	Returner   string
-	Headers    string
-	Content    string
-	Attributes map[string]string
+	Name      string
+	Format    string
+	Functions string
+	Path      string
+	Returner  string
+	Headers   string
+	// Macro is the macro attribute: macro names run on the results like
+	// functions="macro('name')" (Python TTP output macro()).
+	Macro string
+	// MacroBeforeFunctions reports whether the macro attribute comes before
+	// the functions attribute in the tag. Python TTP runs output functions
+	// in attribute order (ttp/ttp.py _outputter_class.get_attributes).
+	MacroBeforeFunctions bool
+	Content              string
+	Attributes           map[string]string
 }
 
 // Lookup represents a lookup table
@@ -561,6 +568,8 @@ func (t *Template) parseOutput(elem xmlElement) (*Output, error) {
 			output.Name = value
 		case "format":
 			output.Format = value
+		case "macro":
+			output.Macro = value
 		case "functions":
 			output.Functions = value
 		case "path":
@@ -569,6 +578,15 @@ func (t *Template) parseOutput(elem xmlElement) (*Output, error) {
 			output.Returner = value
 		case "headers":
 			output.Headers = value
+		}
+	}
+
+	if output.Macro != "" {
+		for _, key := range elem.AttrOrder {
+			if key == "macro" || key == "functions" {
+				output.MacroBeforeFunctions = key == "macro"
+				break
+			}
 		}
 	}
 
@@ -774,10 +792,12 @@ func parseChildTemplate(elem xmlElement) (*Template, error) {
 
 // xmlElement represents an XML element for parsing
 type xmlElement struct {
-	XMLName  xml.Name
-	Attrs    map[string]string
-	Content  string
-	Children []xmlElement
+	XMLName xml.Name
+	Attrs   map[string]string
+	// AttrOrder lists attribute names in document order.
+	AttrOrder []string
+	Content   string
+	Children  []xmlElement
 	// ChildOffsets[i] is the length of Content when Children[i] started.
 	ChildOffsets []int
 }
@@ -792,6 +812,9 @@ func parseXMLElement(start xml.StartElement, decoder *xml.Decoder) xmlElement {
 
 	// Extract attributes
 	for _, attr := range start.Attr {
+		if _, dup := elem.Attrs[attr.Name.Local]; !dup {
+			elem.AttrOrder = append(elem.AttrOrder, attr.Name.Local)
+		}
 		elem.Attrs[attr.Name.Local] = attr.Value
 	}
 

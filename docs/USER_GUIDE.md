@@ -128,7 +128,7 @@ Templates are XML-like structures with special tags:
 - **`<template>`**: Root container (optional if only one group)
 - **`<group>`**: Pattern matching group
 - **`<input>`**: Input data source configuration
-- **`<output>`**: Output formatting configuration
+- **`<output>`**: Output functions (`functions=`, `macro=`) and formatting configuration; see `docs/source/Outputs/`
 - **`<vars>`**: Template variables
 - **`<macro>`**: Macro function definitions
 - **`<extend>`**: Template extension

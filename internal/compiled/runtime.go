@@ -4133,14 +4133,26 @@ func (r *Runtime) processInputFunctions(inputName string, data string, vars map[
 	return result, nil
 }
 
-// processOutputFunctions processes output functions for results
-func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]interface{}) (interface{}, error) {
-	result := results
+// processOutputFunctions processes output functions for results.
+//
+// formatted reports whether the final value is a formatter's output (the
+// last output that changed the results had a format). The caller uses it
+// to keep the per_input list wrap for formatter output (#98) without
+// wrapping a value an output macro or function returned.
+func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]interface{}) (result interface{}, formatted bool, err error) {
+	result = results
 
 	// Process each output configuration
 	for _, outputConfig := range r.compiled.Outputs {
-		// Process functions attribute FIRST (before formatting)
-		// This allows functions like traverse() to extract data before formatting
+		// Python TTP runs an output's functions (the functions attribute
+		// and the macro attribute, in attribute order) before its
+		// formatter (ttp/ttp.py _outputter_class.run).
+		if outputConfig.Macro != "" && outputConfig.MacroBeforeFunctions {
+			if result, err = r.runOutputMacroAttr(outputConfig.Macro, result); err != nil {
+				return nil, false, err
+			}
+			formatted = false
+		}
 		if outputConfig.Functions != "" {
 			funcStrs := strings.Split(outputConfig.Functions, "|")
 			for _, funcStr := range funcStrs {
@@ -4152,13 +4164,24 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 				// Parse function call
 				funcName, args, err := parseFunction(funcStr, vars)
 				if err != nil {
-					return nil, fmt.Errorf("failed to parse output function %s: %w", funcStr, err)
+					return nil, false, fmt.Errorf("failed to parse output function %s: %w", funcStr, err)
 				}
 
 				// Get function from registry (checks runtime overrides first)
 				fn, ok := r.getOutputFunc(funcName)
 				if !ok {
-					// Function not found, skip it (could be a macro)
+					if funcName == "macro" {
+						// gottp extension: macro('a', 'b') runs each macro
+						// in order (Python TTP 0.10.1 raises TypeError).
+						for _, name := range args {
+							if result, err = r.runOutputMacro(strings.TrimSpace(name), result); err != nil {
+								return nil, false, err
+							}
+						}
+						formatted = false
+					}
+					// Other unknown functions are skipped (Python TTP logs
+					// an error and skips them).
 					continue
 				}
 
@@ -4173,10 +4196,17 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 				// Execute function
 				processed, err := fn(result, args, kwargs)
 				if err != nil {
-					return nil, fmt.Errorf("output function %s failed: %w", funcName, err)
+					return nil, false, fmt.Errorf("output function %s failed: %w", funcName, err)
 				}
 				result = processed
+				formatted = false
 			}
+		}
+		if outputConfig.Macro != "" && !outputConfig.MacroBeforeFunctions {
+			if result, err = r.runOutputMacroAttr(outputConfig.Macro, result); err != nil {
+				return nil, false, err
+			}
+			formatted = false
 		}
 
 		// Apply format conversion if format is specified
@@ -4184,7 +4214,7 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 			// Get format function from registry (checks runtime overrides first)
 			formatFn, ok := r.getOutputFunc(outputConfig.Format)
 			if !ok {
-				return nil, fmt.Errorf("unknown output format: %s", outputConfig.Format)
+				return nil, false, fmt.Errorf("unknown output format: %s", outputConfig.Format)
 			}
 
 			// Prepare kwargs from output config attributes
@@ -4225,7 +4255,7 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 				if outputConfig.Format == "json" || outputConfig.Format == "yaml" || outputConfig.Format == "pprint" {
 					formatted, err := formatFn(result, nil, kwargs)
 					if err != nil {
-						return nil, fmt.Errorf("output format %s failed: %w", outputConfig.Format, err)
+						return nil, false, fmt.Errorf("output format %s failed: %w", outputConfig.Format, err)
 					}
 					result = formatted
 				} else {
@@ -4250,7 +4280,7 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 							// Anonymous group results - combine into single table
 							formatted, err := formatFn(resultList, nil, kwargs)
 							if err != nil {
-								return nil, fmt.Errorf("output format %s failed: %w", outputConfig.Format, err)
+								return nil, false, fmt.Errorf("output format %s failed: %w", outputConfig.Format, err)
 							}
 							// formatTable returns [][]interface{} (table structure: [[headers], [row1], [row2], ...])
 							// For per_input, Python TTP wraps it once: [[headers, row1, row2, ...]]
@@ -4271,7 +4301,7 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 							for i, inputResult := range resultList {
 								formatted, err := formatFn(inputResult, nil, kwargs)
 								if err != nil {
-									return nil, fmt.Errorf("output format %s failed: %w", outputConfig.Format, err)
+									return nil, false, fmt.Errorf("output format %s failed: %w", outputConfig.Format, err)
 								}
 								formattedList[i] = formatted
 							}
@@ -4283,7 +4313,7 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 						for i, inputResult := range resultList {
 							formatted, err := formatFn(inputResult, nil, kwargs)
 							if err != nil {
-								return nil, fmt.Errorf("output format %s failed: %w", outputConfig.Format, err)
+								return nil, false, fmt.Errorf("output format %s failed: %w", outputConfig.Format, err)
 							}
 							formattedList[i] = formatted
 						}
@@ -4294,7 +4324,7 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 				// Execute format function
 				formatted, err := formatFn(result, nil, kwargs)
 				if err != nil {
-					return nil, fmt.Errorf("output format %s failed: %w", outputConfig.Format, err)
+					return nil, false, fmt.Errorf("output format %s failed: %w", outputConfig.Format, err)
 				}
 				result = formatted
 			}
@@ -4313,11 +4343,91 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 				}
 				// Return original parsed data structure (not formatted)
 				result = originalResult
+			} else {
+				formatted = true
 			}
 		}
 	}
 
-	return result, nil
+	return result, formatted, nil
+}
+
+// runOutputMacroAttr runs an output's macro attribute. A comma-separated
+// list runs each macro in order on the result of the one before. This is a
+// gottp extension: Python TTP 0.10.1 turns macro="a, b" into the call
+// macro(data, "a", "b"), which raises TypeError.
+func (r *Runtime) runOutputMacroAttr(attr string, data interface{}) (interface{}, error) {
+	for _, name := range strings.Split(attr, ",") {
+		var err error
+		if data, err = r.runOutputMacro(strings.TrimSpace(name), data); err != nil {
+			return nil, err
+		}
+	}
+	return data, nil
+}
+
+// runOutputMacro runs macro name on the whole results structure, like
+// Python TTP's output macro() function (ttp/output/macro.py): the macro
+// gets the results (per_input: the list of per-input results;
+// per_template: the combined result), and its return value replaces them
+// unless it is None. False and True replace the results too. A macro that
+// is not defined leaves the results unchanged. A Starlark macro that
+// mutates its argument in place and returns None keeps the mutation, as it
+// would in Python.
+//
+// A native Go macro takes a map, so it can run on per_template results but
+// not on the per_input list; use a custom output function for that.
+func (r *Runtime) runOutputMacro(name string, data interface{}) (interface{}, error) {
+	if name == "" {
+		return data, nil
+	}
+	if r.macroRegistry.HasGoMacro(name) {
+		res, err := r.macroRegistry.ExecuteMacro("go", name, data, nil)
+		if err != nil {
+			return nil, fmt.Errorf("output macro %s failed: %w", name, err)
+		}
+		if m, ok := res.(map[string]interface{}); ok && m == nil {
+			return data, nil
+		}
+		return res, nil
+	}
+
+	macroLang := "starlark"
+	for _, m := range r.compiled.Macros {
+		if m.Language != "" {
+			macroLang = m.Language
+			break
+		}
+	}
+
+	if macroLang == "starlark" {
+		engine := r.macroRegistry.GetStarlarkEngine()
+		dataVal := engine.GoToStarlark(data)
+		res, err := engine.ExecuteMacroStarlark(name, dataVal, nil)
+		if err != nil {
+			if macroErrorIsNotFound(err) {
+				return data, nil
+			}
+			return nil, fmt.Errorf("output macro %s failed: %w", name, err)
+		}
+		if res == starlark.None {
+			// The macro may have changed its argument in place.
+			return engine.StarlarkToGo(dataVal), nil
+		}
+		return engine.StarlarkToGo(res), nil
+	}
+
+	res, err := r.macroRegistry.ExecuteMacro(macroLang, name, data, nil)
+	if err != nil {
+		if macroErrorIsNotFound(err) {
+			return data, nil
+		}
+		return nil, fmt.Errorf("output macro %s failed: %w", name, err)
+	}
+	if res == nil {
+		return data, nil
+	}
+	return res, nil
 }
 
 // resolvePathSegments resolves a path by splitting it into segments first,

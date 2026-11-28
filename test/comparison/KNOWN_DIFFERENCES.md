@@ -127,6 +127,11 @@ The comparison test suite includes:
 - **Note**: Requires CGO and Python development headers
 - **Test Status**: Skipped unless Python macro support is enabled
 
+### Output macro lists (gottp extension)
+- **gottp:** `<output macro="a, b">` and `<output functions="macro('a', 'b')">` run each macro in order, each on the result of the one before.
+- **Python TTP 0.10.1:** both raise `TypeError`, because `macro=` becomes the call `macro(data, "a", "b")` and TTP's output `macro()` takes one name. Use `functions="macro('a') | macro('b')"` in templates that must run in both.
+- **Test status:** no comparison case; covered by `TestOutputMacro_SeveralNamesRunInOrder` in `test/output_macro_test.go`.
+
 ## Recent Fixes and Improvements
 
 ### Fixed During Testing (2024)
