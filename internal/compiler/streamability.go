@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/roc-ops/gottp/internal/pattern"
 )
 
 // streamableGroupFunctions lists the group-level functions (the ones in
@@ -34,10 +36,21 @@ var streamableGroupFunctions = map[string]bool{
 	"del":          true,
 }
 
+// attributeGroupFunctions are the group functions parseGroup applies when
+// they are given as group attributes (contains="ip", record="vrf", ...).
+// parseGroupStream applies only the chain/functions attribute and the group
+// macro, so a streamable group may use none of these.
+var attributeGroupFunctions = []string{
+	"containsall", "contains", "del", "delete", "exclude", "excludeall", "equal",
+	"to_int", "contains_val", "exclude_val", "sformat", "itemize", "set",
+	"expand", "items2dict", "to_ip", "record",
+}
+
 // parseGroupFunctionNames extracts function names from a group's
-// Functions= attribute string. The format is comma-separated function
-// calls, e.g. "containsall('mac-address', 'us-intf'), to_int". Returns
-// the bare names ("containsall", "to_int") with arguments stripped.
+// functions= or chain= attribute. Functions are separated by "|" (what
+// processGroupFunctions splits on) or ",", e.g.
+// "containsall('mac-address', 'us-intf') | to_int". Returns the bare names
+// ("containsall", "to_int") with arguments stripped.
 //
 // Commas inside argument lists are handled by skipping any token that
 // does not begin with a valid identifier character (letter or '_').
@@ -49,7 +62,7 @@ func parseGroupFunctionNames(functions string) []string {
 		return nil
 	}
 	var names []string
-	for _, part := range strings.Split(functions, ",") {
+	for _, part := range strings.FieldsFunc(functions, func(r rune) bool { return r == ',' || r == '|' }) {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
@@ -92,6 +105,22 @@ func allPatternsAnchored(g *CompiledGroup) bool {
 		}
 	}
 	return true
+}
+
+// hasDefaultFunction reports whether a non-indicator variable of p has a
+// default() function.
+func hasDefaultFunction(p *pattern.CompiledPattern) bool {
+	for name, v := range p.Variables {
+		if pattern.IsIndicatorVar(name) {
+			continue
+		}
+		for _, fn := range v.Functions {
+			if strings.HasPrefix(fn, "default(") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // hasAnyJoinMatches returns true if any variable in any pattern uses
@@ -148,15 +177,78 @@ func analyzeStreamability(g *CompiledGroup) {
 	joinmatchesDone:
 	}
 
-	// Rule 4: must have a record boundary (either _start_ or fully line-anchored).
-	if !hasStartIndicator(g) && !allPatternsAnchored(g) {
-		reasons = append(reasons, fmt.Sprintf("group %q has no record boundary: no _start_ indicator and not all patterns are line-anchored", g.Name))
+	// Rule 4: must have a record boundary, and the stream path matches line
+	// by line, so every pattern must be line-anchored.
+	if !allPatternsAnchored(g) {
+		if !hasStartIndicator(g) {
+			reasons = append(reasons, fmt.Sprintf("group %q has no record boundary: no _start_ indicator and not all patterns are line-anchored", g.Name))
+		} else {
+			reasons = append(reasons, fmt.Sprintf("group %q has a pattern that is not line-anchored (the stream path matches line by line)", g.Name))
+		}
 	}
 
-	// Rule 5: group functions must all be in the streamable allowlist.
-	for _, fn := range parseGroupFunctionNames(g.Functions) {
+	// Rule 5: group functions (functions= or chain=; parseGroup uses chain
+	// when both are set) must all be in the streamable allowlist.
+	chain := g.Chain
+	if chain == "" {
+		chain = g.Functions
+	}
+	for _, fn := range parseGroupFunctionNames(chain) {
 		if !streamableGroupFunctions[fn] {
 			reasons = append(reasons, fmt.Sprintf("group %q uses group function %q which is not in the streamable allowlist", g.Name, fn))
+		}
+	}
+
+	// Rules 6-13 reject the group features parseGroup applies and
+	// parseGroupStream does not (#130), so a template either streams with
+	// the records Parse would give or fails up front.
+
+	// Rule 6: group functions given as attributes (contains="ip", record=...).
+	for _, attr := range attributeGroupFunctions {
+		if v, ok := g.Attributes[attr]; ok && (v != "" || attr == "expand") {
+			reasons = append(reasons, fmt.Sprintf("group %q uses the %s= attribute, which streaming does not apply", g.Name, attr))
+		}
+	}
+
+	// Rule 7: default= fills in missing variables (and makes a record when
+	// nothing matched).
+	if v := g.Attributes["default"]; v != "" {
+		reasons = append(reasons, fmt.Sprintf("group %q uses the default= attribute, which streaming does not apply", g.Name))
+	}
+
+	// Rule 8: a void group's records are not part of the result.
+	if v, ok := g.Attributes["void"]; ok && (v == "" || v == "true" || v == "True" || v == "TRUE") {
+		reasons = append(reasons, fmt.Sprintf("group %q is void (its records are not returned by Parse)", g.Name))
+	}
+
+	// Rule 9: defaults from set() on a line without other text.
+	if len(g.Defaults) > 0 {
+		reasons = append(reasons, fmt.Sprintf("group %q has set() defaults on a line without text, which streaming does not apply", g.Name))
+	}
+
+	// Rule 10: method="table" keeps only the first pattern per line.
+	if g.Method == "table" {
+		reasons = append(reasons, fmt.Sprintf("group %q uses method=\"table\", which streaming does not implement", g.Name))
+	}
+
+	// Rule 11: a dynamic path is resolved per record, and its variables are
+	// removed from the records.
+	if strings.Contains(g.Name, "{{") {
+		reasons = append(reasons, fmt.Sprintf("group %q has a dynamic path, which streaming does not resolve", g.Name))
+	}
+
+	// Rule 12: a start line with default() makes a record of defaults when
+	// the group matches nothing.
+	if len(g.Patterns) > 0 && hasDefaultFunction(g.Patterns[0]) {
+		reasons = append(reasons, fmt.Sprintf("group %q has default() on its start line (a record of defaults when nothing matches), which streaming does not implement", g.Name))
+	}
+
+	// Rule 13: ignore("<template variable>") turns the result into one
+	// empty record.
+	for _, p := range g.Patterns {
+		if p.IgnoreUsesTemplateVar {
+			reasons = append(reasons, fmt.Sprintf("group %q uses ignore() with a template variable, which streaming does not implement", g.Name))
+			break
 		}
 	}
 

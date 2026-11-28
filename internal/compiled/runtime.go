@@ -343,6 +343,22 @@ func (r *Runtime) ParseStream(
 	r = run
 
 	vars = r.applyParseOptions(vars, options)
+
+	// Custom group functions given as group attributes are known only now
+	// (compile-time or per-parse functions); streaming does not apply them.
+	var reasons []string
+	for _, g := range r.compiled.Groups {
+		if g.IsNested {
+			continue
+		}
+		for _, attr := range r.customAttrGroupFunctions(g) {
+			reasons = append(reasons, fmt.Sprintf("group %q uses the custom group function attribute %s=, which streaming does not apply", g.Name, attr))
+		}
+	}
+	if len(reasons) > 0 {
+		return wrapNotStreamableError(reasons)
+	}
+
 	inputOrder := r.prepareInputs(inputs)
 
 	// --- Drive parseGroupStream for each top-level group ---
@@ -2214,7 +2230,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	// These are group attributes that act as functions to filter/transform matches
 	// They should be processed before the functions/chain attribute
 	// Note: record attribute is handled above, so we skip it here
-	groupFunctionAttrs := []string{"containsall", "contains", "del", "delete", "exclude", "excludeall", "equal", "to_int", "contains_val", "exclude_val", "sformat", "itemize", "set", "expand", "items2dict", "to_ip"}
+	groupFunctionAttrs := builtinAttrGroupFunctions
 	for _, attrName := range groupFunctionAttrs {
 		// Special handling for expand - empty string means expand all dot-separated keys
 		if attrName == "expand" {
@@ -2456,9 +2472,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				continue
 			}
 			// Skip known non-function attributes
-			if attrName == "name" || attrName == "input" || attrName == "method" || attrName == "output" ||
-				attrName == "default" || attrName == "chain" || attrName == "functions" || attrName == "macro" ||
-				attrName == "record" {
+			if nonFunctionGroupAttrs[attrName] {
 				continue
 			}
 			// Check if this attribute name matches a custom group function
@@ -2933,8 +2947,8 @@ func (r *Runtime) parseGroupStream(
 		if err != nil {
 			return err
 		}
-		if filtered == nil {
-			return nil // dropped by macro
+		if len(filtered) == 0 {
+			return nil // dropped by macro, or emptied (parseGroup drops empty records)
 		}
 		return fn(filtered, srcRange, group.NormalizedPath)
 	}

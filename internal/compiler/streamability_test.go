@@ -241,3 +241,62 @@ func containsString(haystack []string, needle string) bool {
 	return false
 }
 
+
+// #130: functions= and chain= separate functions with "|", so an aggregating
+// function after a pipe must not slip past the allowlist.
+func TestParseGroupFunctionNames_PipesAndCommas(t *testing.T) {
+	got := parseGroupFunctionNames("contains('ip') | itemize(key='name'), to_int")
+	want := []string{"contains", "itemize", "to_int"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("parseGroupFunctionNames: got %v, want %v", got, want)
+	}
+	got = parseGroupFunctionNames("containsall('mac-address', 'us-intf')")
+	if strings.Join(got, ",") != "containsall" {
+		t.Errorf("argument commas: got %v, want [containsall]", got)
+	}
+}
+
+// #130: chain= is checked against the allowlist (it wins over functions=,
+// as in parseGroup), and attribute-style group functions, method="table",
+// group defaults and dynamic paths make a group non-streamable.
+func TestAnalyzeStreamability_FeaturesStreamingDoesNotImplement(t *testing.T) {
+	base := func() *CompiledGroup {
+		return makeGroup(t, "entry*", false, []string{"mac {{ mac | _start_ }}", "ip {{ ip }}"}, "", nil)
+	}
+	cases := []struct {
+		name   string
+		modify func(g *CompiledGroup)
+		reason string
+	}{
+		{"chain", func(g *CompiledGroup) { g.Chain = "contains('ip') | expand" }, `group function "expand"`},
+		{"chain wins over functions", func(g *CompiledGroup) { g.Functions = "contains('ip')"; g.Chain = "itemize" }, `group function "itemize"`},
+		{"contains attribute", func(g *CompiledGroup) { g.Attributes = map[string]string{"contains": "ip"} }, "contains= attribute"},
+		{"expand attribute without value", func(g *CompiledGroup) { g.Attributes = map[string]string{"expand": ""} }, "expand= attribute"},
+		{"record attribute", func(g *CompiledGroup) { g.Attributes = map[string]string{"record": "mac"} }, "record= attribute"},
+		{"default attribute", func(g *CompiledGroup) { g.Attributes = map[string]string{"default": "x"} }, "default= attribute"},
+		{"void", func(g *CompiledGroup) { g.Attributes = map[string]string{"void": ""} }, "is void"},
+		{"group defaults", func(g *CompiledGroup) { g.Defaults = map[string]interface{}{"x": "1"} }, "set() defaults"},
+		{"table", func(g *CompiledGroup) { g.Method = "table" }, `method="table"`},
+		{"dynamic path", func(g *CompiledGroup) { g.Name = "e.{{ mac }}" }, "dynamic path"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := base()
+			tc.modify(g)
+			analyzeStreamability(g)
+			if g.Streamable || !containsString(g.NonStreamableReasons, tc.reason) {
+				t.Errorf("Streamable=%v reasons=%v, want a reason containing %q", g.Streamable, g.NonStreamableReasons, tc.reason)
+			}
+		})
+	}
+
+	// Allowed: an empty void-like attribute value that isn't void, and
+	// allowlisted chain functions.
+	g := base()
+	g.Chain = "contains('ip') | del('ip')"
+	g.Attributes = map[string]string{"void": "false", "contains": ""}
+	analyzeStreamability(g)
+	if !g.Streamable {
+		t.Errorf("expected streamable, reasons: %v", g.NonStreamableReasons)
+	}
+}

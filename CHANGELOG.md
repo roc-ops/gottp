@@ -39,6 +39,9 @@ The source map is now recorded from the matches the parser actually uses, instea
 - **Children at every depth are recorded**, including a line that two groups' records both consumed.
 - With source maps on, parsing is 24–32% faster and allocates 2–20% less, because the second matching pass is gone.
 
+### Fixed (streaming)
+- **`ParseStream` refuses templates it would parse differently from `Parse`.** Its streamability gate accepted group features the stream path ignores, so those templates streamed without error and gave different records. `WhyNotStreamable` now reports, and `ParseStream` returns `*TemplateNotStreamableError` for, these features: `chain=` functions outside the allowlist (only `functions=` was checked); a non-allowlisted function after a `|` (the names were split on commas only, so `contains('ip') | itemize(...)` passed); group functions given as attributes (`contains=`, `record=`, `expand=`, ...); `default=`; `void`; `set()` defaults; `method="table"`; dynamic paths; `default()` on the start line; `ignore()` with a template variable; a pattern that isn't line-anchored (it used to fail at runtime); and an attribute naming a custom group function (checked when `ParseStream` starts). A streamed record emptied by its group functions is now dropped, as `Parse` drops it. (#130)
+
 ### Tests
 - **Source-map snapshots and parity pins** (refactor A0, #60): `test/ttpsuite` now pins the source map of all 217 source-map parity cases as snapshot files (`TestSourceMapSnapshots`, rewritten with `-update-sourcemap-snapshots`), and `TestSourceMapParity` also compares `KeyFields`. Three new gottp-only parity cases (`testdata/sourcemap-parity`) record that source maps on skips input functions and leaves `KeyFields` empty. `test/comparison` has benchmarks with source maps on (`*SourceMap`) next to the existing ones.
 
