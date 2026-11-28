@@ -1041,7 +1041,8 @@ func (r *Runtime) parseGroupStream(
 			pos = pos + nl + 1
 		}
 
-		// Trim only \r, as matchPattern does (#33).
+		// Trim only \r, as matchPattern does (#33). scanCut (ttp_scope.go)
+		// repeats these line rules for the _end_ cut; keep the two in step.
 		line := strings.TrimRight(rawLine, "\r")
 		blank := isBlank(line)
 

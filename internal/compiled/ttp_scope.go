@@ -251,7 +251,9 @@ func scanCut(group *compiler.CompiledGroup, inputData string) func(pi, start, en
 	prof := group.Profile()
 	sc := newRunReScope(group)
 	// match runs pattern pi on the line at [start, start+len(raw)) as
-	// parseGroupStream does, observing a match.
+	// parseGroupStream does, observing a match. Its line rules (\r trim,
+	// blank skip, lines without variables skipped) must stay the same as
+	// parseGroupStream's in runtime.go, or Parse and ParseStream cut apart.
 	match := func(pi, start int, raw string) bool {
 		line := strings.TrimRight(raw, "\r")
 		if !prof.MatchesBlank(pi) && isBlank(line) {

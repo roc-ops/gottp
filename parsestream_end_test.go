@@ -250,3 +250,82 @@ func BenchmarkParseStreamEndTypical(b *testing.B) {
 		})
 	}
 }
+
+// Edge cases of scanCut's backward scan (#139). The want records are
+// TTP 0.10.1's; Parse and ParseStream must both give them.
+func TestEndCut_ScanEdgeCases(t *testing.T) {
+	const twoStarts = "<group name=\"g\">\na {{ x | _start_ }}\nb {{ y | _start_ }}\nend {{ e | _end_ }}\nv {{ v }}\n</group>"
+	const lineEnd = "<group name=\"g\">\n{{ l | _line_ }}\nend {{ e | _end_ }}\n</group>"
+	tests := []struct {
+		name, tmpl, input string
+		want              []string
+	}{
+		{
+			// An _end_ match above the first start line doesn't count.
+			name:  "end only before the first start",
+			tmpl:  "<group name=\"g\">\nb {{ y | _start_ }}\nv {{ v }}\nend {{ e | _end_ }}\n</group>",
+			input: "x\nend 1\nb 9\nv 1\nv 2\n",
+			want:  []string{`{"v":"1","y":"9"}`},
+		},
+		{
+			// The last b start comes after the last _end_: no cut.
+			name:  "two starts, later start after the end",
+			tmpl:  twoStarts,
+			input: "b 1\nv 1\na 2\nv 2\nend 1\nv 3\nb 4\nv 4\n",
+			want:  []string{`{"v":"1","y":"1"}`, `{"v":"2","x":"2"}`, `{"v":"4","y":"4"}`},
+		},
+		{
+			// The opposite order: both starts' last matches come before
+			// the last _end_, so the lines after "v 5" are cut.
+			name:  "two starts, last end after both",
+			tmpl:  twoStarts,
+			input: "a 1\nv 1\nb 2\nv 2\nend 1\nv 3\na 4\nv 4\nend 2\nv 5\nv 6\n",
+			want:  []string{`{"v":"1","x":"1"}`, `{"v":"2","y":"2"}`, `{"v":"4","x":"4"}`},
+		},
+		{
+			// Mixed CRLF and LF lines cut where the LF input does.
+			name:  "mixed CRLF and LF",
+			tmpl:  lineEnd,
+			input: "aaa\nend x\r\nbbb\nccc\r\n",
+			want:  []string{`{"l":"aaa"}`, `{"l":"bbb"}`},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := CompileTemplate(tt.tmpl)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := append([]string(nil), tt.want...)
+			sort.Strings(want)
+			if got := parseRecords(t, c, tt.input); !reflect.DeepEqual(got, want) {
+				t.Errorf("Parse  = %v\nwant     %v", got, want)
+			}
+			if got := streamRecords(t, c, tt.input); !reflect.DeepEqual(got, want) {
+				t.Errorf("Stream = %v\nwant     %v", got, want)
+			}
+		})
+	}
+}
+
+// Each input gets its own _end_ cut in ParseStream, as in TTP:
+// [x, y] and [p, q, r].
+func TestParseStream_EndCut_PerInput(t *testing.T) {
+	c, err := CompileTemplate("<group name=\"g\">\n{{ l | _line_ }}\nend {{ e | _end_ }}\n</group>")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	err = c.ParseStream(Inputs{"a": "x\nend 1\ny\nz\nw\n", "b": "p\nq\nr\n"}, nil, nil,
+		func(m map[string]interface{}, sr [2]int, gp string) error {
+			got = append(got, m["l"].(string))
+			return nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(got)
+	if want := []string{"p", "q", "r", "x", "y"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
