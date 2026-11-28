@@ -2,15 +2,15 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (gottp `4cc1450` plus the refactor C0 pins, #60):
+Current result (refactor C1, #60):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 49 / skipped-by-issue 147 / design 4 of 200
-gottp repros: pass 18 / skipped-by-issue 37 / design 0 of 55
+TTP 0.10.1 suite: pass 54 / skipped-by-issue 142 / design 4 of 200
+gottp repros: pass 37 / skipped-by-issue 18 / design 0 of 55
 source-map parity: same 258 / diverge 0 of 258
 stream snapshots: 114 streamable of 258 cases
 ```
@@ -53,7 +53,7 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue128_end_line_values_are_saved` | #128 |
 | `issue128_end_line_values_no_children` | #128, in a group without children |
 
-Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Those gottp gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
+Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Since refactor C1 gottp assembles a group without children with a port of `_results_class` (`internal/compiled/assembler.go`), and most of them pass. Those gottp still gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
 
 | Repro | Rule |
 |---|---|
@@ -140,7 +140,7 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 | #68 | 13 |  | _headers_ (and columns) indicator is unimplemented |
 | #28 | 12 |  | Parent group whose _start_ line has no variables drops its child groups |
 | #67 | 10 |  | Raw-string arguments r"…" silently match nothing |
-| #63 | 9 |  | set(True) / set(False) (and any literal argument) is a string |
+| #63 | 10 |  | set(True) / set(False) (and any literal argument) is a string |
 | #80 | 9 | 2 | Missing output features |
 | #64 | 6 |  | A variable with default() captures the leading space |
 | #74 | 6 |  | <extend> inside a <group> is ignored |
@@ -152,9 +152,7 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 | #97 | 4 |  | A group macro that returns None loses its in-place changes, and the next chained macro gets None |
 | #110 | 4 |  | Group-specific output= results are merged into the main result instead of added as a separate item |
 | #112 | 4 |  | A chain stored in <vars> as a list is ignored (group chain= and chain()) |
-| #69 | 3 |  | A _start_ line rejected by a condition doesn't close the previous record |
 | #73 | 3 | 1 | Getters: gethostname through set(), and get_date/get_time/getfilename/get_timestamp* missing |
-| #79 | 3 |  | _line_ with joinmatches also captures the _start_ line |
 | #91 | 3 | 1 | A group with no matching lines does not emit its default values |
 | #94 | 3 |  | <input url=...> pointing at a directory loads nothing |
 | #99 | 3 |  | record()/set= across groups: the recorded value is not set and the first child record is lost |

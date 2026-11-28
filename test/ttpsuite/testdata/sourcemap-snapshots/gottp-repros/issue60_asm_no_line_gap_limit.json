@@ -122,7 +122,7 @@
    {"LineNumber":118,"Matched":false,"Matches":[]},
    {"LineNumber":119,"Matched":false,"Matches":[]},
    {"LineNumber":120,"Matched":false,"Matches":[]},
-   {"LineNumber":121,"Matched":false,"Matches":[]},
+   {"LineNumber":121,"Matched":true,"Matches":[{"StartCol":0,"EndCol":6,"GroupName":"g","PatternIndex":1,"Variables":{"v":{"StartCol":3,"EndCol":6}},"ResultPath":"g"}]},
    {"LineNumber":122,"Matched":false,"Matches":[]}
   ]
  }

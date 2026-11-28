@@ -1,7 +1,7 @@
 {
  "records": [
-  {"group_path":"interfaces2.trunks2","src_range":[1,110],"record":{"description":"some description","interface":"GigabitEthernet3/3","trunk_vlans":"138,166-173"}},
-  {"group_path":"interfaces2.trunks2","src_range":[110,184],"record":{"interface":"GigabitEthernet3/4","trunk_vlans":"100-105"}},
-  {"group_path":"interfaces2.trunks2","src_range":[184,326],"record":{"interface":"GigabitEthernet3/5","ip":"1.1.1.1","mask":"255.255.255.255","trunk_vlans":"459,531,704-707","vrf":"ABC_VRF"}}
+  {"group_path":"interfaces2.trunks2","src_range":[1,109],"record":{"description":"some description","interface":"GigabitEthernet3/3","trunk_vlans":"138,166-173"}},
+  {"group_path":"interfaces2.trunks2","src_range":[110,183],"record":{"interface":"GigabitEthernet3/4","trunk_vlans":"100-105"}},
+  {"group_path":"interfaces2.trunks2","src_range":[184,325],"record":{"interface":"GigabitEthernet3/5","ip":"1.1.1.1","mask":"255.255.255.255","trunk_vlans":"459,531,704-707","vrf":"ABC_VRF"}}
  ]
 }
