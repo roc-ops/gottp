@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -103,21 +104,27 @@ func TestOutputMacro_GoMacroPerInputErrors(t *testing.T) {
 	}
 }
 
+// gottp extension: a comma-separated list runs each macro in order.
 // Python TTP 0.10.1 turns macro="a, b" into macro(data, "a", "b"), which
 // raises TypeError.
-func TestOutputMacro_SeveralNamesError(t *testing.T) {
+func TestOutputMacro_SeveralNamesRunInOrder(t *testing.T) {
 	for _, output := range []string{`<output macro="a, b"/>`, `<output functions="macro('a', 'b')"/>`} {
-		template := `<template>
+		template := `<template results="per_template">
 <macro>
 def a(data):
+    data["order"] = ["a"]
     return data
 def b(data):
+    data["order"] = data["order"] + ["b"]
     return data
 </macro>
 ` + outputMacroGroup + output + `</template>`
-		_, err := parseOutputMacro(t, template, nil)
-		if err == nil || !strings.Contains(err.Error(), "one macro name") {
-			t.Errorf("%s: got err %v, want a one-macro-name error", output, err)
+		res, err := parseOutputMacro(t, template, nil)
+		if err != nil {
+			t.Fatalf("%s: %v", output, err)
+		}
+		if got := fmt.Sprint(res); !strings.Contains(got, "order:[a b]") {
+			t.Errorf("%s: got %s, want order [a b]", output, got)
 		}
 	}
 }

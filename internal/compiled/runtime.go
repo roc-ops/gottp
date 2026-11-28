@@ -4171,11 +4171,12 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 				fn, ok := r.getOutputFunc(funcName)
 				if !ok {
 					if funcName == "macro" {
-						if len(args) != 1 {
-							return nil, false, fmt.Errorf("output function %s: macro takes one macro name, got %d (Python TTP raises TypeError)", funcStr, len(args))
-						}
-						if result, err = r.runOutputMacro(args[0], result); err != nil {
-							return nil, false, err
+						// gottp extension: macro('a', 'b') runs each macro
+						// in order (Python TTP 0.10.1 raises TypeError).
+						for _, name := range args {
+							if result, err = r.runOutputMacro(strings.TrimSpace(name), result); err != nil {
+								return nil, false, err
+							}
 						}
 						formatted = false
 					}
@@ -4351,16 +4352,18 @@ func (r *Runtime) processOutputFunctions(results interface{}, vars map[string]in
 	return result, formatted, nil
 }
 
-// runOutputMacroAttr runs an output's macro attribute. Python TTP turns
-// macro="x" into the output function call macro(x), so a comma-separated
-// list becomes several arguments, which TTP 0.10.1's macro() rejects with
-// a TypeError; gottp returns an error too.
+// runOutputMacroAttr runs an output's macro attribute. A comma-separated
+// list runs each macro in order on the result of the one before. This is a
+// gottp extension: Python TTP 0.10.1 turns macro="a, b" into the call
+// macro(data, "a", "b"), which raises TypeError.
 func (r *Runtime) runOutputMacroAttr(attr string, data interface{}) (interface{}, error) {
-	names := strings.Split(attr, ",")
-	if len(names) != 1 {
-		return nil, fmt.Errorf("output macro=%q: macro takes one macro name, got %d (Python TTP raises TypeError); use functions=\"macro('a') | macro('b')\" to run several", attr, len(names))
+	for _, name := range strings.Split(attr, ",") {
+		var err error
+		if data, err = r.runOutputMacro(strings.TrimSpace(name), data); err != nil {
+			return nil, err
+		}
 	}
-	return r.runOutputMacro(strings.TrimSpace(names[0]), data)
+	return data, nil
 }
 
 // runOutputMacro runs macro name on the whole results structure, like

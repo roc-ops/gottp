@@ -133,6 +133,10 @@ Output Formatters
 
 * All major output formatters are implemented
 
+.. _output-macro-list:
+
+**Output macro lists (gottp extension):** ``<output macro="a, b">`` and ``<output functions="macro('a', 'b')">`` run each macro in order. Python TTP 0.10.1 raises ``TypeError`` on both; it runs several output macros only as ``functions="macro('a') | macro('b')"``, which gottp also accepts.
+
 Returners
 ---------
 
