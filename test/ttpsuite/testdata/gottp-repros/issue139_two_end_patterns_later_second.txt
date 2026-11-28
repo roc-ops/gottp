@@ -1,0 +1,7 @@
+a
+end 1
+b
+stop 2
+c
+d
+e

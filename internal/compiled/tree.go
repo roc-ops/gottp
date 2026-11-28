@@ -440,6 +440,7 @@ func (t *treeRun) runRe(tg *treeGroup, start, end int) {
 	// start is now the first start match's line start in DATATEXT, and
 	// TTP's region start the newline before it.
 	ttpStart := start - 1
+	endSpan := 0 // the input end of the end match that sets e
 	for _, pi := range tg.end {
 		ms := t.matchIn(tg, pi, start, end)
 		if len(ms) == 0 {
@@ -447,7 +448,7 @@ func (t *treeRun) runRe(tg *treeGroup, start, end int) {
 		}
 		lastEnd := ms[len(ms)-1].spanEnd + 1 - ttpStart
 		if e < lastEnd && lastEnd > se {
-			e = lastEnd
+			e, endSpan = lastEnd, ms[len(ms)-1].spanEnd
 		}
 	}
 	if e != -1 {
@@ -455,10 +456,16 @@ func (t *treeRun) runRe(tg *treeGroup, start, end int) {
 		// Drop this group's matches that start past the last end match (a
 		// _line_ start line can match there). The line right after the
 		// end line starts at its newline, which is end, so it stays, as in
-		// TTP's "span_start > end" (#139).
+		// TTP's "span_start > end" (#139). A match's span leaves out the
+		// line's trailing \r (#33), so on CRLF input that line starts past
+		// end by the \r: after counts it, keeping the line as on LF input.
+		after := end
+		for i := endSpan; i < len(t.in.data) && t.in.data[i] == '\r'; i++ {
+			after++
+		}
 		kept := t.matches[:first]
 		for _, m := range t.matches[first:] {
-			if m.spanStart <= end {
+			if m.spanStart <= after {
 				kept = append(kept, m)
 			}
 		}

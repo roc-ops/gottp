@@ -752,7 +752,7 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 			result, raise := r.extractMatchTTP(match, compiledPattern, vars)
 			spanStart, spanEnd := in.offsets[lineIdx], in.offsets[lineIdx]+len(line)
 			if sc != nil {
-				sc.observe(patternIdx, spanStart, spanEnd, raise)
+				sc.observe(patternIdx, spanStart, spanEnd, in.offsets[lineIdx]+len(in.lines[lineIdx]), raise)
 			} else if raise != nil {
 				r.raised.set(raise)
 			}
@@ -793,7 +793,7 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 		}
 		result, raise := r.extractMatchTTP(matchGroups, compiledPattern, vars)
 		if sc != nil {
-			sc.observe(patternIdx, lo+indices[0], lo+indices[1], raise)
+			sc.observe(patternIdx, lo+indices[0], lo+indices[1], lo+indices[1], raise)
 		} else if raise != nil {
 			r.raised.set(raise)
 		}
@@ -935,10 +935,9 @@ func startLineDefaultsRecord(group *compiler.CompiledGroup) map[string]interface
 // parseGroup uses for a group without children (assembler.go), invoking fn
 // for each finished record instead of collecting them. The assembler holds
 // only the current line's matches and the current record, so memory stays
-// bounded however large the input is, with one exception: in a group with
-// an end line, the matches after an end match are held until a later end
-// match or ordinary start match shows that TTP keeps them, or the end of the
-// input shows which of them it drops (run_re's cleanup, #139).
+// bounded however large the input is. In a group with an end line, a first
+// pass (scanCut) finds run_re's cut, so the matches past it are dropped as
+// they come (#139).
 //
 // Caller must verify group.Streamable == true. parseGroupStream does not
 // re-check (entry gate is in Runtime.ParseStream).
@@ -1021,23 +1020,11 @@ func (r *Runtime) parseGroupStream(
 	totalLen := len(inputData)
 	matchIdx := 0
 
-	// held are the matches after the last end match while holding is set;
-	// release feeds those keep accepts (all of them when keep is nil) to
-	// the assembler.
-	var held []asmMatch
-	holding := false
-	release := func(keep func(pi, start, end int) bool) error {
-		for _, m := range held {
-			if keep != nil && !keep(m.pattern, m.start, m.end) {
-				continue
-			}
-			if err := asm.add(m); err != nil {
-				return err
-			}
-		}
-		held = held[:0]
-		holding = false
-		return nil
+	// run_re's cut, known up front, drops the matches past the last end
+	// match (#139); nil keeps every match.
+	var keep func(pi, start, end int) bool
+	if prof.HasEnd() {
+		keep = scanCut(group, inputData)
 	}
 
 	pos := 0
@@ -1075,44 +1062,26 @@ func (r *Runtime) parseGroupStream(
 			}
 
 			result, raise := r.extractMatchTTP(match, compiledPattern, vars)
-			sc.observe(patternIdx, lineStartOffset, lineStartOffset+len(line), raise)
+			sc.observe(patternIdx, lineStartOffset, lineStartOffset+len(line), lineStartOffset+len(rawLine), raise)
 			if result == nil && !prof.StartsRecord(patternIdx) {
 				continue
 			}
-			m := asmMatch{
+			lineEnd := lineStartOffset + len(line)
+			if keep != nil && !keep(patternIdx, lineStartOffset, lineEnd) {
+				continue
+			}
+			if err := asm.add(asmMatch{
 				idx:     matchIdx,
 				pattern: patternIdx,
 				start:   lineStartOffset,
-				end:     lineStartOffset + len(line),
+				end:     lineEnd,
 				result:  result,
+			}); err != nil {
+				return err
 			}
 			matchIdx++
-			// Matches after an end match are held: Parse drops them if no
-			// later end match or ordinary start match comes (run_re's
-			// cleanup, #139), which only the rest of the input tells.
-			switch role := prof.Pattern(patternIdx).Role; {
-			case role == compiler.RoleEnd && sc.found && m.start >= sc.s,
-				role == compiler.RoleStart && !prof.IsLine(patternIdx):
-				if err := release(nil); err != nil {
-					return err
-				}
-				if err := asm.add(m); err != nil {
-					return err
-				}
-				holding = role == compiler.RoleEnd
-			case holding:
-				held = append(held, m)
-			default:
-				if err := asm.add(m); err != nil {
-					return err
-				}
-			}
 		}
 		sc.compact()
-	}
-	// The end of the input decides what happens to the held matches.
-	if err := release(sc.cutKeep()); err != nil {
-		return err
 	}
 
 	// A type method's raise on a match TTP evaluates fails the parse. The

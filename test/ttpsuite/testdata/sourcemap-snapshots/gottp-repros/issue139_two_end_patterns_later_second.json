@@ -1,0 +1,14 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"g","PatternIndex":0,"Variables":{"l":{"StartCol":0,"EndCol":1}},"ResultPath":"g[0]"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":5,"GroupName":"g","PatternIndex":1,"Variables":{"e":{"StartCol":4,"EndCol":5}},"ResultPath":"g[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"g","PatternIndex":0,"Variables":{"l":{"StartCol":0,"EndCol":1}},"ResultPath":"g[1]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":6,"GroupName":"g","PatternIndex":2,"Variables":{"f":{"StartCol":5,"EndCol":6}},"ResultPath":"g[1]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"g","PatternIndex":0,"Variables":{"l":{"StartCol":0,"EndCol":1}},"ResultPath":"g[2]"}]},
+   {"LineNumber":5,"Matched":false,"Matches":[]},
+   {"LineNumber":6,"Matched":false,"Matches":[]},
+   {"LineNumber":7,"Matched":false,"Matches":[]}
+  ]
+ }
+}

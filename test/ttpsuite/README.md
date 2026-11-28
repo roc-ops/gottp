@@ -10,9 +10,9 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 
 ```
 TTP 0.10.1 suite: pass 123 / skipped-by-issue 71 / design 6 of 200
-gottp repros: pass 186 / skipped-by-issue 2 / design 3 of 191
-source-map parity: same 394 / diverge 0 of 394
-stream snapshots: 199 streamable of 394 cases
+gottp repros: pass 193 / skipped-by-issue 2 / design 3 of 198
+source-map parity: same 401 / diverge 0 of 401
+stream snapshots: 206 streamable of 401 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -98,6 +98,13 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue139_second_end_moves_the_cut` | passes; only the last `_end_` cuts (#139) |
 | `issue139_start_after_end_keeps_lines` | passes; a `_start_` match after the `_end_` means nothing is cut (#139) |
 | `issue139_ordinary_line_after_end_dropped` | passes; an ordinary line past the last `_end_` is not added to the kept `_line_` record (#139) |
+| `issue139_end_condition_fails_still_cuts` | passes; an `_end_` match whose `equal()` condition fails still cuts the group, in `Parse` and `ParseStream` (#139) |
+| `issue139_end_contains_fails_still_cuts` | passes; the same with `contains()` (#139) |
+| `issue139_end_condition_fails_with_start` | passes; the same in a group with a `_start_` line (#139) |
+| `issue139_no_trailing_newline` | passes; the cut on input without a trailing newline (#139) |
+| `issue139_end_last_line_no_newline` | passes; an `_end_` line that is the last line, without a newline, doesn't match, as in TTP (#139) |
+| `issue139_two_end_patterns` | passes; with two `_end_` lines, the later match cuts, whichever pattern it is (#139) |
+| `issue139_two_end_patterns_later_second` | passes; the same with the patterns' matches in the other order (#139) |
 
 Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Since refactor C1 gottp assembles records with a port of `_results_class` (`internal/compiled/assembler.go`), and since C2 a group with children and all its descendants go through one assembler (`internal/compiled/tree.go`), so most of them pass. Those gottp still gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
 

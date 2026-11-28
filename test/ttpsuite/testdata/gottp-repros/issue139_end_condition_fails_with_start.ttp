@@ -1,0 +1,5 @@
+<group name="g">
+int {{ i | _start_ }}
+{{ l | _line_ }}
+end {{ e | _end_ | equal("2") }}
+</group>
