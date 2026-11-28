@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 )
 
@@ -446,6 +447,13 @@ func (t *Template) applyTopText(text string, children []xmlElement, nested bool)
 	switch {
 	case nested:
 		t.Warnings = append(t.Warnings, nestedTopTextIgnoredWarning(line))
+	case len(children) == 0 && unknownTag(text) != "":
+		// gottp reads an unknown tag as text, but Python TTP parses it as
+		// an (invalid) child element, so the template has a tag and the
+		// text is not an implicit group.
+		tag := unknownTag(text)
+		t.Warnings = append(t.Warnings, fmt.Sprintf("unknown tag <%s> is ignored (Python TTP logs \"invalid tag\")", tag))
+		t.Warnings = append(t.Warnings, TopTextIgnoredWarning(line))
 	case len(children) == 0:
 		t.Groups = append(t.Groups, NewImplicitAnonymousGroup(text))
 	case onlyExtendTags(children):
@@ -454,6 +462,25 @@ func (t *Template) applyTopText(text string, children []xmlElement, nested bool)
 	default:
 		t.Warnings = append(t.Warnings, TopTextIgnoredWarning(line))
 	}
+}
+
+// unknownTagRe finds a well-formed element with an unknown tag name at the
+// start of a line: <name ...>...</name> or <name .../>. gottp escapes such
+// tags into text (see escapeContentBlocks), while Python TTP's XML parser
+// sees them as child elements. Bare '<' in template text (for example
+// "for <{{ vr }}>") doesn't match, because a tag name starts with a letter
+// or '_' and needs a closing tag or "/>".
+var unknownTagRe = regexp.MustCompile(`(?m)^[ \t]*<([A-Za-z_][\w.-]*)(?:\s[^<>]*)?(/>|>[\s\S]*?</([A-Za-z_][\w.-]*)\s*>)`)
+
+// unknownTag returns the name of the first well-formed unknown element in
+// text (see unknownTagRe), or "" if there is none.
+func unknownTag(text string) string {
+	for _, m := range unknownTagRe.FindAllStringSubmatch(text, -1) {
+		if m[2] == "/>" || m[3] == m[1] {
+			return m[1]
+		}
+	}
+	return ""
 }
 
 // onlyExtendTags reports whether every element is an <extend> tag.
