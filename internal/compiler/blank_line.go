@@ -6,11 +6,6 @@ import (
 	"github.com/roc-ops/gottp/internal/pattern"
 )
 
-// lazyAny is the pattern the engine gives a default() variable that has no
-// regex of its own (pattern.Engine's fallback for default, set, _start_ and
-// _end_).
-const lazyAny = `.*?`
-
 // regexMatchesBlank reports whether the line regex of cp may match a blank
 // data line: an empty line, or one of only spaces and tabs. The runtime skips
 // blank lines for patterns that can't match them (#162). Python TTP runs its
@@ -113,7 +108,7 @@ func isBlankText(s string) bool {
 func defaultWordCaptures(cp *pattern.CompiledPattern, maxCap int) map[int]bool {
 	found := false
 	for _, v := range cp.Variables {
-		if v.Pattern == lazyAny && hasFunction(v, "default") && !pattern.IsNonCapturingVar(v.Name) {
+		if v.DefaultFallback && !pattern.IsNonCapturingVar(v.Name) {
 			found = true
 			break
 		}
@@ -129,7 +124,7 @@ func defaultWordCaptures(cp *pattern.CompiledPattern, maxCap int) map[int]bool {
 			continue
 		}
 		n++
-		if v.Pattern == lazyAny && hasFunction(v, "default") && !pattern.IsNonCapturingVar(v.Name) {
+		if v.DefaultFallback && !pattern.IsNonCapturingVar(v.Name) {
 			if word == nil {
 				word = make(map[int]bool)
 			}
@@ -145,13 +140,4 @@ func defaultWordCaptures(cp *pattern.CompiledPattern, maxCap int) map[int]bool {
 		return nil
 	}
 	return word
-}
-
-func hasFunction(v *pattern.MatchVariable, name string) bool {
-	for _, f := range v.Functions {
-		if pattern.FunctionName(f) == name {
-			return true
-		}
-	}
-	return false
 }

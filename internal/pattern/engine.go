@@ -79,6 +79,10 @@ type MatchVariable struct {
 	HasSet         bool // a function is set()
 	HasJoinMatches bool // a function is joinmatches()
 
+	// DefaultFallback is true when Pattern is the .*? the engine gives a
+	// default() variable with no pattern of its own (not a user re(".*?")).
+	DefaultFallback bool
+
 	// calls is Functions read as calls (see Calls), built once.
 	calls atomic.Pointer[VariableCalls]
 }
@@ -330,6 +334,7 @@ func (e *Engine) extractFunctionsFromChainValue(value interface{}) []string {
 
 // getPatternForVariable determines the regex pattern for a variable
 func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]interface{}) string {
+	variable.DefaultFallback = false
 	// Check if variable name matches a built-in pattern
 	// BUT: Only use built-in patterns if the name is exactly uppercase (e.g., "IP", not "ip")
 	// This matches Python TTP behavior where {{ IP }} uses built-in pattern but {{ ip }} uses default
@@ -454,6 +459,7 @@ func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]
 			// This matches Python TTP behavior where default() can handle empty values
 			// Note: We use .*? instead of \S* because trailing spaces are trimmed from lines,
 			// so we need to match the end of the line (which may be empty after trimming)
+			variable.DefaultFallback = true
 			return `.*?`
 		}
 	}

@@ -60,7 +60,7 @@ func TestRegexMatchesBlank(t *testing.T) {
 // fallback, the one case regexMatchesBlank deliberately answers false for.
 func onlyDefaultBlank(cp *pattern.CompiledPattern) bool {
 	for _, v := range cp.Variables {
-		if v.Pattern == lazyAny && hasFunction(v, "default") {
+		if v.DefaultFallback {
 			return true
 		}
 	}

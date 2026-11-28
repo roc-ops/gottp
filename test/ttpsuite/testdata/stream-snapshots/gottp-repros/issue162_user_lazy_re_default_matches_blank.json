@@ -1,0 +1,9 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[0,3],"record":{"x":"h1"}},
+  {"group_path":"g","src_range":[3,8],"record":{"x":"ip 1"}},
+  {"group_path":"g","src_range":[8,11],"record":{"x":"a"}},
+  {"group_path":"g","src_range":[11,16],"record":{"x":"ip 2"}},
+  {"group_path":"g","src_range":[16,16],"record":{"x":"a"}}
+ ]
+}

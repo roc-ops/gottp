@@ -9,6 +9,10 @@
    "issue": 136,
    "reason": "a \"text {{ _start_ }}\" line also matches lines with more text after it, so it splits the record"
   },
+  "gottp-repros/issue162_user_lazy_re_default_matches_blank": {
+   "issue": 165,
+   "reason": "default() replaces the matched empty value of a blank line with its default"
+  },
   "gottp-repros/issue154_set_line_without_extra_text": {
    "issue": 154,
    "reason": "a set() variable matches text after the line's own text (\"mtu 9000\" for \"mtu {{ mtu | set(...) }}\"); TTP removes it from the regex"
