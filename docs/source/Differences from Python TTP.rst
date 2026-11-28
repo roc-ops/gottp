@@ -212,6 +212,15 @@ Function calls are read as Python TTP reads them (see :doc:`Match Variables/Func
 * Where Python TTP stops with ``SystemExit`` or raises ``TypeError`` for a call it can't read (``macro(name='m')``, ``<output macro=""/>``), gottp returns a compile error.
 * Python TTP logs an unknown function name (with its ``guess`` suggestions) when it meets it; gottp adds a ``GetWarnings()`` entry when the template compiles.
 
+**default() without a regex (gottp extension, #64):** a match variable with ``default()`` and no regex of its own matches any text (``.*?``), where Python TTP gives it the ``WORD`` regex (``\S+``). So a trailing ``{{ col | default("") }}`` makes the last column optional, and it may hold text with spaces:
+
+* ``{{ port }} {{ state }} {{ descr | default("") }}`` matches ``Gi2 down`` (``descr`` is ``""``) and ``Gi3 up core link`` (``descr`` is ``"core link"``). Python TTP drops both lines.
+* The space before the variable is not captured, as in TTP: ``ip address {{ ip | default("none") }}`` on ``ip address 1.1.1.1/24`` gives ``"1.1.1.1/24"``.
+* A line made only of ``default()`` variables doesn't match blank lines, as in TTP.
+* Give the variable a regex (``{{ col | WORD | default("") }}``) to get TTP's behaviour.
+
+**Blank data lines:** a data line that is empty or holds only spaces and tabs is matched like any other line, as in Python TTP, so ``{{ x | _line_ }}``, ``re(".*")`` and ``re("[ ]+")`` can match it (#162). gottp skips such a line only for a template line whose regex can't match it.
+
 Performance
 -----------
 

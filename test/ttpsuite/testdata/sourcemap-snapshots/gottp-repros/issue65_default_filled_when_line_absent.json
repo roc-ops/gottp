@@ -1,0 +1,9 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":11,"GroupName":"g","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":11}},"ResultPath":"g"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"g","PatternIndex":1,"Variables":{"ip":{"StartCol":13,"EndCol":23}},"ResultPath":"g"}]},
+   {"LineNumber":2,"Matched":false,"Matches":[]}
+  ]
+ }
+}

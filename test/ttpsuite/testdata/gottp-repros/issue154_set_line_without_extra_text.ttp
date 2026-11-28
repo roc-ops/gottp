@@ -1,0 +1,5 @@
+<group name="g">
+interface {{ name }}
+  shutdown {{ down | set(True) }}
+  mtu {{ mtu | set("jumbo") }}
+</group>

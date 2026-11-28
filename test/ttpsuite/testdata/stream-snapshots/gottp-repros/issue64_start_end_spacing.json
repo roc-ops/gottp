@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[0,42],"record":{"ip":"1.1.1.1/24","name":"A"}},
+  {"group_path":"g","src_range":[43,62],"record":{"name":"B"}}
+ ]
+}

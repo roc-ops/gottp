@@ -1,0 +1,5 @@
+<group name="g">
+interface {{ name | _start_ }}
+  ip address {{ ip }}
+exit {{ _end_ }}
+</group>

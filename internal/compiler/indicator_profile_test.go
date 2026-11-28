@@ -293,12 +293,12 @@ interface {{ name }}
 	want := map[string]shape{
 		"interface {{ name }}":        {matches: true, startsRecord: true, isStart: true},
 		" shutdown":                   {},
-		"{{ _line_ }}":                {matches: true, bareLine: true},
+		"{{ _line_ }}":                {matches: true, blank: true, bareLine: true},
 		"{{ _start_ }}":               {matches: true, blank: true, blankStart: true, startsRecord: true, isStart: true},
-		" vlan {{ v | _start_ }}":     {matches: true, blank: true, startsRecord: true, isStart: true},
+		" vlan {{ v | _start_ }}":     {matches: true, startsRecord: true, isStart: true},
 		` role {{ r | set("leaf") }}`: {matches: true},
-		" exit {{ _end_ }}":           {matches: true, blank: true, isEnd: true},
-		" tail {{ t | _start_ }}":     {matches: true, blank: true, startsRecord: true, tail: true},
+		" exit {{ _end_ }}":           {matches: true, isEnd: true},
+		" tail {{ t | _start_ }}":     {matches: true, startsRecord: true, tail: true},
 	}
 	seen := 0
 	for i, cp := range g.Patterns {

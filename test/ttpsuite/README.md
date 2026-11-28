@@ -2,17 +2,17 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (refactor F2, #36):
+Current result (baseline cluster 1: #162, #64):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 104 / skipped-by-issue 91 / design 5 of 200
-gottp repros: pass 148 / skipped-by-issue 2 / design 0 of 150
-source-map parity: same 353 / diverge 0 of 353
-stream snapshots: 162 streamable of 353 cases
+TTP 0.10.1 suite: pass 109 / skipped-by-issue 85 / design 6 of 200
+gottp repros: pass 157 / skipped-by-issue 3 / design 2 of 162
+source-map parity: same 365 / diverge 0 of 365
+stream snapshots: 173 streamable of 365 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -58,6 +58,18 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue60_tail_start_line_starts_own_record` | passes; a `_start_` line after a child group starts its own record (#60) |
 | `issue128_end_line_values_are_saved` | passes; #128 is fixed |
 | `issue128_end_line_values_no_children` | passes; #128 in a group without children |
+| `issue64_default_no_leading_space` | passes; a `default()` variable doesn't capture the space before it (#64) |
+| `issue64_start_end_spacing` | passes; `_start_`/`_end_` lines with extra spaces (#64) |
+| `issue64_default_only_line_and_blank_lines` | passes; a line of only `default()` variables doesn't match blank lines (#64, #162) |
+| `issue64_default_last_column_empty` | `design:`; a trailing `default("")` matches an empty last column, TTP drops the line (#64) |
+| `issue64_default_matches_text_with_spaces` | `design:`; a `default()` variable without a regex matches text with spaces (#64) |
+| `issue65_default_filled_when_line_absent` | passes; #65 is fixed |
+| `issue154_set_line_without_extra_text` | #154; a `set()` variable matches text TTP's regex doesn't allow |
+| `issue162_line_matches_whitespace_only` | passes; `_line_` matches a line of only spaces (#162) |
+| `issue162_joinmatches_line_keeps_blank` | passes; `_line_ \| joinmatches` keeps a blank line (#162) |
+| `issue162_re_spaces_matches_blank` | passes; `re("[ ]+")` matches a blank line (#162) |
+| `issue162_re_dotstar_matches_empty_line` | passes; `re(".*")` matches empty lines (#162) |
+| `issue162_indented_start_blank_line` | passes; an indented `{{ _start_ }}` keeps its indent and sees the blank line as it is (#162) |
 
 Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Since refactor C1 gottp assembles records with a port of `_results_class` (`internal/compiled/assembler.go`), and since C2 a group with children and all its descendants go through one assembler (`internal/compiled/tree.go`), so most of them pass. Those gottp still gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
 

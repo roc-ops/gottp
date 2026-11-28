@@ -692,25 +692,20 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 			// Trim only \r: Python TTP keeps leading and trailing spaces
 			// and tabs, and the line regex allows trailing [\t ]* (#33).
 			line := strings.TrimRight(in.lines[lineIdx], "\r")
-			trimmedLine := strings.TrimSpace(line)
-			// Skip empty lines unless this pattern is a start or end
-			// indicator line, which may match a blank line.
-			if trimmedLine == "" && !matchesBlank {
+			// Skip a blank line (empty, or only spaces and tabs) when the
+			// pattern's regex can't match one (#162).
+			if !matchesBlank && isBlank(line) {
 				continue
-			}
-			matchLine := line
-			if trimmedLine == "" {
-				matchLine = ""
 			}
 			var match []string
 			var info *smMatchInfo
 			if sm {
-				if loc := compiledPattern.Regex.FindStringSubmatchIndex(matchLine); loc != nil {
-					match = submatchStrings(matchLine, loc)
+				if loc := compiledPattern.Regex.FindStringSubmatchIndex(line); loc != nil {
+					match = submatchStrings(line, loc)
 					info = &smMatchInfo{idx: loc, base: in.offsets[lineIdx]}
 				}
 			} else {
-				match = compiledPattern.Regex.FindStringSubmatch(matchLine)
+				match = compiledPattern.Regex.FindStringSubmatch(line)
 			}
 			if match == nil {
 				continue
@@ -1000,26 +995,20 @@ func (r *Runtime) parseGroupStream(
 
 		// Trim only \r, as matchPattern does (#33).
 		line := strings.TrimRight(rawLine, "\r")
-		trimmedLine := strings.TrimSpace(line)
+		blank := isBlank(line)
 
 		for patternIdx, compiledPattern := range group.Patterns {
 			if !prof.Matches(patternIdx) {
 				continue // a line without variables: Python TTP skips it
 			}
 
-			// Skip empty lines unless this pattern is a start or end
-			// indicator line, which may match a blank line.
-			matchesBlank := prof.MatchesBlank(patternIdx)
-			if trimmedLine == "" && !matchesBlank {
+			// Skip a blank line when the pattern's regex can't match one,
+			// as matchPattern does (#162).
+			if blank && !prof.MatchesBlank(patternIdx) {
 				continue
 			}
 
-			matchLine := line
-			if trimmedLine == "" && matchesBlank {
-				matchLine = ""
-			}
-
-			match := compiledPattern.Regex.FindStringSubmatch(matchLine)
+			match := compiledPattern.Regex.FindStringSubmatch(line)
 			if match == nil {
 				continue
 			}
@@ -2065,4 +2054,14 @@ func (r *Runtime) resolveGetterFunction(value string, inputData string) interfac
 	}
 	// Not a getter function, return as-is
 	return value
+}
+
+// isBlank reports whether line is empty or only spaces and tabs.
+func isBlank(line string) bool {
+	for i := 0; i < len(line); i++ {
+		if c := line[i]; c != ' ' && c != '\t' {
+			return false
+		}
+	}
+	return true
 }

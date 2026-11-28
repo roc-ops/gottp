@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[0,34],"record":{"down":true,"mtu":"jumbo","name":"A"}},
+  {"group_path":"g","src_range":[34,59],"record":{"mtu":"jumbo","name":"B"}}
+ ]
+}

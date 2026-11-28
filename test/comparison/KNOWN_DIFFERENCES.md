@@ -146,6 +146,13 @@ The comparison test suite includes:
 - **gottp:** `<extend template="a.txt"/>` followed by `<extend template="b.txt"/>`, where both files are plain text, gives the implicit group with both files' text.
 - **Python TTP 0.10.1:** gives `{}`. Its `handle_extend` removes children while iterating over them, so it skips the second extend, which leaves a tag in the template, so no implicit group is made. gottp keeps the sensible result.
 
+### `default()` without a regex (gottp extension, #64)
+- **gottp:** a match variable with `default()` and no regex of its own uses `.*?`, so it matches any text, also an empty or missing last column and text with spaces. `{{ port }} {{ state }} {{ descr | default("") }}` matches `Gi2 down` (`descr` is `""`) and `Gi3 up core link` (`descr` is `"core link"`). The space before the variable is not captured, and a line made only of `default()` variables doesn't match blank lines, as in TTP.
+- **Python TTP 0.10.1:** gives such a variable the `WORD` regex (`\S+`), so it drops both lines. The default value is used only when no line matches.
+- **Why:** DH360 templates use a trailing `{{ col | default("") }}` to make the last column optional, and TTP's behaviour would drop those rows. Add a regex (`{{ col | WORD | default("") }}`) to get TTP's behaviour.
+- **Side effect:** the text before the variable doesn't need a space after it, so `ip address {{ ip | default("none") }}` also matches `ip addressX` (`ip` is `"X"`), where TTP needs `ip address X`.
+- **Test status:** `gottp-repros/issue64_default_last_column_empty` and `issue64_default_matches_text_with_spaces` (listed as `design:` in `test/ttpsuite/known_failures.json`); `TestDefaultExtension_ParseAndStream` in `test/streaming`.
+
 ### Unquoted words Python TTP can't evaluate (gottp extension)
 - **gottp:** an unquoted argument such as `set(auto-decision)`, `containsall="af-marker"` or `exclude(-VM-)` is its raw text, `"auto-decision"`. `GetWarnings()` says that Python TTP fails on it and gives the quoted call, `set("auto-decision")`, which works in both.
 - **Python TTP 0.10.1:** evaluates the argument as Python (`auto - decision`, with each unknown name as its own string) and exits: `unsupported operand type(s) for -: 'str' and 'str'`.
