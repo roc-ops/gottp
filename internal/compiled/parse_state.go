@@ -54,6 +54,7 @@ func (r *Runtime) beginParse() *Runtime {
 	run.pathResolvers = make(map[string]*PathResolver)
 	run.pathResolver = NewPathResolver()
 	run.matchCollector = NewMatchCollector()
+	run.smObs = nil
 	return &run
 }
 

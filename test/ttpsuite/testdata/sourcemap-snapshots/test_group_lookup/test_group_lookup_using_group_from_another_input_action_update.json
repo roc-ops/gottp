@@ -9,15 +9,15 @@
   ],
   "interfaces": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"interfaces.{{ interface }}","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":26}},"ResultPath":"interfaces.{{ interface }}[0]"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":35,"GroupName":"interfaces.{{ interface }}","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":35}},"ResultPath":"interfaces.{{ interface }}[0]"}]},
-   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":36,"GroupName":"interfaces.{{ interface }}","PatternIndex":2,"Variables":{"subnet":{"StartCol":12,"EndCol":36}},"ResultPath":"interfaces.{{ interface }}[0]"}]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"interfaces.{{ interface }}","PatternIndex":3,"Variables":{"vrf":{"StartCol":16,"EndCol":23}},"ResultPath":"interfaces.{{ interface }}[0]"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"interfaces.{{ interface }}","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":26}},"ResultPath":"interfaces.FastEthernet2.13"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":35,"GroupName":"interfaces.{{ interface }}","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":35}},"ResultPath":"interfaces.FastEthernet2.13"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":36,"GroupName":"interfaces.{{ interface }}","PatternIndex":2,"Variables":{"subnet":{"StartCol":12,"EndCol":36}},"ResultPath":"interfaces.FastEthernet2.13"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"interfaces.{{ interface }}","PatternIndex":3,"Variables":{"vrf":{"StartCol":16,"EndCol":23}},"ResultPath":"interfaces.FastEthernet2.13"}]},
    {"LineNumber":5,"Matched":false,"Matches":[]},
-   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interfaces.{{ interface }}","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":29}},"ResultPath":"interfaces.{{ interface }}[1]"}]},
-   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":35,"GroupName":"interfaces.{{ interface }}","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":35}},"ResultPath":"interfaces.{{ interface }}[1]"}]},
-   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":36,"GroupName":"interfaces.{{ interface }}","PatternIndex":2,"Variables":{"subnet":{"StartCol":12,"EndCol":36}},"ResultPath":"interfaces.{{ interface }}[1]"}]},
-   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":21,"GroupName":"interfaces.{{ interface }}","PatternIndex":3,"Variables":{"vrf":{"StartCol":16,"EndCol":21}},"ResultPath":"interfaces.{{ interface }}[1]"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interfaces.{{ interface }}","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":29}},"ResultPath":"interfaces.GigabitEthernet2.13"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":35,"GroupName":"interfaces.{{ interface }}","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":35}},"ResultPath":"interfaces.GigabitEthernet2.13"}]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":36,"GroupName":"interfaces.{{ interface }}","PatternIndex":2,"Variables":{"subnet":{"StartCol":12,"EndCol":36}},"ResultPath":"interfaces.GigabitEthernet2.13"}]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":21,"GroupName":"interfaces.{{ interface }}","PatternIndex":3,"Variables":{"vrf":{"StartCol":16,"EndCol":21}},"ResultPath":"interfaces.GigabitEthernet2.13"}]},
    {"LineNumber":10,"Matched":false,"Matches":[]},
    {"LineNumber":11,"Matched":false,"Matches":[]}
   ]

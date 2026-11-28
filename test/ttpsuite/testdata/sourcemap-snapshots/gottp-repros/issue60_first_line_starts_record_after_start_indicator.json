@@ -1,14 +1,14 @@
 {
  "inputs": {
   "Default_Input": [
-   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"intf","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":13}},"ResultPath":"intf*"}]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"intf","PatternIndex":1,"Variables":{"desc":{"StartCol":13,"EndCol":16}},"ResultPath":"intf*"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"intf","PatternIndex":2,"Variables":{"vlan":{"StartCol":6,"EndCol":8}},"ResultPath":"intf*"}]},
-   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"intf","PatternIndex":3,"Variables":{"mtu":{"StartCol":5,"EndCol":9}},"ResultPath":"intf*"}]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"intf","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":13}},"ResultPath":"intf*"}]},
-   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"intf","PatternIndex":1,"Variables":{"desc":{"StartCol":13,"EndCol":16}},"ResultPath":"intf*"}]},
-   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"intf","PatternIndex":2,"Variables":{"vlan":{"StartCol":6,"EndCol":8}},"ResultPath":"intf*"}]},
-   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"intf","PatternIndex":3,"Variables":{"mtu":{"StartCol":5,"EndCol":9}},"ResultPath":"intf*"}]},
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"intf","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":13}},"ResultPath":"intf[0]"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"intf","PatternIndex":1,"Variables":{"desc":{"StartCol":13,"EndCol":16}},"ResultPath":"intf[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"intf","PatternIndex":2,"Variables":{"vlan":{"StartCol":6,"EndCol":8}},"ResultPath":"intf[1]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"intf","PatternIndex":3,"Variables":{"mtu":{"StartCol":5,"EndCol":9}},"ResultPath":"intf[1]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"intf","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":13}},"ResultPath":"intf[2]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"intf","PatternIndex":1,"Variables":{"desc":{"StartCol":13,"EndCol":16}},"ResultPath":"intf[2]"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"intf","PatternIndex":2,"Variables":{"vlan":{"StartCol":6,"EndCol":8}},"ResultPath":"intf[3]"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"intf","PatternIndex":3,"Variables":{"mtu":{"StartCol":5,"EndCol":9}},"ResultPath":"intf[3]"}]},
    {"LineNumber":8,"Matched":false,"Matches":[]}
   ]
  }

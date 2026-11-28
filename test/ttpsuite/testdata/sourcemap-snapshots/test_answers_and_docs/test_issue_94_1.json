@@ -2,7 +2,7 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":15,"GroupName":"routing.isis.LAB","PatternIndex":0,"Variables":{},"ResultPath":"routing.isis.LAB"}]},
+   {"LineNumber":1,"Matched":false,"Matches":[]},
    {"LineNumber":2,"Matched":false,"Matches":[]},
    {"LineNumber":3,"Matched":false,"Matches":[]},
    {"LineNumber":4,"Matched":false,"Matches":[]},
@@ -16,7 +16,7 @@
    {"LineNumber":12,"Matched":false,"Matches":[]},
    {"LineNumber":13,"Matched":false,"Matches":[]},
    {"LineNumber":14,"Matched":false,"Matches":[]},
-   {"LineNumber":15,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"routing.isis.LAB","PatternIndex":5,"Variables":{},"ResultPath":"routing.isis.LAB"}]},
+   {"LineNumber":15,"Matched":false,"Matches":[]},
    {"LineNumber":16,"Matched":false,"Matches":[]}
   ]
  }

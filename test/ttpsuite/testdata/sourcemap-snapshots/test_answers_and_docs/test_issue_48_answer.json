@@ -2,23 +2,23 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":62,"GroupName":"","PatternIndex":0,"Variables":{"code":{"StartCol":5,"EndCol":9},"course":{"StartCol":0,"EndCol":4},"lecture_lab_time":{"StartCol":51,"EndCol":54},"name":{"StartCol":10,"EndCol":47},"semester":{"StartCol":48,"EndCol":49},"weight":{"StartCol":57,"EndCol":61}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":62,"GroupName":"","PatternIndex":0,"Variables":{"code":{"StartCol":5,"EndCol":9},"course":{"StartCol":0,"EndCol":4},"lecture_lab_time":{"StartCol":51,"EndCol":54},"name":{"StartCol":10,"EndCol":47},"semester":{"StartCol":48,"EndCol":49},"weight":{"StartCol":57,"EndCol":61}},"ResultPath":"_anonymous_[0]"}]},
    {"LineNumber":2,"Matched":false,"Matches":[]},
    {"LineNumber":3,"Matched":false,"Matches":[]},
    {"LineNumber":4,"Matched":false,"Matches":[]},
    {"LineNumber":5,"Matched":false,"Matches":[]},
    {"LineNumber":6,"Matched":false,"Matches":[]},
    {"LineNumber":7,"Matched":false,"Matches":[]},
-   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":39,"GroupName":"","PatternIndex":2,"Variables":{"prereqs":{"StartCol":17,"EndCol":39}},"ResultPath":"_anonymous_*"}]},
-   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":50,"GroupName":"","PatternIndex":3,"Variables":{"department":{"StartCol":15,"EndCol":50}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":39,"GroupName":"","PatternIndex":2,"Variables":{"prereqs":{"StartCol":17,"EndCol":39}},"ResultPath":"_anonymous_[0]"}]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":50,"GroupName":"","PatternIndex":3,"Variables":{"department":{"StartCol":15,"EndCol":50}},"ResultPath":"_anonymous_[0]"}]},
    {"LineNumber":10,"Matched":false,"Matches":[]},
-   {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":62,"GroupName":"","PatternIndex":0,"Variables":{"code":{"StartCol":5,"EndCol":9},"course":{"StartCol":0,"EndCol":4},"lecture_lab_time":{"StartCol":51,"EndCol":54},"name":{"StartCol":10,"EndCol":47},"semester":{"StartCol":48,"EndCol":49},"weight":{"StartCol":57,"EndCol":61}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":62,"GroupName":"","PatternIndex":0,"Variables":{"code":{"StartCol":5,"EndCol":9},"course":{"StartCol":0,"EndCol":4},"lecture_lab_time":{"StartCol":51,"EndCol":54},"name":{"StartCol":10,"EndCol":47},"semester":{"StartCol":48,"EndCol":49},"weight":{"StartCol":57,"EndCol":61}},"ResultPath":"_anonymous_[1]"}]},
    {"LineNumber":12,"Matched":false,"Matches":[]},
    {"LineNumber":13,"Matched":false,"Matches":[]},
    {"LineNumber":14,"Matched":false,"Matches":[]},
    {"LineNumber":15,"Matched":false,"Matches":[]},
-   {"LineNumber":16,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"","PatternIndex":2,"Variables":{"prereqs":{"StartCol":17,"EndCol":26}},"ResultPath":"_anonymous_*"}]},
-   {"LineNumber":17,"Matched":true,"Matches":[{"StartCol":0,"EndCol":38,"GroupName":"","PatternIndex":3,"Variables":{"department":{"StartCol":15,"EndCol":38}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":16,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"","PatternIndex":2,"Variables":{"prereqs":{"StartCol":17,"EndCol":26}},"ResultPath":"_anonymous_[1]"}]},
+   {"LineNumber":17,"Matched":true,"Matches":[{"StartCol":0,"EndCol":38,"GroupName":"","PatternIndex":3,"Variables":{"department":{"StartCol":15,"EndCol":38}},"ResultPath":"_anonymous_[1]"}]},
    {"LineNumber":18,"Matched":false,"Matches":[]}
   ]
  }

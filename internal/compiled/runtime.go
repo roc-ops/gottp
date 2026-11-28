@@ -39,6 +39,7 @@ type Runtime struct {
 	runtimeLookups    map[string]map[string]interface{} // per-parse runtime lookup tables from ParseOptions
 	runtimeFunctions  *RuntimeFunctions                 // per-parse custom function overrides from ParseOptions
 	compileFunctions  *RuntimeFunctions                 // compile-time custom function overrides from CompileOptions
+	smObs             *smObserver                       // source-map observer for this parse; nil when source maps are off
 }
 
 // NewRuntime creates a new runtime for a compiled template
@@ -456,6 +457,40 @@ type mergeState struct {
 	// have no nested children, so the parent->matches map is never read, and
 	// keeping it would grow O(records). Setting this flag bounds heap usage.
 	skipParentBookkeeping bool
+
+	// trackUsed records which matches each record consumes, for the source
+	// map. curUsed holds the allMatches indices merged into currentMatch.
+	// Only parseGroup with a source-map observer sets it.
+	trackUsed    bool
+	curUsed      []int
+	usedByRecord [][]int // per flushed record, the allMatches indices it consumed
+}
+
+// emit flushes record and, when tracking, notes the matches it consumed.
+func (s *mergeState) emit(record map[string]interface{}, srcRange [2]int) error {
+	if s.trackUsed {
+		s.usedByRecord = append(s.usedByRecord, s.takeUsed())
+	}
+	return s.flush(record, srcRange)
+}
+
+// useMatch notes that allMatches[idx] went into the current record. With
+// newRecord, the current record has just been started by this match.
+func (s *mergeState) useMatch(idx int, newRecord bool) {
+	if !s.trackUsed {
+		return
+	}
+	if newRecord {
+		s.curUsed = s.curUsed[:0]
+	} else if n := len(s.curUsed); n > 0 && s.curUsed[n-1] == idx {
+		return
+	}
+	s.curUsed = append(s.curUsed, idx)
+}
+
+// takeUsed returns a copy of the current record's match indices.
+func (s *mergeState) takeUsed() []int {
+	return append([]int(nil), s.curUsed...)
 }
 
 // newMergeState constructs a fresh mergeState with the same initial values
@@ -657,6 +692,7 @@ func (r *Runtime) stepMerge(
 						}
 					}
 				}
+				state.useMatch(matchIdx, false)
 				return nil // continue - skip rest of step
 			} else {
 				if patternHasJoinMatches {
@@ -686,7 +722,7 @@ func (r *Runtime) stepMerge(
 
 				if hasNonSpecialVars {
 					srcRange := [2]int{state.currentStartPos, match.spanStart}
-					if err := state.flush(state.currentMatch, srcRange); err != nil {
+					if err := state.emit(state.currentMatch, srcRange); err != nil {
 						return err
 					}
 					state.recordCount++
@@ -725,6 +761,7 @@ func (r *Runtime) stepMerge(
 			state.currentStartLineIdx = match.lineIdx
 			state.patternMatchCount = make(map[int]int)
 			state.patternMatchCount[match.patternIdx] = 1
+			state.useMatch(matchIdx, true)
 			return nil // continue
 		}
 
@@ -771,7 +808,7 @@ func (r *Runtime) stepMerge(
 						}
 						parentIdx := state.recordCount
 						srcRange := [2]int{state.currentStartPos, match.spanStart}
-						if err := state.flush(matchCopy, srcRange); err != nil {
+						if err := state.emit(matchCopy, srcRange); err != nil {
 							return err
 						}
 						state.recordCount++
@@ -805,6 +842,7 @@ func (r *Runtime) stepMerge(
 					}
 				}
 				state.patternMatchCount[match.patternIdx] = 1
+				state.useMatch(matchIdx, true)
 			} else {
 				shouldMerge = true
 				state.currentStartPos = match.spanStart
@@ -815,7 +853,7 @@ func (r *Runtime) stepMerge(
 			if isEndPattern {
 				state.currentMatchHasEnd = true
 				srcRange := [2]int{state.currentStartPos, match.spanEnd}
-				if err := state.flush(state.currentMatch, srcRange); err != nil {
+				if err := state.emit(state.currentMatch, srcRange); err != nil {
 					return err
 				}
 				state.recordCount++
@@ -910,7 +948,7 @@ func (r *Runtime) stepMerge(
 				}
 				parentIdx := state.recordCount
 				srcRange := [2]int{state.currentStartPos, match.spanStart}
-				if err := state.flush(matchCopy, srcRange); err != nil {
+				if err := state.emit(matchCopy, srcRange); err != nil {
 					return err
 				}
 				state.recordCount++
@@ -930,10 +968,12 @@ func (r *Runtime) stepMerge(
 			state.currentParentMatchStartIdx = matchIdx
 			state.patternMatchCount = make(map[int]int)
 			state.patternMatchCount[match.patternIdx] = 1
+			state.useMatch(matchIdx, true)
 			shouldMerge = true
 		}
 
 		if shouldMerge {
+			state.useMatch(matchIdx, false)
 			patternHasJoinMatches := false
 			for varName := range match.result {
 				if joinMatchesVars[varName] {
@@ -1067,6 +1107,7 @@ func (r *Runtime) stepMerge(
 				state.currentStartPos = match.spanStart
 				state.currentStartLineIdx = match.lineIdx
 				state.patternMatchCount[match.patternIdx] = 1
+				state.useMatch(matchIdx, true)
 				shouldMerge = false
 			} else {
 				isFirstPattern := match.patternIdx == 0
@@ -1084,6 +1125,7 @@ func (r *Runtime) stepMerge(
 
 	// If shouldMerge is true, execute merge logic (shared for both start and non-start patterns)
 	if shouldMerge {
+		state.useMatch(matchIdx, false)
 		patternHasJoinMatches := false
 		for varName := range match.result {
 			if joinMatchesVars[varName] {
@@ -1168,6 +1210,15 @@ func (r *Runtime) stepMerge(
 
 // parseGroup parses input data against a compiled group
 func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, vars map[string]interface{}) (interface{}, error) {
+	// obs records the source map; nil (and every hook skipped) when source
+	// maps are off. recs follows mergedMatches: recs[i] is record i's node.
+	obs := r.smObs
+	var recs []*smRecord
+	if obs != nil {
+		obs.lastNodes = nil
+		clear(obs.submatches)
+	}
+
 	if len(group.Patterns) == 0 {
 		// If the group has no direct patterns but has unnamed nested groups,
 		// parse the nested groups and return their results directly.
@@ -1227,7 +1278,16 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					matchLine = ""
 				}
 
-				match := compiledPattern.Regex.FindStringSubmatch(matchLine)
+				var match []string
+				var smInfo *smMatchInfo
+				if obs != nil {
+					if loc := compiledPattern.Regex.FindStringSubmatchIndex(matchLine); loc != nil {
+						match = submatchStrings(matchLine, loc)
+						smInfo = &smMatchInfo{idx: loc, base: lineOffsets[lineIdx]}
+					}
+				} else {
+					match = compiledPattern.Regex.FindStringSubmatch(matchLine)
+				}
 
 				if match != nil {
 					result := r.extractMatchResult(match, compiledPattern, vars)
@@ -1241,6 +1301,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 							lineIdx:    lineIdx,
 							result:     result,
 						})
+						if smInfo != nil {
+							obs.noteSubmatches(lineOffsets[lineIdx], patternIdx, smInfo)
+						}
 					}
 				}
 			}
@@ -1265,6 +1328,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				// Extract result
 				result := r.extractMatchResult(matchGroups, compiledPattern, vars)
 				if result != nil && (len(result) > 0 || compiledPattern.IgnoreUsesTemplateVar) {
+					if obs != nil {
+						obs.noteSubmatches(indices[0], patternIdx, &smMatchInfo{idx: indices})
+					}
 					allMatches = append(allMatches, patternMatch{
 						patternIdx: patternIdx,
 						spanStart:  indices[0],
@@ -1364,6 +1430,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	// callback; srcRange is ignored here (it's only meaningful for streaming).
 	state := newMergeState()
 	var mergedMatches []map[string]interface{}
+	// With a source map, the merge state also notes which matches each
+	// record consumed (state.usedByRecord, aligned with mergedMatches).
+	state.trackUsed = obs != nil
 	state.flush = func(record map[string]interface{}, _ [2]int) error {
 		mergedMatches = append(mergedMatches, record)
 		return nil
@@ -1412,6 +1481,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 			}
 			parentIdx := len(mergedMatches)
 			mergedMatches = append(mergedMatches, matchCopy)
+			if obs != nil {
+				state.usedByRecord = append(state.usedByRecord, state.takeUsed())
+			}
 			// Track which matches from allMatches belong to this parent
 			// All matches from currentParentMatchStartIdx to the last match index belong to this parent
 			if currentParentMatchStartIdx >= 0 && len(allMatches) > 0 {
@@ -1422,6 +1494,10 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 			// Update path resolver cache with final match values
 			r.pathResolver.UpdateCache(matchCopy)
 		}
+	}
+
+	if obs != nil {
+		recs = obs.recordMatches(group, allMatches, state.usedByRecord)
 	}
 
 	// Track parent match input ranges for nested group context
@@ -1683,7 +1759,16 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 						nestedVars[k] = v
 					}
 				}
-				nestedResults, err := r.parseGroup(nestedGroup, parentInputData, nestedVars)
+				var nestedResults interface{}
+				var err error
+				var nestedRecs []*smRecord
+				if obs != nil {
+					scope := obs.enter(rangeStart, smAt(recs, i))
+					nestedResults, err = r.parseGroup(nestedGroup, parentInputData, nestedVars)
+					nestedRecs = obs.leave(scope)
+				} else {
+					nestedResults, err = r.parseGroup(nestedGroup, parentInputData, nestedVars)
+				}
 				if err != nil {
 					return nil, err
 				}
@@ -1706,6 +1791,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 				// Merge nested results into this specific parent match (but skip if void attribute is set)
 				// Also skip if nested results are empty (no matches)
+				if obs != nil && (nestedResults == nil || hasVoid) {
+					smDrop(nestedRecs)
+				}
 				if nestedResults != nil && !hasVoid {
 					// Check if nested results are empty
 					isEmpty := false
@@ -1733,6 +1821,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 					if isEmpty {
 						// Skip storing empty nested results (matches Python TTP behavior)
+						smDrop(nestedRecs)
 						continue
 					}
 
@@ -1744,7 +1833,20 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 					if !nestedHasVoid {
 						// If nested group name is "_", merge into parent match
+						switch nestedResults.(type) {
+						case []map[string]interface{}, map[string]interface{}:
+						default:
+							// Neither stored nor merged below (e.g. itemize on a
+							// child group, #88), so its records have no path.
+							smDrop(nestedRecs)
+						}
 						if nestedGroup.Name == "_" || nestedGroup.Name == "" {
+							// Merged into the parent record: same path.
+							for _, nr := range nestedRecs {
+								if nr != nil {
+									nr.alias = smAt(recs, i)
+								}
+							}
 							switch v := nestedResults.(type) {
 							case []map[string]interface{}:
 								// Merge all nested matches into parent match
@@ -1775,10 +1877,11 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 										formatter string
 									}
 									match map[string]interface{}
+									rec   *smRecord
 								}
 								groupedNestedResults := make(map[string][]pathMatch)
 								var nestedPathOrder []string // first-seen order; Go map order is random (#78)
-								for _, nestedMatch := range v {
+								for k, nestedMatch := range v {
 									// Resolve dynamic path using nested match values and parent match context
 									// Merge parent match vars with nested match for path resolution
 									// IMPORTANT: Deep copy parentMatch vars to avoid sharing references
@@ -1813,6 +1916,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 										// Fallback to original name
 										resolvedParts = r.resolvePathSegments(nestedGroup.Name, nestedMatch, resolutionVars)
 										if len(resolvedParts) == 0 {
+											if rec := smAt(nestedRecs, k); rec != nil {
+												rec.dropped = true
+											}
 											continue
 										}
 									}
@@ -1842,9 +1948,14 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 										groupedNestedResults[pathKey] = make([]pathMatch, 0)
 										nestedPathOrder = append(nestedPathOrder, pathKey)
 									}
+									rec := smAt(nestedRecs, k)
+									if rec != nil {
+										rec.final = cleanedNestedMatch
+									}
 									groupedNestedResults[pathKey] = append(groupedNestedResults[pathKey], pathMatch{
 										parts: resolvedParts,
 										match: cleanedNestedMatch,
+										rec:   rec,
 									})
 								}
 
@@ -1886,6 +1997,13 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 									}
 									// Store at the path
 									r.storeAtPathSegments(parentMatch, resolvedParts, valueToStore)
+									if obs != nil {
+										stored := make([]*smRecord, len(pathMatches))
+										for j := range pathMatches {
+											stored[j] = pathMatches[j].rec
+										}
+										setStoredRel(parentMatch, segmentKeys(resolvedParts), stored)
+									}
 
 									// Track variables that were stored in nested groups to remove from parent
 									if valueMap, ok := valueToStore.(map[string]interface{}); ok {
@@ -1968,6 +2086,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 									// Fallback - use original name
 									resolvedParts = r.resolvePathSegments(nestedGroup.Name, v, resolutionVars)
 									if len(resolvedParts) == 0 {
+										smDrop(nestedRecs)
 										continue
 									}
 								}
@@ -1989,6 +2108,10 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 								// single match = map, multiple matches = list
 								// Store as map (single match) - matches Python TTP behavior
 								r.storeAtPathSegments(parentMatch, resolvedParts, cleanedNestedMatch)
+								if rec := smAt(nestedRecs, 0); rec != nil {
+									rec.final = cleanedNestedMatch
+									setStoredRel(parentMatch, segmentKeys(resolvedParts), []*smRecord{rec})
+								}
 
 								// IMPORTANT: Python TTP removes variables from parent match that are also in nested group
 								// BUT only if they have the same value (to avoid removing variables that are different)
@@ -2026,8 +2149,12 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		// follows input order (Python TTP) rather than Go map order (#78).
 		groupedByRecord := make(map[string][]map[string]interface{})
 		var recordOrder []string
+		var recsByRecord map[string][]*smRecord
+		if obs != nil {
+			recsByRecord = make(map[string][]*smRecord)
+		}
 
-		for _, match := range mergedMatches {
+		for mi, match := range mergedMatches {
 			// Get the value of the record variable from the match
 			recordValue := ""
 			if val, exists := match[recordVar]; exists {
@@ -2038,11 +2165,15 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				recordOrder = append(recordOrder, recordValue)
 			}
 			groupedByRecord[recordValue] = append(groupedByRecord[recordValue], match)
+			if obs != nil {
+				recsByRecord[recordValue] = append(recsByRecord[recordValue], smAt(recs, mi))
+			}
 		}
 
 		// Convert grouped matches to a list (Python TTP behavior: record groups matches as a list)
 		// Each unique record value becomes a separate entry in the list
 		var groupedMatches []map[string]interface{}
+		var groupedRecs []*smRecord
 		for _, recordValue := range recordOrder {
 			matches := groupedByRecord[recordValue]
 			// For each group of matches with the same record value, merge them into one match
@@ -2068,11 +2199,15 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					}
 				}
 				groupedMatches = append(groupedMatches, mergedMatch)
+				if obs != nil {
+					groupedRecs = append(groupedRecs, obs.smCollapse(group, recsByRecord[recordValue]))
+				}
 			}
 		}
 
 		// Replace mergedMatches with grouped matches
 		mergedMatches = groupedMatches
+		recs = groupedRecs
 	}
 
 	// Process group function attributes (containsall, contains, del, exclude, excludeall, etc.)
@@ -2108,7 +2243,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 				// Apply expand to all matches
 				var expandedMatches []map[string]interface{}
-				for _, match := range mergedMatches {
+				var kept []int
+				for mi, match := range mergedMatches {
 					// Make a copy
 					data := make(map[string]interface{})
 					for k, v := range match {
@@ -2132,9 +2268,15 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 					if keep {
 						expandedMatches = append(expandedMatches, newData)
+						if obs != nil {
+					kept = append(kept, mi)
+				}
 					}
 				}
 				mergedMatches = expandedMatches
+				if obs != nil {
+					recs = smKeep(recs, kept)
+				}
 				continue // Continue to next attribute in the loop
 			}
 		}
@@ -2256,6 +2398,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 						}
 					}
 				}
+				if obs != nil {
+					obs.lastNodes = []*smRecord{obs.smCollapse(group, recs)}
+				}
 				// Return the list of itemized values directly
 				if len(itemizedValues) > 0 {
 					return itemizedValues, nil
@@ -2266,7 +2411,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 			// Apply function to filter matches
 			var filteredMatches []map[string]interface{}
-			for _, match := range mergedMatches {
+			var kept []int
+			for mi, match := range mergedMatches {
 				// Make a copy to avoid modifying the original
 				data := make(map[string]interface{})
 				for k, v := range match {
@@ -2282,9 +2428,15 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				// If function returns true, keep this match
 				if keep {
 					filteredMatches = append(filteredMatches, newData)
+					if obs != nil {
+					kept = append(kept, mi)
+				}
 				}
 			}
 			mergedMatches = filteredMatches
+			if obs != nil {
+				recs = smKeep(recs, kept)
+			}
 		}
 	}
 
@@ -2336,7 +2488,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 			}
 			// Apply function to each match
 			var filteredMatches []map[string]interface{}
-			for _, matchData := range mergedMatches {
+			var kept []int
+			for mi, matchData := range mergedMatches {
 				dataCopy := make(map[string]interface{})
 				for k, v := range matchData {
 					dataCopy[k] = v
@@ -2347,9 +2500,15 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				}
 				if keep {
 					filteredMatches = append(filteredMatches, newData)
+					if obs != nil {
+					kept = append(kept, mi)
+				}
 				}
 			}
 			mergedMatches = filteredMatches
+			if obs != nil {
+				recs = smKeep(recs, kept)
+			}
 		}
 	}
 
@@ -2362,17 +2521,29 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 	if chainStr != "" {
 		// Parse and apply chain functions
-		processedMatches, err := r.processGroupFunctions(mergedMatches, chainStr, vars)
+		var kept *[]int
+		var onKeep func(int)
+		if obs != nil {
+			kept = new([]int)
+			onKeep = func(i int) { *kept = append(*kept, i) }
+		}
+		processedMatches, err := r.processGroupFunctions(mergedMatches, chainStr, vars, onKeep)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process group functions: %w", err)
 		}
 		mergedMatches = processedMatches
+		if obs != nil {
+			recs = smKeep(recs, *kept)
+		}
 
 		// Check if itemize was used - if so, return the value directly
 		if len(mergedMatches) > 0 {
 			if itemizeValue, ok := mergedMatches[0]["_itemize_value"]; ok {
 				// itemize returns the value directly, not as a map
 				// Return the value as-is (it's already wrapped in a list)
+				if obs != nil {
+					obs.lastNodes = []*smRecord{obs.smCollapse(group, recs)}
+				}
 				return itemizeValue, nil
 			}
 		}
@@ -2380,11 +2551,20 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 	// Process group macro if specified
 	if group.Macro != "" {
-		processedMatches, err := r.processGroupMacro(mergedMatches, group.Macro, vars)
+		var kept *[]int
+		var onKeep func(int)
+		if obs != nil {
+			kept = new([]int)
+			onKeep = func(i int) { *kept = append(*kept, i) }
+		}
+		processedMatches, err := r.processGroupMacro(mergedMatches, group.Macro, vars, onKeep)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process group macro: %w", err)
 		}
 		mergedMatches = processedMatches
+		if obs != nil {
+			recs = smKeep(recs, *kept)
+		}
 	}
 
 	// Apply group defaults (from unconditional set() functions)
@@ -2482,6 +2662,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 						defaultMatch[varName] = defaultStr
 					}
 					mergedMatches = append(mergedMatches, defaultMatch)
+					if obs != nil {
+						recs = append(recs, obs.newRecord(group))
+					}
 				}
 			}
 		}
@@ -2568,6 +2751,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 					defaultMatch[k] = v
 				}
 				mergedMatches = append(mergedMatches, defaultMatch)
+				if obs != nil {
+					recs = append(recs, obs.newRecord(group))
+				}
 			}
 		}
 	}
@@ -2597,6 +2783,9 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		}
 		// If all results are empty, return only one empty result
 		if emptyResults == len(mergedMatches) && len(mergedMatches) > 0 {
+			if obs != nil {
+				obs.lastNodes = []*smRecord{obs.smCollapse(group, recs)}
+			}
 			return []map[string]interface{}{{}}, nil
 		}
 	}
@@ -2604,12 +2793,20 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	// Filter out empty matches from mergedMatches
 	// This can happen when a match is started but not populated (e.g., _start_ pattern with no other variables)
 	filteredMatches := make([]map[string]interface{}, 0, len(mergedMatches))
-	for _, match := range mergedMatches {
+	var kept []int
+	for mi, match := range mergedMatches {
 		if len(match) > 0 {
 			filteredMatches = append(filteredMatches, match)
+			if obs != nil {
+					kept = append(kept, mi)
+				}
 		}
 	}
 	mergedMatches = filteredMatches
+	if obs != nil {
+		recs = smKeep(recs, kept)
+		obs.lastNodes = recs
+	}
 
 	// Return results based on method
 	switch group.Method {
@@ -2643,7 +2840,7 @@ func (r *Runtime) applyGroupFilterStreaming(
 	if chainStr == "" {
 		return record, nil
 	}
-	out, err := r.processGroupFunctions([]map[string]interface{}{record}, chainStr, vars)
+	out, err := r.processGroupFunctions([]map[string]interface{}{record}, chainStr, vars, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2664,7 +2861,7 @@ func (r *Runtime) applyGroupMacroStreaming(
 	if group.Macro == "" {
 		return record, nil
 	}
-	out, err := r.processGroupMacro([]map[string]interface{}{record}, group.Macro, vars)
+	out, err := r.processGroupMacro([]map[string]interface{}{record}, group.Macro, vars, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2932,1146 +3129,6 @@ func filterRedundantIndicatorsInLine(lineMatches []patternMatch, group *compiler
 		out = append(out, m)
 	}
 	return out
-}
-
-// parseGroupWithSourceMap parses input data against a compiled group and collects source map data
-func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputData string, vars map[string]interface{}, inputName string, sourceMap *SourceMap, resultsMap map[string]interface{}) (interface{}, error) {
-	if len(group.Patterns) == 0 {
-		// If the group has no direct patterns but has unnamed nested groups,
-		// parse the nested groups and return their results directly.
-		// This matches Python TTP behavior where unnamed inner groups are
-		// transparent wrappers that merge into their parent.
-		if len(group.Groups) > 0 {
-			for _, nestedGroup := range group.Groups {
-				if nestedGroup.Name == "" || nestedGroup.Name == "_" {
-					return r.parseGroupWithSourceMap(nestedGroup, inputData, vars, inputName, sourceMap, resultsMap)
-				}
-			}
-		}
-		return nil, nil
-	}
-
-	// Get input source map
-	inputSourceMap, exists := sourceMap.Inputs[inputName]
-	if !exists {
-		// Should not happen - input source map should be initialized
-		// Fall back to parseGroup without source map
-		return r.parseGroup(group, inputData, vars)
-	}
-
-	// Collect all matches with their positions and source map data
-	type patternMatch struct {
-		patternIdx int
-		spanStart  int
-		spanEnd    int
-		result     map[string]interface{}
-		lineIdx    int                  // line index for source map
-		varRanges  map[string]*VarRange // variable name -> character range
-	}
-
-	var allMatches []patternMatch
-
-	// Process each pattern and collect matches with positions
-	lines := strings.Split(inputData, "\n")
-	lineOffsets := make([]int, len(lines)+1) // Track byte offsets for each line
-	offset := 0
-	for i, line := range lines {
-		lineOffsets[i] = offset
-		offset += len(line) + 1 // +1 for newline
-	}
-	lineOffsets[len(lines)] = offset
-
-	prof := group.Profile()
-	for patternIdx, compiledPattern := range group.Patterns {
-		if !prof.Matches(patternIdx) {
-			continue // a line without variables: Python TTP skips it
-		}
-		if compiledPattern.HasAnchors {
-			// Match line by line
-			for lineIdx, line := range lines {
-				line = strings.TrimRight(line, "\r \t")
-				trimmedLine := strings.TrimSpace(line)
-
-				matchesBlank := prof.MatchesBlank(patternIdx)
-				if trimmedLine == "" && !matchesBlank {
-					continue
-				}
-
-				matchLine := line
-				if trimmedLine == "" && matchesBlank {
-					matchLine = ""
-				}
-
-				match := compiledPattern.Regex.FindStringSubmatch(matchLine)
-				if match != nil {
-					// Find character positions for the match
-					matchIndices := compiledPattern.Regex.FindStringSubmatchIndex(matchLine)
-					if len(matchIndices) < 2 {
-						continue
-					}
-
-					result := r.extractMatchResult(match, compiledPattern, vars)
-
-					if result != nil && (len(result) > 0 || compiledPattern.HasOnlySpecialIndicators || compiledPattern.IgnoreUsesTemplateVar || compiledPattern.HasJoinMatches) {
-						spanStart := lineOffsets[lineIdx] + matchIndices[0]
-						spanEnd := lineOffsets[lineIdx] + matchIndices[1]
-
-						// Extract variable ranges from match indices
-						varRanges := make(map[string]*VarRange)
-						varIndex := 1 // First capture group is at index 1
-						for _, varName := range compiledPattern.VariableOrder {
-							_, ok := compiledPattern.Variables[varName]
-							if !ok {
-								continue
-							}
-
-							// Skip special variables
-							if pattern.IsNonCapturingVar(varName) {
-								varIndex++
-								continue
-							}
-
-							// Get variable range from match indices
-							if varIndex*2 < len(matchIndices) {
-								varStart := matchIndices[varIndex*2]
-								varEnd := matchIndices[varIndex*2+1]
-								if varStart >= 0 && varEnd >= 0 {
-									varRanges[varName] = &VarRange{
-										StartCol: varStart,
-										EndCol:   varEnd,
-									}
-								}
-							}
-							varIndex++
-						}
-
-						allMatches = append(allMatches, patternMatch{
-							patternIdx: patternIdx,
-							spanStart:  spanStart,
-							spanEnd:    spanEnd,
-							result:     result,
-							lineIdx:    lineIdx,
-							varRanges:  varRanges,
-						})
-					}
-				}
-			}
-		} else {
-			// Match against entire input
-			allIndices := compiledPattern.Regex.FindAllStringSubmatchIndex(inputData, -1)
-
-			for _, indices := range allIndices {
-				if len(indices) < 2 {
-					continue
-				}
-
-				matchGroups := make([]string, len(indices)/2)
-				for i := 0; i < len(indices); i += 2 {
-					if indices[i] >= 0 && indices[i+1] >= 0 {
-						matchGroups[i/2] = inputData[indices[i]:indices[i+1]]
-					}
-				}
-
-				result := r.extractMatchResult(matchGroups, compiledPattern, vars)
-				if result != nil && (len(result) > 0 || compiledPattern.IgnoreUsesTemplateVar) {
-					// Find which line this match is on
-					lineIdx := 0
-					for i, offset := range lineOffsets {
-						if indices[0] < offset {
-							lineIdx = i - 1
-							break
-						}
-					}
-					if lineIdx < 0 {
-						lineIdx = 0
-					}
-					if lineIdx >= len(lines) {
-						lineIdx = len(lines) - 1
-					}
-
-					// Extract variable ranges (relative to line start)
-					varRanges := make(map[string]*VarRange)
-					varIndex := 1
-					lineStart := lineOffsets[lineIdx]
-					for _, varName := range compiledPattern.VariableOrder {
-						_, ok := compiledPattern.Variables[varName]
-						if !ok {
-							continue
-						}
-
-						if pattern.IsNonCapturingVar(varName) {
-							varIndex++
-							continue
-						}
-
-						if varIndex*2 < len(indices) {
-							// Calculate absolute positions, then convert to relative to line
-							varStartAbs := indices[varIndex*2]
-							varEndAbs := indices[varIndex*2+1]
-							if varStartAbs >= 0 && varEndAbs >= 0 {
-								varStart := varStartAbs - lineStart
-								varEnd := varEndAbs - lineStart
-								if varStart >= 0 && varEnd >= 0 {
-									varRanges[varName] = &VarRange{
-										StartCol: varStart,
-										EndCol:   varEnd,
-									}
-								}
-							}
-						}
-						varIndex++
-					}
-
-					allMatches = append(allMatches, patternMatch{
-						patternIdx: patternIdx,
-						spanStart:  indices[0],
-						spanEnd:    indices[1],
-						result:     result,
-						lineIdx:    lineIdx,
-						varRanges:  varRanges,
-					})
-				}
-			}
-		}
-	}
-
-	// Sort matches by position
-	sort.Slice(allMatches, func(i, j int) bool {
-		if allMatches[i].spanStart == allMatches[j].spanStart {
-			return allMatches[i].patternIdx < allMatches[j].patternIdx
-		}
-		return allMatches[i].spanStart < allMatches[j].spanStart
-	})
-
-	// Filter matches for table method
-	if group.Method == "table" {
-		filteredMatches := make([]patternMatch, 0, len(allMatches))
-		seenPositions := make(map[int]bool)
-		for _, match := range allMatches {
-			if !seenPositions[match.spanStart] {
-				seenPositions[match.spanStart] = true
-				filteredMatches = append(filteredMatches, match)
-			}
-		}
-		allMatches = filteredMatches
-	}
-
-	// Now delegate to parseGroup for the complex merging logic
-	// But first, record matches in source map. matchMappingByIdx keeps a
-	// parallel pointer to the MatchMapping created for each allMatches
-	// entry (nil where the match fell outside the source map, e.g. an
-	// out-of-range lineIdx) so later steps can attach additional
-	// provenance - e.g. macro-renamed field aliases - to the exact
-	// line/match a variable actually came from.
-	matchMappingByIdx := make([]*MatchMapping, len(allMatches))
-	for i, match := range allMatches {
-		if match.lineIdx >= 0 && match.lineIdx < len(inputSourceMap.Lines) {
-			lineMapping := inputSourceMap.Lines[match.lineIdx]
-			lineMapping.Matched = true
-
-			// Calculate column positions relative to line start
-			lineStart := lineOffsets[match.lineIdx]
-			startCol := match.spanStart - lineStart
-			endCol := match.spanEnd - lineStart
-
-			// Adjust variable ranges to be relative to line start
-			adjustedVarRanges := make(map[string]*VarRange)
-			for varName, varRange := range match.varRanges {
-				adjustedVarRanges[varName] = &VarRange{
-					StartCol: varRange.StartCol,
-					EndCol:   varRange.EndCol,
-				}
-			}
-
-			matchMapping := &MatchMapping{
-				StartCol:     startCol,
-				EndCol:       endCol,
-				GroupName:    group.Name,
-				PatternIndex: match.patternIdx,
-				Variables:    adjustedVarRanges,
-				ResultPath:   "", // Will be set when we know the result path
-			}
-
-			lineMapping.Matches = append(lineMapping.Matches, matchMapping)
-			matchMappingByIdx[i] = matchMapping
-		}
-	}
-
-	// Derive per-match instance boundaries once, shared by both the
-	// per-instance ResultPath resolution below and the macro-rename
-	// provenance reconciliation further down. See the ResultPath block
-	// for the boundary-detection rationale and its accuracy caveats.
-	var instanceOfMatch []int
-	numDerivedInstances := 0
-	if len(allMatches) > 0 {
-		instanceOfMatch = make([]int, len(allMatches))
-		seen := make(map[int]bool)
-		instanceIdx := 0
-		for i, m := range allMatches {
-			if seen[m.patternIdx] {
-				instanceIdx++
-				seen = make(map[int]bool)
-			}
-			seen[m.patternIdx] = true
-			instanceOfMatch[i] = instanceIdx
-		}
-		numDerivedInstances = instanceOfMatch[len(allMatches)-1] + 1
-	}
-
-	// Call parseGroup to do the actual parsing and merging
-	// This ensures we get the same results as parseGroup
-	result, err := r.parseGroup(group, inputData, vars)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update result paths in source map based on how results are stored
-	// Try to determine the actual result path from the resultsMap
-	if result != nil && group.Name != "" {
-		// Check if group name exists in results map (might be resolved path)
-		resultPath := group.Name
-
-		// Check if resultsMap has this group
-		if resultsMap != nil {
-			if _, exists := resultsMap[group.Name]; exists {
-				resultPath = group.Name
-			} else {
-				// Try to find resolved path - check all keys in resultsMap
-				for key := range resultsMap {
-					// Check if key starts with group name (for dynamic paths)
-					if strings.HasPrefix(key, group.Name) || group.Name == "" {
-						resultPath = key
-						break
-					}
-				}
-			}
-		}
-
-		// For repeated groups (result is a slice of records), try to resolve
-		// each match to its own instance path (e.g. "interfaces[0]",
-		// "interfaces[1]") instead of collapsing every instance onto the
-		// same ResultPath. This is derived independently of parseGroup's
-		// merge state machine: a new instance is assumed to start whenever
-		// a pattern index that was already seen in the current instance
-		// appears again, which matches how the default (non-table,
-		// non-joinmatches) merge accumulates fields into a record until a
-		// field slot repeats. If the derived instance count doesn't agree
-		// with the actual number of records parseGroup produced (e.g.
-		// table method, joinmatches, or other merge modes this heuristic
-		// doesn't model), fall back to the previous single-path behavior
-		// rather than risk emitting a confidently wrong index.
-		instancePathAssigned := false
-		if resultList, isList := result.([]map[string]interface{}); isList && len(resultList) > 1 && len(allMatches) > 0 {
-			if numDerivedInstances == len(resultList) {
-				// Strip the repetition formatter ("*" / "**") from the base
-				// path - it's a template marker, not part of the stored
-				// result path (storeAtPath strips it the same way).
-				basePath := strings.TrimSuffix(strings.TrimSuffix(resultPath, "**"), "*")
-
-				lineInstance := make(map[int]int, len(allMatches))
-				for i, m := range allMatches {
-					lineInstance[m.lineIdx] = instanceOfMatch[i]
-				}
-				for _, lineMapping := range inputSourceMap.Lines {
-					for _, matchMapping := range lineMapping.Matches {
-						if matchMapping.GroupName == group.Name {
-							if idx, ok := lineInstance[lineMapping.LineNumber]; ok {
-								matchMapping.ResultPath = fmt.Sprintf("%s[%d]", basePath, idx)
-							} else {
-								matchMapping.ResultPath = resultPath
-							}
-						}
-					}
-				}
-				instancePathAssigned = true
-			}
-		}
-
-		if !instancePathAssigned {
-			// Single match, or a merge mode we don't model above -
-			// update all matches for this group with the shared result path.
-			for _, lineMapping := range inputSourceMap.Lines {
-				for _, matchMapping := range lineMapping.Matches {
-					if matchMapping.GroupName == group.Name {
-						matchMapping.ResultPath = resultPath
-					}
-				}
-			}
-		}
-	} else if result != nil && group.Name == "" {
-		// Anonymous group - use "_anonymous_" as path
-		for _, lineMapping := range inputSourceMap.Lines {
-			for _, matchMapping := range lineMapping.Matches {
-				if matchMapping.GroupName == "" {
-					matchMapping.ResultPath = "_anonymous_"
-				}
-			}
-		}
-	}
-
-	// If this group has a macro, the macro may have renamed or added
-	// fields (internal/compiled/runtime.go's processGroupMacro runs
-	// between matching and here via r.parseGroup above), which leaves the
-	// Variables captured above pointing at pre-macro field names that may
-	// no longer exist in the final record. Reconcile by value: for every
-	// field in the final record with no direct provenance yet, if some
-	// pre-macro captured variable held the exact same value under a
-	// different name, alias its source range under the new name too -
-	// this is the common case for a macro doing something like
-	// data["name"] = data["ifname"]. This is a best-effort heuristic
-	// (it can't see what the macro actually did, only compare values
-	// before/after), so it can miss a rename where the macro also
-	// transformed the value, and it can't disambiguate two pre-macro
-	// fields that happen to share the same value - in either case the
-	// field is simply left without provenance, same as before this fix.
-	// See https://github.com/roc-ops/gottp/issues/25.
-	if group.Macro != "" && len(allMatches) > 0 {
-		var finalRecords []map[string]interface{}
-		switch v := result.(type) {
-		case []map[string]interface{}:
-			finalRecords = v
-		case map[string]interface{}:
-			finalRecords = []map[string]interface{}{v}
-		}
-
-		if len(finalRecords) == numDerivedInstances {
-			for instanceIdx := 0; instanceIdx < numDerivedInstances; instanceIdx++ {
-				finalRecord := finalRecords[instanceIdx]
-
-				// Pre-macro view of this instance: every raw captured
-				// variable's value, and which allMatches entry (and thus
-				// which MatchMapping/line) it was captured on.
-				preValues := make(map[string]interface{})
-				preOwner := make(map[string]int)
-				for i, m := range allMatches {
-					if instanceOfMatch[i] != instanceIdx {
-						continue
-					}
-					for varName := range m.varRanges {
-						if val, ok := m.result[varName]; ok {
-							preValues[varName] = val
-							preOwner[varName] = i
-						}
-					}
-				}
-
-				for newKey, newVal := range finalRecord {
-					hasDirectProvenance := false
-					for i := range allMatches {
-						if instanceOfMatch[i] != instanceIdx {
-							continue
-						}
-						if _, ok := allMatches[i].varRanges[newKey]; ok {
-							hasDirectProvenance = true
-							break
-						}
-					}
-					if hasDirectProvenance {
-						continue
-					}
-
-					for origKey, origVal := range preValues {
-						if origKey == newKey || !reflect.DeepEqual(origVal, newVal) {
-							continue
-						}
-						mm := matchMappingByIdx[preOwner[origKey]]
-						if mm == nil {
-							continue
-						}
-						if origRange, ok := mm.Variables[origKey]; ok {
-							mm.Variables[newKey] = origRange
-						}
-						break
-					}
-				}
-			}
-		}
-	}
-
-	// Process nested groups with source map support
-	// Nested groups are already processed by parseGroup, but we need to:
-	// 1. Record their matches in the source map (they weren't recorded because parseGroup doesn't have source map)
-	// 2. Update their ResultPath to reflect the full path (e.g., "parent.nested" instead of just "nested")
-	if len(group.Groups) > 0 && result != nil {
-		// Determine parent result path
-		var parentResultPath string
-		if group.Name != "" {
-			parentResultPath = group.Name
-			if resultsMap != nil {
-				if _, exists := resultsMap[group.Name]; exists {
-					parentResultPath = group.Name
-				} else {
-					// Try to find resolved path
-					for key := range resultsMap {
-						if strings.HasPrefix(key, group.Name) || group.Name == "" {
-							parentResultPath = key
-							break
-						}
-					}
-				}
-			}
-		} else {
-			parentResultPath = "_anonymous_"
-		}
-
-		// Reconstruct parent match ranges from allMatches
-		// Group matches by parent match instance (pattern index 0 typically starts a new parent match)
-		type parentRange struct {
-			startLine int
-			endLine   int
-			startPos  int
-			endPos    int
-		}
-		parentRanges := make([]parentRange, 0)
-
-		// Get merged matches from result to determine how many parent matches we have
-		var mergedMatches []map[string]interface{}
-		if resultList, ok := result.([]map[string]interface{}); ok {
-			mergedMatches = resultList
-		} else if resultSingle, ok := result.(map[string]interface{}); ok {
-			mergedMatches = []map[string]interface{}{resultSingle}
-		}
-
-		// Reconstruct parent match ranges by grouping matches
-		// IMPORTANT: Parent ranges must extend to include nested group content, not just parent patterns
-		// Nested groups are parsed on content AFTER the parent's direct pattern matches
-		if len(allMatches) > 0 && len(mergedMatches) > 0 {
-			// First, find where each parent match starts (pattern index 0)
-			parentStarts := make([]int, 0)
-			for i, match := range allMatches {
-				if match.patternIdx == 0 {
-					parentStarts = append(parentStarts, i)
-				}
-			}
-
-			// Build ranges where each parent extends to the start of the next parent (or end of input)
-			for pi, startIdx := range parentStarts {
-				firstMatch := allMatches[startIdx]
-
-				// Determine where this parent's range ends
-				var endPos int
-				var endLine int
-
-				if pi+1 < len(parentStarts) {
-					// There's another parent after this one - extend to just before it
-					nextStartIdx := parentStarts[pi+1]
-					nextMatch := allMatches[nextStartIdx]
-					endPos = nextMatch.spanStart
-					endLine = nextMatch.lineIdx
-					if endLine > 0 {
-						endLine-- // Include up to the line before the next parent starts
-					}
-				} else {
-					// This is the last parent - extend to end of input
-					endPos = len(inputData)
-					endLine = len(lines) - 1
-				}
-
-				parentRanges = append(parentRanges, parentRange{
-					startLine: firstMatch.lineIdx,
-					endLine:   endLine,
-					startPos:  firstMatch.spanStart,
-					endPos:    endPos,
-				})
-			}
-
-			// Ensure we have enough ranges for all merged matches
-			for len(parentRanges) < len(mergedMatches) {
-				if len(parentRanges) == 0 {
-					parentRanges = append(parentRanges, parentRange{
-						startLine: 0,
-						endLine:   len(lines) - 1,
-						startPos:  0,
-						endPos:    len(inputData),
-					})
-				} else {
-					// Duplicate last range
-					lastRange := parentRanges[len(parentRanges)-1]
-					parentRanges = append(parentRanges, lastRange)
-				}
-			}
-		}
-
-		// First pass: Find where each nested group's pattern 0 matches within each parent range
-		// This lets us determine the actual range for each nested group
-		type nestedGroupRange struct {
-			groupName string
-			startLine int
-			endLine   int // exclusive
-			parentIdx int
-		}
-		nestedRanges := make([]nestedGroupRange, 0)
-
-		for _, nestedGroup := range group.Groups {
-			if nestedGroup.Name == "" || nestedGroup.Name == "_" {
-				continue
-			}
-			if len(nestedGroup.Patterns) == 0 {
-				continue
-			}
-
-			for parentIdx, parentRange := range parentRanges {
-				if parentIdx >= len(mergedMatches) {
-					break
-				}
-
-				parentMatch := mergedMatches[parentIdx]
-				existsInResult := r.nestedGroupExistsInResult(parentMatch, nestedGroup.Name)
-				if parentMatch == nil || !existsInResult {
-					continue
-				}
-
-				if parentRange.endPos <= parentRange.startPos || parentRange.endPos > len(inputData) {
-					continue
-				}
-
-				parentInputData := inputData[parentRange.startPos:parentRange.endPos]
-				rangeStartLine := parentRange.startLine
-				parentLines := strings.Split(parentInputData, "\n")
-
-				// Find ALL start patterns (Python TTP's start_re, from the
-				// nested group's indicator profile). Multiple start patterns
-				// allow different formats to begin a new group instance.
-				startPatternIdxs := make([]int, 0)
-				nestedProf := nestedGroup.Profile()
-				for i := range nestedGroup.Patterns {
-					if nestedProf.IsStart(i) {
-						startPatternIdxs = append(startPatternIdxs, i)
-					}
-				}
-
-				// Find ALL instances where ANY start pattern matches
-				// Each match represents a new instance of the nested group
-				instanceStartLines := make([]int, 0)
-
-				// Check if any start pattern uses anchors (most do)
-				hasAnchoredStart := false
-				for _, spIdx := range startPatternIdxs {
-					spRegex := nestedGroup.Patterns[spIdx].Regex.String()
-					if strings.Contains(spRegex, "^") || strings.Contains(spRegex, "$") {
-						hasAnchoredStart = true
-						break
-					}
-				}
-
-				if hasAnchoredStart {
-					for localLineIdx, line := range parentLines {
-						line = strings.TrimRight(line, "\r \t")
-						if strings.TrimSpace(line) == "" {
-							continue
-						}
-						// Check ALL start patterns
-						matchedAnyStart := false
-						for _, spIdx := range startPatternIdxs {
-							if nestedGroup.Patterns[spIdx].Regex.MatchString(line) {
-								matchedAnyStart = true
-								break
-							}
-						}
-						if matchedAnyStart {
-							absoluteLine := rangeStartLine + localLineIdx
-							instanceStartLines = append(instanceStartLines, absoluteLine)
-						}
-					}
-				} else {
-					// For non-anchored patterns, find all matches from ALL start patterns
-					parentLineOffsets := make([]int, 0)
-					offset := 0
-					for _, line := range parentLines {
-						parentLineOffsets = append(parentLineOffsets, offset)
-						offset += len(line) + 1
-					}
-					parentLineOffsets = append(parentLineOffsets, offset)
-
-					// Check all start patterns for non-anchored matches
-					for _, spIdx := range startPatternIdxs {
-						allMatchIndices := nestedGroup.Patterns[spIdx].Regex.FindAllStringIndex(parentInputData, -1)
-						for _, indices := range allMatchIndices {
-							if len(indices) >= 2 {
-								// Find which line this match is on
-								localLineIdx := 0
-								for i, off := range parentLineOffsets {
-									if indices[0] < off {
-										localLineIdx = i - 1
-										break
-									}
-								}
-								if localLineIdx >= 0 {
-									absoluteLine := rangeStartLine + localLineIdx
-									// Avoid duplicates
-									alreadyHave := false
-									for _, existing := range instanceStartLines {
-										if existing == absoluteLine {
-											alreadyHave = true
-											break
-										}
-									}
-									if !alreadyHave {
-										instanceStartLines = append(instanceStartLines, absoluteLine)
-									}
-								}
-							}
-						}
-					}
-				}
-
-				// Create a nestedRange entry for each instance
-				for _, startLine := range instanceStartLines {
-					nestedRanges = append(nestedRanges, nestedGroupRange{
-						groupName: nestedGroup.Name,
-						startLine: startLine,
-						endLine:   parentRange.endLine + 1, // Will be adjusted below
-						parentIdx: parentIdx,
-					})
-				}
-			}
-		}
-
-		// Sort nested ranges by startLine within each parent
-		// Then adjust endLine to be the start of the next instance (could be same group or different group)
-		for i := range nestedRanges {
-			for j := range nestedRanges {
-				// Check if range j starts after range i within the same parent
-				if i != j && nestedRanges[i].parentIdx == nestedRanges[j].parentIdx {
-					if nestedRanges[j].startLine > nestedRanges[i].startLine {
-						// Range j starts after range i - use j's start as i's end
-						if nestedRanges[j].startLine < nestedRanges[i].endLine {
-							nestedRanges[i].endLine = nestedRanges[j].startLine
-						}
-					}
-				}
-			}
-		}
-
-		// Second pass: Process each nested group range and record matches
-		// Now we iterate over ALL ranges (not just one per nested group)
-		for rangeIdx, nr := range nestedRanges {
-			// Find the corresponding nestedGroup for this range
-			var nestedGroup *compiler.CompiledGroup
-			for i := range group.Groups {
-				if group.Groups[i].Name == nr.groupName {
-					nestedGroup = group.Groups[i]
-					break
-				}
-			}
-			if nestedGroup == nil {
-				continue
-			}
-			if len(nestedGroup.Patterns) == 0 {
-				continue
-			}
-
-			parentIdx := nr.parentIdx
-			if parentIdx >= len(parentRanges) || parentIdx >= len(mergedMatches) {
-				continue
-			}
-			parentRange := parentRanges[parentIdx]
-
-			nestedGroupStartLine := nr.startLine
-			nestedGroupEndLine := nr.endLine
-
-			// Extract input data for this parent match range
-			if parentRange.endPos > parentRange.startPos && parentRange.endPos <= len(inputData) {
-				parentInputData := inputData[parentRange.startPos:parentRange.endPos]
-				rangeStartLine := parentRange.startLine
-
-				// Process nested group patterns on this parent's input range
-				// But only record matches within the nested group's specific range
-				parentLines := strings.Split(parentInputData, "\n")
-
-				for patternIdx, compiledPattern := range nestedGroup.Patterns {
-					if compiledPattern.HasAnchors {
-						// Match line by line within parent range
-						for localLineIdx, line := range parentLines {
-							absoluteLineIdx := rangeStartLine + localLineIdx
-							if absoluteLineIdx < nestedGroupStartLine || absoluteLineIdx >= nestedGroupEndLine {
-								continue
-							}
-							if absoluteLineIdx < 0 || absoluteLineIdx >= len(inputSourceMap.Lines) {
-								continue
-							}
-							line = strings.TrimRight(line, "\r \t")
-							if strings.TrimSpace(line) == "" {
-								continue
-							}
-							match := compiledPattern.Regex.FindStringSubmatch(line)
-							if match != nil {
-								matchIndices := compiledPattern.Regex.FindStringSubmatchIndex(line)
-								if len(matchIndices) < 2 {
-									continue
-								}
-								lineMapping := inputSourceMap.Lines[absoluteLineIdx]
-								lineMapping.Matched = true
-								startCol := matchIndices[0]
-								endCol := matchIndices[1]
-								adjustedVarRanges := make(map[string]*VarRange)
-								varIndex := 1
-								for _, varName := range compiledPattern.VariableOrder {
-									if _, ok := compiledPattern.Variables[varName]; !ok {
-										continue
-									}
-									if pattern.IsNonCapturingVar(varName) {
-										varIndex++
-										continue
-									}
-									if varIndex*2 < len(matchIndices) {
-										varStart := matchIndices[varIndex*2]
-										varEnd := matchIndices[varIndex*2+1]
-										if varStart >= 0 && varEnd >= 0 {
-											adjustedVarRanges[varName] = &VarRange{StartCol: varStart, EndCol: varEnd}
-										}
-									}
-									varIndex++
-								}
-								matchMapping := &MatchMapping{
-									StartCol: startCol, EndCol: endCol,
-									GroupName: nestedGroup.Name, PatternIndex: patternIdx,
-									Variables: adjustedVarRanges, ResultPath: "",
-								}
-								lineMapping.Matches = append(lineMapping.Matches, matchMapping)
-							}
-						}
-					} else {
-						// Match against parent input range (non-anchored)
-						allIndices := compiledPattern.Regex.FindAllStringSubmatchIndex(parentInputData, -1)
-						parentLineOffsets := make([]int, 0)
-						offset := 0
-						for _, line := range parentLines {
-							parentLineOffsets = append(parentLineOffsets, offset)
-							offset += len(line) + 1
-						}
-						parentLineOffsets = append(parentLineOffsets, offset)
-
-						for _, indices := range allIndices {
-							if len(indices) < 2 {
-								continue
-							}
-							localLineIdx := 0
-							for i, off := range parentLineOffsets {
-								if indices[0] < off {
-									localLineIdx = i - 1
-									break
-								}
-							}
-							if localLineIdx < 0 {
-								localLineIdx = 0
-							}
-							if localLineIdx >= len(parentLines) {
-								localLineIdx = len(parentLines) - 1
-							}
-							absoluteLineIdx := rangeStartLine + localLineIdx
-							if absoluteLineIdx < nestedGroupStartLine || absoluteLineIdx >= nestedGroupEndLine {
-								continue
-							}
-							if absoluteLineIdx < 0 || absoluteLineIdx >= len(inputSourceMap.Lines) {
-								continue
-							}
-							lineMapping := inputSourceMap.Lines[absoluteLineIdx]
-							lineMapping.Matched = true
-							lineStart := parentLineOffsets[localLineIdx]
-							startCol := indices[0] - lineStart
-							endCol := indices[1] - lineStart
-							adjustedVarRanges := make(map[string]*VarRange)
-							varIndex := 1
-							for _, varName := range compiledPattern.VariableOrder {
-								if _, ok := compiledPattern.Variables[varName]; !ok {
-									continue
-								}
-								if pattern.IsNonCapturingVar(varName) {
-									varIndex++
-									continue
-								}
-								if varIndex*2 < len(indices) {
-									varStartAbs := indices[varIndex*2]
-									varEndAbs := indices[varIndex*2+1]
-									if varStartAbs >= 0 && varEndAbs >= 0 {
-										varStart := varStartAbs - lineStart
-										varEnd := varEndAbs - lineStart
-										if varStart >= 0 && varEnd >= 0 {
-											adjustedVarRanges[varName] = &VarRange{StartCol: varStart, EndCol: varEnd}
-										}
-									}
-								}
-								varIndex++
-							}
-							matchMapping := &MatchMapping{
-								StartCol: startCol, EndCol: endCol,
-								GroupName: nestedGroup.Name, PatternIndex: patternIdx,
-								Variables: adjustedVarRanges, ResultPath: "",
-							}
-							lineMapping.Matches = append(lineMapping.Matches, matchMapping)
-						}
-					}
-				}
-			}
-
-			// Find where this nested group is stored in the result and update ResultPath
-			// for matches within this specific range
-
-			// Get the base path for the nested group (without array suffix)
-			baseNestedPath := ""
-			nestedNameWithoutStar := strings.TrimSuffix(strings.TrimSuffix(nestedGroup.Name, "**"), "*")
-			if parentResultPath != "" && parentResultPath != "_anonymous_" {
-				baseNestedPath = parentResultPath + "." + nestedNameWithoutStar
-			} else {
-				baseNestedPath = nestedNameWithoutStar
-			}
-
-			// Determine the array index for this specific range
-			// Count how many ranges of the same nested group within the same parent appear before this one
-			instanceIdx := 0
-			for i := 0; i < rangeIdx; i++ {
-				if nestedRanges[i].groupName == nr.groupName && nestedRanges[i].parentIdx == nr.parentIdx {
-					instanceIdx++
-				}
-			}
-
-			// Build the instance path (e.g., "show_system_detail.smms[0]")
-			instancePath := baseNestedPath
-			if strings.HasSuffix(nestedGroup.Name, "*") || strings.HasSuffix(nestedGroup.Name, "**") {
-				instancePath = fmt.Sprintf("%s[%d]", baseNestedPath, instanceIdx)
-			}
-
-			// Update ResultPath for matches within this nested group's range
-			for lineIdx := nr.startLine; lineIdx < nr.endLine && lineIdx < len(inputSourceMap.Lines); lineIdx++ {
-				lineMapping := inputSourceMap.Lines[lineIdx]
-				for _, matchMapping := range lineMapping.Matches {
-					if matchMapping.GroupName == nestedGroup.Name && matchMapping.ResultPath == "" {
-						matchMapping.ResultPath = instancePath
-					}
-				}
-			}
-
-			// Process deeply nested groups (children of this nested group)
-			// For example, if nestedGroup is "smms*" and it has a child "io", process "io" within this SMM's range
-			if len(nestedGroup.Groups) > 0 {
-				// Get the result data for this specific nested group instance
-				nestedResultData := mergedMatches[parentIdx]
-				nestedNameWithoutStars := strings.TrimSuffix(strings.TrimSuffix(nestedGroup.Name, "**"), "*")
-
-				// Find this nested group's result in the parent
-				var nestedInstanceResults []map[string]interface{}
-				if nestedValue, exists := nestedResultData[nestedNameWithoutStars]; exists {
-					if nestedList, ok := nestedValue.([]interface{}); ok {
-						for _, item := range nestedList {
-							if itemMap, ok := item.(map[string]interface{}); ok {
-								nestedInstanceResults = append(nestedInstanceResults, itemMap)
-							}
-						}
-					} else if nestedMap, ok := nestedValue.(map[string]interface{}); ok {
-						nestedInstanceResults = []map[string]interface{}{nestedMap}
-					}
-				}
-
-				// If we have results for this nested group instance, process its children
-				if instanceIdx < len(nestedInstanceResults) {
-					nestedInstanceData := nestedInstanceResults[instanceIdx]
-
-					for _, childGroup := range nestedGroup.Groups {
-						if childGroup.Name == "" || childGroup.Name == "_" {
-							continue
-						}
-						if len(childGroup.Patterns) == 0 {
-							continue
-						}
-
-						// Check if this child group exists in the nested instance's result
-						childNameWithoutStars := strings.TrimSuffix(strings.TrimSuffix(childGroup.Name, "**"), "*")
-						if _, childExists := nestedInstanceData[childNameWithoutStars]; !childExists {
-							continue
-						}
-
-						// Process child group patterns within this nested group's range
-						for patternIdx, compiledPattern := range childGroup.Patterns {
-							if compiledPattern.HasAnchors {
-								// Match line by line within nested group range
-								for lineIdx := nr.startLine; lineIdx < nr.endLine && lineIdx < len(inputSourceMap.Lines); lineIdx++ {
-									if lineIdx < 0 || lineIdx >= len(lines) {
-										continue
-									}
-
-									// Skip lines that already have a match from the parent group
-									// This prevents child group patterns from overriding parent matches
-									lineMapping := inputSourceMap.Lines[lineIdx]
-									hasParentMatch := false
-									for _, existingMatch := range lineMapping.Matches {
-										if existingMatch.GroupName == nestedGroup.Name {
-											hasParentMatch = true
-											break
-										}
-									}
-									if hasParentMatch {
-										continue
-									}
-
-									line := strings.TrimRight(lines[lineIdx], "\r \t")
-									if strings.TrimSpace(line) == "" {
-										continue
-									}
-									match := compiledPattern.Regex.FindStringSubmatch(line)
-									if match != nil {
-										matchIndices := compiledPattern.Regex.FindStringSubmatchIndex(line)
-										if len(matchIndices) < 2 {
-											continue
-										}
-										lineMapping.Matched = true
-										startCol := matchIndices[0]
-										endCol := matchIndices[1]
-										adjustedVarRanges := make(map[string]*VarRange)
-										varIndex := 1
-										for _, varName := range compiledPattern.VariableOrder {
-											if _, ok := compiledPattern.Variables[varName]; !ok {
-												continue
-											}
-											if pattern.IsNonCapturingVar(varName) {
-												varIndex++
-												continue
-											}
-											if varIndex*2 < len(matchIndices) {
-												varStart := matchIndices[varIndex*2]
-												varEnd := matchIndices[varIndex*2+1]
-												if varStart >= 0 && varEnd >= 0 {
-													adjustedVarRanges[varName] = &VarRange{StartCol: varStart, EndCol: varEnd}
-												}
-											}
-											varIndex++
-										}
-
-										// Build result path for this deeply nested group
-										childResultPath := instancePath + "." + childNameWithoutStars
-
-										matchMapping := &MatchMapping{
-											StartCol: startCol, EndCol: endCol,
-											GroupName: childGroup.Name, PatternIndex: patternIdx,
-											Variables: adjustedVarRanges, ResultPath: childResultPath,
-										}
-										lineMapping.Matches = append(lineMapping.Matches, matchMapping)
-									}
-								}
-							} else {
-								// For non-anchored patterns, match within the nested group's range
-								rangeText := ""
-								lineOffsets := make([]int, 0)
-								offset := 0
-								for lineIdx := nr.startLine; lineIdx < nr.endLine && lineIdx < len(lines); lineIdx++ {
-									lineOffsets = append(lineOffsets, offset)
-									rangeText += lines[lineIdx] + "\n"
-									offset += len(lines[lineIdx]) + 1
-								}
-
-								allIndices := compiledPattern.Regex.FindAllStringSubmatchIndex(rangeText, -1)
-								for _, indices := range allIndices {
-									if len(indices) < 2 {
-										continue
-									}
-									// Find which line this match is on
-									localLineIdx := 0
-									for i, off := range lineOffsets {
-										if indices[0] < off {
-											localLineIdx = i - 1
-											break
-										}
-										localLineIdx = i
-									}
-									if localLineIdx < 0 {
-										localLineIdx = 0
-									}
-									absoluteLineIdx := nr.startLine + localLineIdx
-									if absoluteLineIdx < 0 || absoluteLineIdx >= len(inputSourceMap.Lines) {
-										continue
-									}
-
-									// Skip lines that already have a match from the parent group
-									lineMapping := inputSourceMap.Lines[absoluteLineIdx]
-									hasParentMatch := false
-									for _, existingMatch := range lineMapping.Matches {
-										if existingMatch.GroupName == nestedGroup.Name {
-											hasParentMatch = true
-											break
-										}
-									}
-									if hasParentMatch {
-										continue
-									}
-
-									lineMapping.Matched = true
-									lineStart := lineOffsets[localLineIdx]
-									startCol := indices[0] - lineStart
-									endCol := indices[1] - lineStart
-
-									adjustedVarRanges := make(map[string]*VarRange)
-									varIndex := 1
-									for _, varName := range compiledPattern.VariableOrder {
-										if _, ok := compiledPattern.Variables[varName]; !ok {
-											continue
-										}
-										if pattern.IsNonCapturingVar(varName) {
-											varIndex++
-											continue
-										}
-										if varIndex*2 < len(indices) {
-											varStartAbs := indices[varIndex*2]
-											varEndAbs := indices[varIndex*2+1]
-											if varStartAbs >= 0 && varEndAbs >= 0 {
-												varStart := varStartAbs - lineStart
-												varEnd := varEndAbs - lineStart
-												if varStart >= 0 && varEnd >= 0 {
-													adjustedVarRanges[varName] = &VarRange{StartCol: varStart, EndCol: varEnd}
-												}
-											}
-										}
-										varIndex++
-									}
-
-									// Build result path for this deeply nested group
-									childResultPath := instancePath + "." + childNameWithoutStars
-
-									matchMapping := &MatchMapping{
-										StartCol: startCol, EndCol: endCol,
-										GroupName: childGroup.Name, PatternIndex: patternIdx,
-										Variables: adjustedVarRanges, ResultPath: childResultPath,
-									}
-									lineMapping.Matches = append(lineMapping.Matches, matchMapping)
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return result, nil
-}
-
-// nestedGroupExistsInResult checks if a nested group exists in a parent match result
-func (r *Runtime) nestedGroupExistsInResult(parentMatch map[string]interface{}, nestedGroupName string) bool {
-	if parentMatch == nil {
-		return false
-	}
-
-	// Check if nested group name exists directly in parent match
-	if _, exists := parentMatch[nestedGroupName]; exists {
-		return true
-	}
-
-	// Check if nested group exists as a nested path (e.g., "smms*" might be stored as "smms[0]", "smms[1]", etc.)
-	// Or it might be stored with a resolved path
-	for key := range parentMatch {
-		// Check if key starts with nested group name (handles dynamic paths and formatters)
-		keyWithoutFormatters := strings.TrimSuffix(key, "*")
-		keyWithoutFormatters = strings.TrimSuffix(keyWithoutFormatters, "**")
-		nestedNameWithoutFormatters := strings.TrimSuffix(nestedGroupName, "*")
-		nestedNameWithoutFormatters = strings.TrimSuffix(nestedNameWithoutFormatters, "**")
-
-		if keyWithoutFormatters == nestedNameWithoutFormatters ||
-			strings.HasPrefix(keyWithoutFormatters, nestedNameWithoutFormatters+"[") ||
-			strings.HasPrefix(key, nestedGroupName) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // processFunctions applies function pipeline to a value
@@ -4684,7 +3741,9 @@ func resolveVariable(arg string, vars map[string]interface{}) string {
 // processGroupFunctions processes group functions from chain/functions attribute
 // Functions are pipe-separated: "contains('ip') | set('key', 'value')"
 // Returns filtered/processed matches
-func (r *Runtime) processGroupFunctions(matches []map[string]interface{}, chainStr string, vars map[string]interface{}) ([]map[string]interface{}, error) {
+//
+// onKeep, when not nil, is called with the index of every match that is kept.
+func (r *Runtime) processGroupFunctions(matches []map[string]interface{}, chainStr string, vars map[string]interface{}, onKeep func(int)) ([]map[string]interface{}, error) {
 	// Check if chainStr references a template variable
 	if varValue, ok := vars[chainStr]; ok {
 		// It's a variable reference - use its value
@@ -4698,7 +3757,7 @@ func (r *Runtime) processGroupFunctions(matches []map[string]interface{}, chainS
 					funcStrs = append(funcStrs, strItem)
 				}
 			}
-			return r.applyGroupFunctions(matches, funcStrs, vars)
+			return r.applyGroupFunctions(matches, funcStrs, vars, onKeep)
 		}
 	}
 
@@ -4708,14 +3767,14 @@ func (r *Runtime) processGroupFunctions(matches []map[string]interface{}, chainS
 		funcStrs[i] = strings.TrimSpace(funcStrs[i])
 	}
 
-	return r.applyGroupFunctions(matches, funcStrs, vars)
+	return r.applyGroupFunctions(matches, funcStrs, vars, onKeep)
 }
 
 // applyGroupFunctions applies a list of group functions to matches
-func (r *Runtime) applyGroupFunctions(matches []map[string]interface{}, funcStrs []string, vars map[string]interface{}) ([]map[string]interface{}, error) {
+func (r *Runtime) applyGroupFunctions(matches []map[string]interface{}, funcStrs []string, vars map[string]interface{}, onKeep func(int)) ([]map[string]interface{}, error) {
 	var result []map[string]interface{}
 
-	for _, match := range matches {
+	for mi, match := range matches {
 		// Make a copy to avoid modifying the original
 		data := make(map[string]interface{})
 		for k, v := range match {
@@ -4779,6 +3838,9 @@ func (r *Runtime) applyGroupFunctions(matches []map[string]interface{}, funcStrs
 		// Only keep matches that passed all functions
 		if shouldKeep {
 			result = append(result, data)
+			if onKeep != nil {
+				onKeep(mi)
+			}
 		}
 	}
 
@@ -4804,7 +3866,9 @@ func macroErrorIsNotFound(err error) bool {
 // processGroupMacro processes group macro on each match
 // Macro can be a single macro name or comma-separated list
 // Optimized to chain Starlark macros without Go↔Starlark conversions
-func (r *Runtime) processGroupMacro(matches []map[string]interface{}, macroStr string, vars map[string]interface{}) ([]map[string]interface{}, error) {
+//
+// onKeep, when not nil, is called with the index of every match that is kept.
+func (r *Runtime) processGroupMacro(matches []map[string]interface{}, macroStr string, vars map[string]interface{}, onKeep func(int)) ([]map[string]interface{}, error) {
 	// Parse macro string (can be comma-separated list)
 	macroNames := strings.Split(macroStr, ",")
 	for i := range macroNames {
@@ -4835,7 +3899,7 @@ func (r *Runtime) processGroupMacro(matches []map[string]interface{}, macroStr s
 
 	var result []map[string]interface{}
 
-	for _, match := range matches {
+	for mi, match := range matches {
 		processedMatch := match
 
 		// Optimization: If all macros are Starlark, chain them without Go↔Starlark conversions
@@ -4953,6 +4017,9 @@ func (r *Runtime) processGroupMacro(matches []map[string]interface{}, macroStr s
 		// Only add match if it wasn't discarded
 		if processedMatch != nil {
 			result = append(result, processedMatch)
+			if onKeep != nil {
+				onKeep(mi)
+			}
 		}
 	}
 

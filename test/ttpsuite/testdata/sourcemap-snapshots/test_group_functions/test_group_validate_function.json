@@ -3,10 +3,10 @@
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
    {"LineNumber":1,"Matched":false,"Matches":[]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":13}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":13}},"ResultPath":"_anonymous_[0]"}]},
    {"LineNumber":3,"Matched":false,"Matches":[]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":13}},"ResultPath":"_anonymous_*"}]},
-   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":43,"GroupName":"","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":43}},"ResultPath":"_anonymous_*"},{"StartCol":0,"EndCol":43,"GroupName":"","PatternIndex":2,"Variables":{"hostname":{"StartCol":1,"EndCol":43}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":13}},"ResultPath":"_anonymous_[1]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":43,"GroupName":"","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":43}},"ResultPath":"_anonymous_[1]"},{"StartCol":0,"EndCol":43,"GroupName":"","PatternIndex":2,"Variables":{"hostname":{"StartCol":1,"EndCol":43}},"ResultPath":"_anonymous_[1]"}]},
    {"LineNumber":6,"Matched":false,"Matches":[]}
   ]
  }

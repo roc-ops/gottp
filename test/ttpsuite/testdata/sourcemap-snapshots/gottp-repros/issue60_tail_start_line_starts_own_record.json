@@ -1,12 +1,12 @@
 {
  "inputs": {
   "Default_Input": [
-   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"parent","PatternIndex":0,"Variables":{"asn":{"StartCol":11,"EndCol":12}},"ResultPath":"parent*"}]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"nbr","PatternIndex":0,"Variables":{"ip":{"StartCol":10,"EndCol":17},"ras":{"StartCol":28,"EndCol":29}},"ResultPath":"parent.nbr"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"parent","PatternIndex":2,"Variables":{"ts":{"StartCol":11,"EndCol":12}},"ResultPath":"parent*"}]},
-   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"parent","PatternIndex":2,"Variables":{"ts":{"StartCol":11,"EndCol":12}},"ResultPath":"parent*"}]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"parent","PatternIndex":0,"Variables":{"asn":{"StartCol":11,"EndCol":12}},"ResultPath":"parent*"}]},
-   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"nbr","PatternIndex":0,"Variables":{"ip":{"StartCol":10,"EndCol":17},"ras":{"StartCol":28,"EndCol":29}},"ResultPath":"parent.nbr"}]},
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"parent","PatternIndex":0,"Variables":{"asn":{"StartCol":11,"EndCol":12}},"ResultPath":"parent[0]"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"nbr","PatternIndex":0,"Variables":{"ip":{"StartCol":10,"EndCol":17},"ras":{"StartCol":28,"EndCol":29}},"ResultPath":"parent[0].nbr"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"parent","PatternIndex":2,"Variables":{"ts":{"StartCol":11,"EndCol":12}},"ResultPath":"parent[1]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"parent","PatternIndex":2,"Variables":{"ts":{"StartCol":11,"EndCol":12}},"ResultPath":"parent[2]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"parent","PatternIndex":0,"Variables":{"asn":{"StartCol":11,"EndCol":12}},"ResultPath":"parent[3]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"nbr","PatternIndex":0,"Variables":{"ip":{"StartCol":10,"EndCol":17},"ras":{"StartCol":28,"EndCol":29}},"ResultPath":"parent[3].nbr"}]},
    {"LineNumber":6,"Matched":false,"Matches":[]}
   ]
  }

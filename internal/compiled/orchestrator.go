@@ -3,6 +3,7 @@ package compiled
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/roc-ops/gottp/internal/compiler"
@@ -146,8 +147,11 @@ func (r *Runtime) parse(inputs map[string]string, vars map[string]interface{}, o
 
 	vars = r.applyParseOptions(vars, options)
 	inputOrder := r.prepareInputs(inputs)
+	var obs *smObserver
 	if sourceMap != nil {
 		initSourceMapInputs(sourceMap, inputs, inputOrder)
+		obs = &smObserver{}
+		r.smObs = obs
 	}
 
 	// per_input keeps one results map per input; per_template one for all.
@@ -199,30 +203,37 @@ func (r *Runtime) parse(inputs map[string]string, vars map[string]interface{}, o
 				return nil, fmt.Errorf("failed to process input functions for %s: %w", inputName, err)
 			}
 
-			resultsMap := getResultsMap(inputName)
-			var groupResults interface{}
-			if sourceMap != nil {
-				groupResults, err = r.parseGroupWithSourceMap(group, processedInputData, vars, inputName, sourceMap, resultsMap)
-			} else {
-				groupResults, err = r.parseGroup(group, processedInputData, vars)
+			if obs != nil {
+				obs.beginInput(inputName, processedInputData)
 			}
+			groupResults, err := r.parseGroup(group, processedInputData, vars)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse group %s: %w", group.Name, err)
+			}
+			var recs []*smRecord // source map: the records behind groupResults
+			if obs != nil {
+				recs = obs.takeNodes()
 			}
 
 			// Python TTP quirk: when ignore() uses a template variable, return one empty result
 			if ignoreQuirk {
 				groupResults = []map[string]interface{}{{}}
+				if obs != nil {
+					recs = []*smRecord{obs.smCollapse(group, recs)}
+				}
 			}
 
-			var storedPaths []string
 			if groupResults != nil && !void {
-				storedPaths = r.storeGroupResults(resultsMap, group, groupResults, vars)
-			}
-			if sourceMap != nil {
-				setGroupResultPaths(sourceMap.Inputs[inputName], group, storedPaths)
+				r.storeGroupResults(getResultsMap(inputName), group, groupResults, vars, recs)
+			} else {
+				smDrop(recs)
 			}
 		}
+	}
+
+	if obs != nil {
+		obs.build(sourceMap, getResultsMap)
+		r.smObs = nil
 	}
 
 	// Store vars with name attribute in each input's results
@@ -264,13 +275,34 @@ func (r *Runtime) parse(inputs map[string]string, vars map[string]interface{}, o
 }
 
 // storeGroupResults stores a top-level group's results in resultsMap under
-// the group's (possibly dynamic) path and returns the paths it stored at.
-func (r *Runtime) storeGroupResults(resultsMap map[string]interface{}, group *compiler.CompiledGroup, groupResults interface{}, vars map[string]interface{}) []string {
+// the group's (possibly dynamic) path. recs (source maps only, else nil) are
+// the records behind groupResults; each learns the map it is stored as.
+func (r *Runtime) storeGroupResults(resultsMap map[string]interface{}, group *compiler.CompiledGroup, groupResults interface{}, vars map[string]interface{}, recs []*smRecord) {
 	if group.Name == "" {
 		// Anonymous group: Python TTP stores it as "_anonymous_*" (the *
 		// keeps it a list).
+		switch v := groupResults.(type) {
+		case []map[string]interface{}:
+			for k, m := range v {
+				if rec := smAt(recs, k); rec != nil {
+					rec.final = m
+					rec.rel = "_anonymous_[" + strconv.Itoa(k) + "]"
+				}
+			}
+		case map[string]interface{}:
+			if rec := smAt(recs, 0); rec != nil {
+				rec.final = v
+				rec.rel = "_anonymous_"
+			}
+		default:
+			for _, rec := range recs {
+				if rec != nil {
+					rec.rel = "_anonymous_"
+				}
+			}
+		}
 		r.storeAtPath(resultsMap, "_anonymous_*", groupResults)
-		return []string{"_anonymous_*"}
+		return
 	}
 
 	isDynamicPath := strings.Contains(group.Name, "{{")
@@ -299,8 +331,12 @@ func (r *Runtime) storeGroupResults(resultsMap map[string]interface{}, group *co
 		// Each match may resolve to its own path; group them by path in
 		// first-seen order (Go map order is random, #78).
 		groupedResults := make(map[string][]map[string]interface{})
+		var groupedRecs map[string][]*smRecord
+		if recs != nil {
+			groupedRecs = make(map[string][]*smRecord)
+		}
 		var resolvedOrder []string
-		for _, match := range v {
+		for k, match := range v {
 			key := group.Name
 			if resolvedName, err := r.pathResolver.ResolvePath(group.Name, match, vars); err == nil && resolvedName != "" {
 				key = resolvedName
@@ -308,9 +344,13 @@ func (r *Runtime) storeGroupResults(resultsMap map[string]interface{}, group *co
 			if _, seen := groupedResults[key]; !seen {
 				resolvedOrder = append(resolvedOrder, key)
 			}
-			groupedResults[key] = append(groupedResults[key], removePathVars(match))
+			cleaned := removePathVars(match)
+			groupedResults[key] = append(groupedResults[key], cleaned)
+			if rec := smAt(recs, k); rec != nil {
+				rec.final = cleaned
+				groupedRecs[key] = append(groupedRecs[key], rec)
+			}
 		}
-		paths := make([]string, 0, len(resolvedOrder))
 		for _, resolvedName := range resolvedOrder {
 			matches := groupedResults[resolvedName]
 			// Python TTP: top-level groups - single match = map, multiple matches = list
@@ -331,21 +371,36 @@ func (r *Runtime) storeGroupResults(resultsMap map[string]interface{}, group *co
 				pathToUse += "*"
 			}
 			r.storeAtPath(resultsMap, pathToUse, valueToStore)
-			paths = append(paths, pathToUse)
+			if recs != nil {
+				setStoredRel(resultsMap, pathKeys(pathToUse), groupedRecs[resolvedName])
+			}
 		}
-		return paths
 	case map[string]interface{}:
 		path := group.Name
 		if resolvedName, err := r.pathResolver.ResolvePath(group.Name, v, vars); err == nil && resolvedName != "" {
 			path = resolvedName
 		}
-		r.storeAtPath(resultsMap, path, removePathVars(v))
-		return []string{path}
+		cleaned := removePathVars(v)
+		r.storeAtPath(resultsMap, path, cleaned)
+		if rec := smAt(recs, 0); rec != nil {
+			rec.final = cleaned
+			setStoredRel(resultsMap, pathKeys(path), []*smRecord{rec})
+		}
 	default:
 		resolvedName, err := r.pathResolver.ResolvePath(group.Name, nil, vars)
+		for _, rec := range recs {
+			if rec == nil {
+				continue
+			}
+			if err != nil || resolvedName == "" {
+				rec.rel = trimFormatter(group.Name)
+			} else {
+				rec.rel = trimFormatter(resolvedName)
+			}
+		}
 		if err != nil || resolvedName == "" || resolvedName == group.Name {
 			r.storeAtPath(resultsMap, group.Name, groupResults)
-			return []string{group.Name}
+			return
 		}
 		// A resolved dynamic path always stores a list.
 		if isDynamicPath {
@@ -357,7 +412,6 @@ func (r *Runtime) storeGroupResults(resultsMap map[string]interface{}, group *co
 		} else {
 			r.storeAtPath(resultsMap, resolvedName, groupResults)
 		}
-		return []string{resolvedName}
 	}
 }
 
@@ -415,29 +469,5 @@ func initSourceMapInputs(sourceMap *SourceMap, inputs map[string]string, inputOr
 			}
 		}
 		sourceMap.Inputs[inputName] = inputSourceMap
-	}
-}
-
-// setGroupResultPaths sets the ResultPath of every match of a top-level group
-// that doesn't have a per-instance path yet to the first path the group's
-// results were stored at (or the group's name if nothing was stored).
-func setGroupResultPaths(inputSourceMap *InputSourceMap, group *compiler.CompiledGroup, storedPaths []string) {
-	if inputSourceMap == nil {
-		return
-	}
-	path := group.Name
-	if len(storedPaths) > 0 {
-		path = storedPaths[0]
-	} else if group.Name == "" {
-		path = "_anonymous_"
-	}
-	for _, lineMapping := range inputSourceMap.Lines {
-		for _, matchMapping := range lineMapping.Matches {
-			// parseGroupWithSourceMap may already have resolved a match to
-			// its instance path (e.g. "interfaces[0]"), which is more precise.
-			if matchMapping.GroupName == group.Name && !strings.Contains(matchMapping.ResultPath, "[") {
-				matchMapping.ResultPath = path
-			}
-		}
 	}
 }

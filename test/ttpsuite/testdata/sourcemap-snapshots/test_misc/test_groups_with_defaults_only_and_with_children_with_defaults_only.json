@@ -2,7 +2,7 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":75,"GroupName":"uptime-1**","PatternIndex":0,"Variables":{"uptime":{"StartCol":25,"EndCol":75}},"ResultPath":"uptime-1**"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":75,"GroupName":"uptime-1**","PatternIndex":0,"Variables":{"uptime":{"StartCol":25,"EndCol":75}},"ResultPath":"uptime-1"}]},
    {"LineNumber":2,"Matched":false,"Matches":[]}
   ]
  }

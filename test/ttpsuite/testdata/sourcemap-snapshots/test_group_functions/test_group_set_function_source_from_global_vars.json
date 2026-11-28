@@ -2,7 +2,7 @@
  "inputs": {
   "cfg": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"","PatternIndex":0,"Variables":{"hostname":{"StartCol":9,"EndCol":17}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"","PatternIndex":0,"Variables":{"hostname":{"StartCol":9,"EndCol":17}},"ResultPath":"_anonymous_[0]"}]},
    {"LineNumber":2,"Matched":false,"Matches":[]}
   ],
   "intf": [
