@@ -250,6 +250,20 @@ func TestAssembler(t *testing.T) {
 			want:    []wantRec{{v{"h": "1", "k": "a\nb", "v": "1\n2"}, []int{0, 1, 2}, [2]int{0, 40}}},
 		},
 		{
+			name:  "a joinmatches without an argument keeps the character an earlier variable set",
+			group: testGroup(false, tp("start", start), tp("re", join, joinVar("a", ","), joinVar("b", ""))),
+			matches: []asmMatch{
+				m(0, 0, v{"i": "1"}), m(1, 10, v{"a": "x", "b": "y"}), m(1, 20, v{"a": "p", "b": "q"}),
+			},
+			want: []wantRec{{v{"i": "1", "a": "x,p", "b": "y,q"}, []int{0, 1, 2}, [2]int{0, 40}}},
+		},
+		{
+			name:    "a joinmatches without an argument alone joins with a newline",
+			group:   testGroup(false, tp("start", start), tp("re", join, joinVar("b", ""))),
+			matches: []asmMatch{m(0, 0, v{"i": "1"}), m(1, 10, v{"b": "y"}), m(1, 20, v{"b": "q"})},
+			want:    []wantRec{{v{"i": "1", "b": "y\nq"}, []int{0, 1, 2}, [2]int{0, 40}}},
+		},
+		{
 			name:    "a joinmatches start line starts a record on every match",
 			group:   testGroup(false, tp("start", start, joinVar("x", "\n")), tp("re", add)),
 			matches: []asmMatch{m(0, 0, v{"x": "a"}), m(1, 10, v{"v": "1"}), m(0, 20, v{"x": "b"})},
@@ -306,5 +320,23 @@ func TestAssemblerUntrackedKeepsNoIndices(t *testing.T) {
 	}
 	if len(used) != 1 || used[0] != nil {
 		t.Errorf("used = %v, want one record with nil indices", used)
+	}
+}
+
+// A _line_ start line starts a record on every match; the started-groups
+// stack must not grow with it, or streaming such a group grows per record.
+func TestAssemblerLineStartKeepsStartedBounded(t *testing.T) {
+	g := testGroup(false, tp("start", compiler.ActionStart, isLine))
+	a := newAssembler(g, false, func(asmRecord) error { return nil })
+	for i := 0; i < 1000; i++ {
+		if err := a.add(m(0, i*10, v{"l": "x"})); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := a.finish(10000); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.started) > 2 {
+		t.Errorf("len(started) = %d after 1000 records, want it bounded", len(a.started))
 	}
 }

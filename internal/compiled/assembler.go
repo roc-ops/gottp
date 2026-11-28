@@ -405,7 +405,12 @@ func (a *assembler) startRecord(g *asmGroup, m asmMatch, values map[string]inter
 			break
 		}
 		if g.patterns[m.pattern].isLine {
-			a.started = append(a.started, g.id)
+			// TTP appends here every time; skipping a repeat keeps the
+			// stack bounded when streaming a _line_ group (nothing reads
+			// the duplicates).
+			if a.started[len(a.started)-1] != g.id {
+				a.started = append(a.started, g.id)
+			}
 			traced = true
 			break
 		}
@@ -443,7 +448,9 @@ func (a *assembler) addValues(m asmMatch) {
 func (a *assembler) join(m asmMatch) {
 	char := "\n"
 	for _, jv := range a.pat(m).joinVars {
-		if _, ok := m.result[jv.name]; ok {
+		// As in TTP, a joinmatches without an argument keeps the
+		// character an earlier variable on the line set.
+		if _, ok := m.result[jv.name]; ok && jv.char != "" {
 			char = jv.char
 		}
 	}
@@ -545,7 +552,8 @@ func functionNameOf(f string) string {
 }
 
 // joinMatchesCharOf is the join character of a joinmatches call: its first
-// argument, or a newline.
+// argument, or "" when it has none (join then keeps the character already in
+// effect, a newline by default).
 func joinMatchesCharOf(f string) string {
 	start := strings.Index(f, "(")
 	end := strings.LastIndex(f, ")")
@@ -554,5 +562,5 @@ func joinMatchesCharOf(f string) string {
 			return arg
 		}
 	}
-	return "\n"
+	return ""
 }
