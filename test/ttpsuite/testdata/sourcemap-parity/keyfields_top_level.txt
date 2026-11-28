@@ -1,0 +1,2 @@
+vlan 10 name users
+vlan 20 name voice

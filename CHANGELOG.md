@@ -21,6 +21,9 @@ These fixes make `ParseWithValidation` report problems it used to pass, so outpu
 - **A `yang=` path at the wrong level is an error**: when none of a group's fields is defined under its path (for example the container instead of the list each match maps to), the result is `Valid=false` with one error that suggests the right path, instead of `Valid=true` with only warnings. (#57)
 - **Leaves under `choice`/`case` are validated**: they were reported as "not defined" warnings and never type-checked. (#59)
 
+### Tests
+- **Source-map snapshots and parity pins** (refactor A0, #60): `test/ttpsuite` now pins the source map of all 217 source-map parity cases as snapshot files (`TestSourceMapSnapshots`, rewritten with `-update-sourcemap-snapshots`), and `TestSourceMapParity` also compares `KeyFields`. Three new gottp-only parity cases (`testdata/sourcemap-parity`) record that source maps on skips input functions and leaves `KeyFields` empty. `test/comparison` has benchmarks with source maps on (`*SourceMap`) next to the existing ones.
+
 ## [v0.1.13] - 2026-09-03
 
 ### Fixed

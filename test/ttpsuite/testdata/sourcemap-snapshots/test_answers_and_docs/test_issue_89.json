@@ -1,0 +1,16 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interfaces.{{ interface }}","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":29}},"ResultPath":"interfaces.Bundle-Ether801.101"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":37,"GroupName":"interfaces.{{ interface }}","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":37}},"ResultPath":"interfaces.Bundle-Ether801.101"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"interfaces.{{ interface }}","PatternIndex":2,"Variables":{"mtu":{"StartCol":5,"EndCol":9}},"ResultPath":"interfaces.Bundle-Ether801.101"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":39,"GroupName":"interfaces.{{ interface }}","PatternIndex":6,"Variables":{"ipv4_addr":{"StartCol":13,"EndCol":13},"ipv4_mask":{"StartCol":13,"EndCol":39}},"ResultPath":"interfaces.Bundle-Ether801.101"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":50,"GroupName":"interfaces.{{ interface }}","PatternIndex":6,"Variables":{"ipv4_addr":{"StartCol":13,"EndCol":13},"ipv4_mask":{"StartCol":13,"EndCol":50}},"ResultPath":"interfaces.Bundle-Ether801.101"},{"StartCol":0,"EndCol":50,"GroupName":"secondary","PatternIndex":0,"Variables":{"ipv4_addr":{"StartCol":13,"EndCol":13},"ipv4_mask":{"StartCol":13,"EndCol":40}},"ResultPath":"interfaces.{{ interface }}.secondary"}]},
+   {"LineNumber":6,"Matched":false,"Matches":[]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"interfaces.{{ interface }}","PatternIndex":9,"Variables":{"dot1q":{"StartCol":21,"EndCol":24}},"ResultPath":"interfaces.Bundle-Ether801.101"}]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"interfaces.{{ interface }}","PatternIndex":16,"Variables":{},"ResultPath":"interfaces.Bundle-Ether801.101"}]},
+   {"LineNumber":9,"Matched":false,"Matches":[]}
+  ]
+ }
+}

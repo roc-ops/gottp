@@ -1,0 +1,42 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"object-{{ object_type }}-groups**.{{ object_name }}**","PatternIndex":0,"Variables":{"object_name":{"StartCol":21,"EndCol":29},"object_type":{"StartCol":13,"EndCol":20}},"ResultPath":"object-service-groups**.gokuhead**"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"service-object-ports*","PatternIndex":0,"Variables":{"port":{"StartCol":39,"EndCol":46},"protocol":{"StartCol":16,"EndCol":23}},"ResultPath":"object-{{ object_type }}-groups**.{{ object_name }}**.service-object-ports[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":38,"GroupName":"service-object-ports*","PatternIndex":0,"Variables":{"port":{"StartCol":35,"EndCol":38},"protocol":{"StartCol":16,"EndCol":19}},"ResultPath":"object-{{ object_type }}-groups**.{{ object_name }}**.service-object-ports[1]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":40,"GroupName":"service-object-ports*","PatternIndex":0,"Variables":{"port":{"StartCol":35,"EndCol":40},"protocol":{"StartCol":16,"EndCol":19}},"ResultPath":"object-{{ object_type }}-groups**.{{ object_name }}**.service-object-ports[2]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":38,"GroupName":"service-object-ports*","PatternIndex":0,"Variables":{"port":{"StartCol":35,"EndCol":38},"protocol":{"StartCol":16,"EndCol":19}},"ResultPath":"object-{{ object_type }}-groups**.{{ object_name }}**.service-object-ports[3]"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":40,"GroupName":"service-object-ports*","PatternIndex":0,"Variables":{"port":{"StartCol":35,"EndCol":40},"protocol":{"StartCol":16,"EndCol":19}},"ResultPath":"object-{{ object_type }}-groups**.{{ object_name }}**.service-object-ports[4]"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"object-{{ object_type }}-groups**.{{ object_name }}**","PatternIndex":0,"Variables":{"object_name":{"StartCol":21,"EndCol":26},"object_type":{"StartCol":13,"EndCol":20}},"ResultPath":"object-service-groups**.gokuhead**"}]},
+   {"LineNumber":8,"Matched":false,"Matches":[]},
+   {"LineNumber":9,"Matched":false,"Matches":[]},
+   {"LineNumber":10,"Matched":false,"Matches":[]},
+   {"LineNumber":11,"Matched":false,"Matches":[]},
+   {"LineNumber":12,"Matched":false,"Matches":[]},
+   {"LineNumber":13,"Matched":false,"Matches":[]},
+   {"LineNumber":14,"Matched":true,"Matches":[{"StartCol":0,"EndCol":28,"GroupName":"object-{{ object_type }}-groups**.{{ object_name }}**","PatternIndex":1,"Variables":{"object_name":{"StartCol":21,"EndCol":24},"object_type":{"StartCol":13,"EndCol":20},"protocol":{"StartCol":25,"EndCol":28}},"ResultPath":"object-service-groups**.gokuhead**"}]},
+   {"LineNumber":15,"Matched":false,"Matches":[]},
+   {"LineNumber":16,"Matched":true,"Matches":[{"StartCol":0,"EndCol":27,"GroupName":"object-{{ object_type }}-groups**.{{ object_name }}**","PatternIndex":0,"Variables":{"object_name":{"StartCol":21,"EndCol":27},"object_type":{"StartCol":13,"EndCol":20}},"ResultPath":"object-service-groups**.gokuhead**"}]},
+   {"LineNumber":17,"Matched":false,"Matches":[]},
+   {"LineNumber":18,"Matched":false,"Matches":[]},
+   {"LineNumber":19,"Matched":true,"Matches":[{"StartCol":0,"EndCol":32,"GroupName":"object-{{ object_type }}-groups**.{{ object_name }}**","PatternIndex":0,"Variables":{"object_name":{"StartCol":21,"EndCol":32},"object_type":{"StartCol":13,"EndCol":20}},"ResultPath":"object-service-groups**.gokuhead**"}]},
+   {"LineNumber":20,"Matched":false,"Matches":[]},
+   {"LineNumber":21,"Matched":false,"Matches":[]},
+   {"LineNumber":22,"Matched":false,"Matches":[]},
+   {"LineNumber":23,"Matched":false,"Matches":[]},
+   {"LineNumber":24,"Matched":false,"Matches":[]},
+   {"LineNumber":25,"Matched":false,"Matches":[]},
+   {"LineNumber":26,"Matched":false,"Matches":[]},
+   {"LineNumber":27,"Matched":false,"Matches":[]},
+   {"LineNumber":28,"Matched":false,"Matches":[]},
+   {"LineNumber":29,"Matched":true,"Matches":[{"StartCol":0,"EndCol":31,"GroupName":"object-{{ object_type }}-groups**.{{ object_name }}**","PatternIndex":0,"Variables":{"object_name":{"StartCol":21,"EndCol":31},"object_type":{"StartCol":13,"EndCol":20}},"ResultPath":"object-service-groups**.gokuhead**"}]},
+   {"LineNumber":30,"Matched":false,"Matches":[]},
+   {"LineNumber":31,"Matched":false,"Matches":[]},
+   {"LineNumber":32,"Matched":false,"Matches":[]},
+   {"LineNumber":33,"Matched":false,"Matches":[]},
+   {"LineNumber":34,"Matched":false,"Matches":[]},
+   {"LineNumber":35,"Matched":false,"Matches":[]}
+  ]
+ }
+}

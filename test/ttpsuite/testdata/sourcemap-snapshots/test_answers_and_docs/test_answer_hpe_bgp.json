@@ -1,0 +1,30 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"bgp_af.{{vpn_instance}}.{{address_family}}","PatternIndex":0,"Variables":{"address_family":{"StartCol":1,"EndCol":5},"vpn_instance":{"StartCol":26,"EndCol":29}},"ResultPath":"bgp_af.{{vpn_instance}}.{{address_family}}"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"bgp_af.{{vpn_instance}}.{{address_family}}","PatternIndex":1,"Variables":{"router_id":{"StartCol":12,"EndCol":23}},"ResultPath":"bgp_af.{{vpn_instance}}.{{address_family}}"}]},
+   {"LineNumber":3,"Matched":false,"Matches":[]},
+   {"LineNumber":4,"Matched":false,"Matches":[]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":85,"GroupName":"aggregate","PatternIndex":0,"Variables":{"attribute_policy":{"StartCol":73,"EndCol":85},"detail_suppressed":{"StartCol":38,"EndCol":55},"mask":{"StartCol":24,"EndCol":37},"network":{"StartCol":12,"EndCol":23}},"ResultPath":"bgp_af.{{vpn_instance}}.{{address_family}}.aggregate"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":86,"GroupName":"aggregate","PatternIndex":0,"Variables":{"attribute_policy":{"StartCol":74,"EndCol":86},"detail_suppressed":{"StartCol":39,"EndCol":56},"mask":{"StartCol":25,"EndCol":38},"network":{"StartCol":12,"EndCol":24}},"ResultPath":"bgp_af.{{vpn_instance}}.{{address_family}}.aggregate"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":21,"GroupName":"bgp_af.{{vpn_instance}}.{{address_family}}","PatternIndex":2,"Variables":{"pref_external":{"StartCol":16,"EndCol":18},"pref_internal":{"StartCol":13,"EndCol":15},"pref_local":{"StartCol":19,"EndCol":21}},"ResultPath":"bgp_af.{{vpn_instance}}.{{address_family}}"}]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":62,"GroupName":"networks","PatternIndex":0,"Variables":{"mask":{"StartCol":23,"EndCol":36},"network":{"StartCol":10,"EndCol":22},"route_policy":{"StartCol":50,"EndCol":62}},"ResultPath":"bgp_af.{{vpn_instance}}.{{address_family}}.networks"}]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":66,"GroupName":"networks","PatternIndex":0,"Variables":{"mask":{"StartCol":25,"EndCol":40},"network":{"StartCol":10,"EndCol":24},"route_policy":{"StartCol":54,"EndCol":66}},"ResultPath":"bgp_af.{{vpn_instance}}.{{address_family}}.networks"}]},
+   {"LineNumber":10,"Matched":false,"Matches":[]},
+   {"LineNumber":11,"Matched":false,"Matches":[]},
+   {"LineNumber":12,"Matched":false,"Matches":[]},
+   {"LineNumber":13,"Matched":false,"Matches":[]},
+   {"LineNumber":14,"Matched":false,"Matches":[]},
+   {"LineNumber":15,"Matched":false,"Matches":[]},
+   {"LineNumber":16,"Matched":false,"Matches":[]},
+   {"LineNumber":17,"Matched":false,"Matches":[]},
+   {"LineNumber":18,"Matched":false,"Matches":[]},
+   {"LineNumber":19,"Matched":false,"Matches":[]},
+   {"LineNumber":20,"Matched":false,"Matches":[]},
+   {"LineNumber":21,"Matched":false,"Matches":[]},
+   {"LineNumber":22,"Matched":false,"Matches":[]},
+   {"LineNumber":23,"Matched":false,"Matches":[]}
+  ]
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"vlans*","PatternIndex":0,"Variables":{"vlan":{"StartCol":5,"EndCol":8}},"ResultPath":"vlans[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"vlans*","PatternIndex":1,"Variables":{"name":{"StartCol":6,"EndCol":13}},"ResultPath":"vlans[0]"}]},
+   {"LineNumber":3,"Matched":false,"Matches":[]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"vlans*","PatternIndex":0,"Variables":{"vlan":{"StartCol":5,"EndCol":8}},"ResultPath":"vlans[1]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":18,"GroupName":"vlans*","PatternIndex":1,"Variables":{"name":{"StartCol":6,"EndCol":18}},"ResultPath":"vlans[1]"}]},
+   {"LineNumber":6,"Matched":false,"Matches":[]}
+  ]
+ }
+}

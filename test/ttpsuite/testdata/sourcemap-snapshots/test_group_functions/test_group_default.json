@@ -1,0 +1,9 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":75,"GroupName":"uptime**","PatternIndex":0,"Variables":{"uptime":{"StartCol":25,"EndCol":75}},"ResultPath":"uptime**"}]},
+   {"LineNumber":2,"Matched":false,"Matches":[]}
+  ]
+ }
+}

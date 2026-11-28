@@ -1,0 +1,9 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"bgp_config","PatternIndex":0,"Variables":{"bgp_as":{"StartCol":11,"EndCol":16}},"ResultPath":"bgp_config"},{"StartCol":0,"EndCol":16,"GroupName":"bgp_config","PatternIndex":1,"Variables":{"var_1_value":{"StartCol":0,"EndCol":16}},"ResultPath":"bgp_config"},{"StartCol":0,"EndCol":16,"GroupName":"bgp_config","PatternIndex":2,"Variables":{"var_2_value":{"StartCol":0,"EndCol":16}},"ResultPath":"bgp_config"},{"StartCol":0,"EndCol":16,"GroupName":"bgp_config","PatternIndex":3,"Variables":{"var_3_value":{"StartCol":0,"EndCol":16}},"ResultPath":"bgp_config"}]},
+   {"LineNumber":2,"Matched":false,"Matches":[]}
+  ]
+ }
+}

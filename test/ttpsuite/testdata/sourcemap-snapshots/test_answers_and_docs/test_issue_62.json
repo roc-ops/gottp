@@ -1,0 +1,15 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"{{ nameif }}","PatternIndex":0,"Variables":{"nameif":{"StartCol":0,"EndCol":8}},"ResultPath":"security"}]},
+   {"LineNumber":2,"Matched":false,"Matches":[]},
+   {"LineNumber":3,"Matched":false,"Matches":[]},
+   {"LineNumber":4,"Matched":false,"Matches":[]},
+   {"LineNumber":5,"Matched":false,"Matches":[]},
+   {"LineNumber":6,"Matched":false,"Matches":[]},
+   {"LineNumber":7,"Matched":false,"Matches":[]},
+   {"LineNumber":8,"Matched":false,"Matches":[]}
+  ]
+ }
+}

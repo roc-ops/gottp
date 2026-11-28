@@ -1,0 +1,22 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"interface","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":16}},"ResultPath":"interface[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interface","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":29}},"ResultPath":"interface[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"ipv4_secondary*","PatternIndex":0,"Variables":{"ipv4_addr":{"StartCol":12,"EndCol":36}},"ResultPath":"interface.ipv4_secondary[0]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"ipv4_secondary*","PatternIndex":0,"Variables":{"ipv4_addr":{"StartCol":12,"EndCol":36}},"ResultPath":"interface.ipv4_secondary[1]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":36,"GroupName":"interface","PatternIndex":2,"Variables":{"ipv4_addr":{"StartCol":12,"EndCol":36}},"ResultPath":"interface[0]"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"interface","PatternIndex":3,"Variables":{"load-interval":{"StartCol":15,"EndCol":17}},"ResultPath":"interface[0]"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"interface","PatternIndex":4,"Variables":{"bandwidth":{"StartCol":11,"EndCol":19}},"ResultPath":"interface[0]"}]},
+   {"LineNumber":8,"Matched":false,"Matches":[]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"interface","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":17}},"ResultPath":"interface[1]"}]},
+   {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":30,"GroupName":"interface","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":30}},"ResultPath":"interface[1]"}]},
+   {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":37,"GroupName":"interface","PatternIndex":2,"Variables":{"ipv4_addr":{"StartCol":12,"EndCol":37}},"ResultPath":"interface[1]"}]},
+   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"interface","PatternIndex":3,"Variables":{"load-interval":{"StartCol":15,"EndCol":17}},"ResultPath":"interface[1]"}]},
+   {"LineNumber":13,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"interface","PatternIndex":4,"Variables":{"bandwidth":{"StartCol":11,"EndCol":19}},"ResultPath":"interface[1]"}]},
+   {"LineNumber":14,"Matched":false,"Matches":[]},
+   {"LineNumber":15,"Matched":false,"Matches":[]}
+  ]
+ }
+}

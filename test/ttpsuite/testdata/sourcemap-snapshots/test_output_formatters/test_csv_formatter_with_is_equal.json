@@ -1,0 +1,20 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":28,"GroupName":"interfaces2.trunks2","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":28}},"ResultPath":"interfaces2.trunks2[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"interfaces2.trunks2","PatternIndex":1,"Variables":{"trunk_vlans":{"StartCol":35,"EndCol":46}},"ResultPath":"interfaces2.trunks2[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interfaces2.trunks2","PatternIndex":2,"Variables":{"description":{"StartCol":13,"EndCol":29}},"ResultPath":"interfaces2.trunks2[0]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"interfaces2.trunks2","PatternIndex":5,"Variables":{},"ResultPath":"interfaces2.trunks2[0]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":28,"GroupName":"interfaces2.trunks2","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":28}},"ResultPath":"interfaces2.trunks2[1]"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":42,"GroupName":"interfaces2.trunks2","PatternIndex":1,"Variables":{"trunk_vlans":{"StartCol":35,"EndCol":42}},"ResultPath":"interfaces2.trunks2[1]"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"interfaces2.trunks2","PatternIndex":5,"Variables":{},"ResultPath":"interfaces2.trunks2[1]"}]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":28,"GroupName":"interfaces2.trunks2","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":28}},"ResultPath":"interfaces2.trunks2[2]"}]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":50,"GroupName":"interfaces2.trunks2","PatternIndex":1,"Variables":{"trunk_vlans":{"StartCol":35,"EndCol":50}},"ResultPath":"interfaces2.trunks2[2]"}]},
+   {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":35,"GroupName":"interfaces2.trunks2","PatternIndex":4,"Variables":{"ip":{"StartCol":12,"EndCol":19},"mask":{"StartCol":20,"EndCol":35}},"ResultPath":"interfaces2.trunks2[2]"}]},
+   {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"interfaces2.trunks2","PatternIndex":3,"Variables":{"vrf":{"StartCol":16,"EndCol":23}},"ResultPath":"interfaces2.trunks2[2]"}]},
+   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"interfaces2.trunks2","PatternIndex":5,"Variables":{},"ResultPath":"interfaces2.trunks2[2]"}]},
+   {"LineNumber":13,"Matched":false,"Matches":[]}
+  ]
+ }
+}

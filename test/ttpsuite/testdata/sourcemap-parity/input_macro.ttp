@@ -1,0 +1,9 @@
+<macro>
+def up(data):
+    return data.replace("x", "y")
+</macro>
+<input name="Default_Input" macro="up">
+</input>
+<group name="g">
+y {{ v }}
+</group>

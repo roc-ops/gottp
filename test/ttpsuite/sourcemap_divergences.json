@@ -1,5 +1,5 @@
 {
- "_comment": "Cases whose parsed data changes when ParseOptions{EnableSourceMap: true} is set (Runtime.ParseWithSourceMap instead of Runtime.Parse). issue = the root cause of the first difference. A case listed here that reaches parity fails TestSourceMapParity, so remove it when its issue is fixed.",
+ "_comment": "Cases whose parsed data or key fields change when ParseOptions{EnableSourceMap: true} is set (Runtime.ParseWithSourceMap instead of Runtime.Parse). issue = the root cause of the first difference. A case listed here that reaches parity fails TestSourceMapParity, so remove it when its issue is fixed.",
  "cases": {
   "gottp-repros/issue31_ignore_vars_name": {
    "issue": 107,
@@ -8,6 +8,18 @@
   "gottp-repros/sourcemap_void_group": {
    "issue": 108,
    "reason": "void group is kept in the results"
+  },
+  "sourcemap-parity/input_macro": {
+   "issue": 60,
+   "reason": "input functions (here an input macro) are not run with source maps on, so the group sees the raw input"
+  },
+  "sourcemap-parity/keyfields_nested": {
+   "issue": 60,
+   "reason": "KeyFields is empty with source maps on (collectGroupKeys is never called)"
+  },
+  "sourcemap-parity/keyfields_top_level": {
+   "issue": 60,
+   "reason": "KeyFields is empty with source maps on (collectGroupKeys is never called)"
   },
   "test_answers_and_docs/test_docs_ttp_dictionary_usage_example": {
    "issue": 106,

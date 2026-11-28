@@ -1,0 +1,11 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"people","PatternIndex":0,"Variables":{"name":{"StartCol":5,"EndCol":9}},"ResultPath":"people[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"people","PatternIndex":0,"Variables":{"name":{"StartCol":5,"EndCol":12}},"ResultPath":"people[1]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"people","PatternIndex":0,"Variables":{"name":{"StartCol":5,"EndCol":9}},"ResultPath":"people[2]"}]},
+   {"LineNumber":4,"Matched":false,"Matches":[]}
+  ]
+ }
+}

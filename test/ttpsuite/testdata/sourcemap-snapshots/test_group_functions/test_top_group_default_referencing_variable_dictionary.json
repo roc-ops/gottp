@@ -1,0 +1,13 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":false,"Matches":[]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"interfaces","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":13}},"ResultPath":"interfaces[0]"}]},
+   {"LineNumber":3,"Matched":false,"Matches":[]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"interfaces","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":13}},"ResultPath":"interfaces[1]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":43,"GroupName":"interfaces","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":43}},"ResultPath":"interfaces[1]"}]},
+   {"LineNumber":6,"Matched":false,"Matches":[]}
+  ]
+ }
+}

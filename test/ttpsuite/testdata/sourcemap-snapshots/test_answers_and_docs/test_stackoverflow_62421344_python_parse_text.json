@@ -1,0 +1,25 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":false,"Matches":[]},
+   {"LineNumber":2,"Matched":false,"Matches":[]},
+   {"LineNumber":3,"Matched":false,"Matches":[]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"","PatternIndex":0,"Variables":{},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":5,"Matched":false,"Matches":[]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"","PatternIndex":1,"Variables":{"date":{"StartCol":11,"EndCol":21},"hour":{"StartCol":22,"EndCol":24},"value":{"StartCol":25,"EndCol":29}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":7,"Matched":false,"Matches":[]},
+   {"LineNumber":8,"Matched":false,"Matches":[]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"","PatternIndex":0,"Variables":{},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":10,"Matched":false,"Matches":[]},
+   {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":30,"GroupName":"","PatternIndex":1,"Variables":{"date":{"StartCol":12,"EndCol":22},"hour":{"StartCol":23,"EndCol":25},"value":{"StartCol":26,"EndCol":30}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":12,"Matched":false,"Matches":[]},
+   {"LineNumber":13,"Matched":false,"Matches":[]},
+   {"LineNumber":14,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"","PatternIndex":0,"Variables":{},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":15,"Matched":false,"Matches":[]},
+   {"LineNumber":16,"Matched":true,"Matches":[{"StartCol":0,"EndCol":30,"GroupName":"","PatternIndex":1,"Variables":{"date":{"StartCol":12,"EndCol":22},"hour":{"StartCol":23,"EndCol":25},"value":{"StartCol":26,"EndCol":30}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":17,"Matched":false,"Matches":[]},
+   {"LineNumber":18,"Matched":false,"Matches":[]}
+  ]
+ }
+}

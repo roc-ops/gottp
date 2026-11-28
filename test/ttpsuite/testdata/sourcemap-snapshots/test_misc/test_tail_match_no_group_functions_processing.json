@@ -1,0 +1,26 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":25,"GroupName":"interfaces*","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":25}},"ResultPath":"interfaces[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":32,"GroupName":"interfaces*","PatternIndex":4,"Variables":{"description":{"StartCol":12,"EndCol":32}},"ResultPath":"interfaces[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"interfaces*","PatternIndex":10,"Variables":{"lacp_mode":{"StartCol":18,"EndCol":24},"lag_id":{"StartCol":11,"EndCol":12}},"ResultPath":"interfaces[0]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":18,"GroupName":"interfaces*","PatternIndex":11,"Variables":{"lacp_period":{"StartCol":13,"EndCol":18}},"ResultPath":"interfaces[0]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":5,"GroupName":"lldp","PatternIndex":0,"Variables":{},"ResultPath":"interfaces*.lldp"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"lldp","PatternIndex":1,"Variables":{"lldp_enabled":{"StartCol":8,"EndCol":8}},"ResultPath":"interfaces*.lldp"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":18,"GroupName":"lldp","PatternIndex":2,"Variables":{"transmit_disabled":{"StartCol":18,"EndCol":18}},"ResultPath":"interfaces*.lldp"}]},
+   {"LineNumber":8,"Matched":false,"Matches":[]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"interfaces*","PatternIndex":28,"Variables":{},"ResultPath":"interfaces[0]"}]},
+   {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"interfaces*","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":16}},"ResultPath":"interfaces[1]"}]},
+   {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":38,"GroupName":"interfaces*","PatternIndex":4,"Variables":{"description":{"StartCol":12,"EndCol":38}},"ResultPath":"interfaces[1]"}]},
+   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"interfaces*","PatternIndex":5,"Variables":{"mtu":{"StartCol":5,"EndCol":9}},"ResultPath":"interfaces[1]"}]},
+   {"LineNumber":13,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"interfaces*","PatternIndex":9,"Variables":{"vrf":{"StartCol":5,"EndCol":9}},"ResultPath":"interfaces[1]"}]},
+   {"LineNumber":14,"Matched":true,"Matches":[{"StartCol":0,"EndCol":38,"GroupName":"ipv4*","PatternIndex":0,"Variables":{"ip":{"StartCol":14,"EndCol":24},"mask":{"StartCol":25,"EndCol":38}},"ResultPath":"interfaces*.ipv4[0]"}]},
+   {"LineNumber":15,"Matched":true,"Matches":[{"StartCol":0,"EndCol":30,"GroupName":"ipv6*","PatternIndex":1,"Variables":{"ip":{"StartCol":14,"EndCol":27},"mask":{"StartCol":28,"EndCol":30}},"ResultPath":"interfaces*.ipv6[0]"}]},
+   {"LineNumber":16,"Matched":true,"Matches":[{"StartCol":0,"EndCol":39,"GroupName":"interfaces*","PatternIndex":14,"Variables":{"ipv4_acl_in":{"StartCol":19,"EndCol":31}},"ResultPath":"interfaces[1]"}]},
+   {"LineNumber":17,"Matched":true,"Matches":[{"StartCol":0,"EndCol":39,"GroupName":"interfaces*","PatternIndex":16,"Variables":{"ipv6_acl_in":{"StartCol":19,"EndCol":31}},"ResultPath":"interfaces[1]"}]},
+   {"LineNumber":18,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"interfaces*","PatternIndex":28,"Variables":{},"ResultPath":"interfaces[1]"}]},
+   {"LineNumber":19,"Matched":false,"Matches":[]}
+  ]
+ }
+}
