@@ -28,7 +28,9 @@ type Runtime struct {
 	inputRegistry     *input.Registry
 	outputRegistry    *output.Registry
 	macroRegistry     *macro.MacroRegistry
-	pathResolver      *PathResolver
+	pathResolver      *PathResolver                     // active dynamic-path cache; per input during a parse (see usePathResolverFor)
+	pathResolvers     map[string]*PathResolver          // per-parse dynamic-path caches, keyed by input name
+	lastParse         *lastParseResults                 // outputs of the most recent parse, shared by every per-parse copy
 	matchCollector    *MatchCollector
 	yangValidator     *yang.Validator
 	validationResults map[string]*yang.ValidationResult // group name -> validation result
@@ -61,6 +63,7 @@ func NewRuntimeWithFunctions(compiled *compiler.CompiledTemplate, compileFns *Ru
 		validationResults: make(map[string]*yang.ValidationResult),
 		keyFields:         make(map[string][]string),
 		compileFunctions:  compileFns,
+		lastParse:         &lastParseResults{},
 	}
 
 	// Register macros from compiled template
@@ -97,12 +100,14 @@ func (r *Runtime) SetYANGModuleSet(moduleSet *yang.ModuleSet) {
 
 // GetValidationResults returns all validation results
 func (r *Runtime) GetValidationResults() map[string]*yang.ValidationResult {
-	return r.validationResults
+	validationResults, _ := r.lastParse.get()
+	return validationResults
 }
 
 // GetKeyFields returns declared key fields for each group (from keys= attribute)
 func (r *Runtime) GetKeyFields() map[string][]string {
-	return r.keyFields
+	_, keyFields := r.lastParse.get()
+	return keyFields
 }
 
 // collectGroupKeys recursively collects key fields from a group and all its
@@ -211,22 +216,21 @@ type ParseOptions struct {
 
 // Parse executes the compiled template with given inputs and variables.
 //
-// This method is stateless and can be called repeatedly without reset.
-// It does not modify the Runtime instance or the CompiledTemplate.
+// This method can be called repeatedly without reset: per-parse state lives
+// on a private copy of the Runtime (see beginParse), so nothing one call
+// matches or caches is visible to the next.
 //
-// Thread-safety: This method is safe to call from a single goroutine.
-// For concurrent parsing, create a new Runtime instance for each goroutine.
+// Thread-safety: concurrent calls on one Runtime do not share parse state.
+// Two caveats remain: macros from ParseOptions.Functions.Macro are registered
+// on the shared macro registry, and GetValidationResults / GetKeyFields
+// report whichever call finished last. Use one Runtime per goroutine if
+// either matters.
 func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, options *ParseOptions) (interface{}, error) {
-	// Clear previous validation results
-	r.validationResults = make(map[string]*yang.ValidationResult)
-	// Clear recorded vars (from record() function)
-	r.recordedVars = make(map[string]interface{})
-
-	// Clear runtime lookups
-	r.runtimeLookups = nil
-
-	// Clear runtime functions
-	r.runtimeFunctions = nil
+	// Per-parse state lives on a private copy of the Runtime, so repeated and
+	// concurrent calls on one Runtime never share it (#83).
+	run := r.beginParse()
+	defer r.finishParse(run)
+	r = run
 
 	// Set YANG module set if provided
 	if options != nil && options.YANGModuleSet != nil {
@@ -422,6 +426,7 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 				// Input not found - skip (Python TTP behavior)
 				continue
 			}
+			r.usePathResolverFor(inputName)
 
 			// Process input functions if any
 			processedInputData, err := r.processInputFunctions(inputName, inputData, vars)
@@ -580,6 +585,7 @@ func (r *Runtime) Parse(inputs map[string]string, vars map[string]interface{}, o
 	// Store vars with name attribute in result structure
 	// These vars should be stored in each input's results
 	for inputName, inputResults := range resultsPerInput {
+		r.usePathResolverFor(inputName)
 		// Get the input data for this input to resolve getter functions
 		var inputDataForGetter string
 		if inputData, ok := inputs[inputName]; ok {
@@ -806,16 +812,11 @@ func (r *Runtime) ParseStream(
 
 	// --- Setup: mirror Parse exactly ---
 
-	// Clear previous validation results
-	r.validationResults = make(map[string]*yang.ValidationResult)
-	// Clear recorded vars (from record() function)
-	r.recordedVars = make(map[string]interface{})
-
-	// Clear runtime lookups
-	r.runtimeLookups = nil
-
-	// Clear runtime functions
-	r.runtimeFunctions = nil
+	// Per-parse state lives on a private copy of the Runtime, so repeated and
+	// concurrent calls on one Runtime never share it (#83).
+	run := r.beginParse()
+	defer r.finishParse(run)
+	r = run
 
 	// Set YANG module set if provided
 	if options != nil && options.YANGModuleSet != nil {
@@ -942,6 +943,7 @@ func (r *Runtime) ParseStream(
 				continue
 			}
 
+			r.usePathResolverFor(inputName)
 			processedInputData, err := r.processInputFunctions(inputName, inputData, vars)
 			if err != nil {
 				return fmt.Errorf("failed to process input functions for %s: %w", inputName, err)
@@ -969,16 +971,11 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 		Inputs: make(map[string]*InputSourceMap),
 	}
 
-	// Clear previous validation results
-	r.validationResults = make(map[string]*yang.ValidationResult)
-	// Clear recorded vars (from record() function)
-	r.recordedVars = make(map[string]interface{})
-
-	// Clear runtime lookups
-	r.runtimeLookups = nil
-
-	// Clear runtime functions
-	r.runtimeFunctions = nil
+	// Per-parse state lives on a private copy of the Runtime, so repeated and
+	// concurrent calls on one Runtime never share it (#83).
+	run := r.beginParse()
+	defer r.finishParse(run)
+	r = run
 
 	// Set YANG module set if provided
 	if options != nil && options.YANGModuleSet != nil {
@@ -1180,6 +1177,7 @@ func (r *Runtime) ParseWithSourceMap(inputs map[string]string, vars map[string]i
 		}
 
 		// Parse group with source map collection
+		r.usePathResolverFor(inputName)
 		groupResults, err := r.parseGroupWithSourceMap(group, inputData, vars, inputName, sourceMap, getResultsMap(inputName))
 		if err != nil {
 			return nil, nil, err

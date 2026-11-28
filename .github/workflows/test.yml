@@ -43,6 +43,31 @@ jobs:
       - name: Build WASM editor target
         run: GOOS=js GOARCH=wasm go build ./...
 
+  race:
+    name: go test -race
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: test/comparison/requirements.txt
+
+      - name: Install pinned Python TTP
+        run: python3 -m pip install -r test/comparison/requirements.txt
+
+      # Shared-Runtime concurrency is a supported use (#83). test/memory is
+      # left out: its allocation thresholds don't hold under race
+      # instrumentation (~4x allocations), and it runs without -race above.
+      - name: go test -race
+        run: go test -race -count=1 $(go list ./... | grep -v '/test/memory$')
+
   staticcheck:
     name: staticcheck
     runs-on: ubuntu-latest
