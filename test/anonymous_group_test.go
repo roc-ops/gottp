@@ -49,7 +49,6 @@ interface Lo1
 	}
 }
 
-
 // TestAnonymousGroupResultShape pins the result shape of top-level anonymous
 // groups to Python TTP 0.10.1 (#62). TTP's template.form_results
 // (ttp/ttp.py:989-1003) makes the _anonymous_ value one input's result,
@@ -71,9 +70,6 @@ func TestAnonymousGroupResultShape(t *testing.T) {
 		template string
 		inputs   gottp.Inputs
 		want     string
-		// skipSourceMap names the issue that keeps the source-map path from
-		// matching TTP on this case for a reason unrelated to #62.
-		skipSourceMap string
 	}{
 		{name: "implicit two matches", template: implicit,
 			inputs: gottp.Inputs{"Default_Input": "interface A\ninterface B"},
@@ -97,17 +93,14 @@ func TestAnonymousGroupResultShape(t *testing.T) {
 			inputs: gottp.Inputs{"Default_Input": "interface A\ninterface B"},
 			want:   `[[{"name":"A"},{"name":"B"}]]`},
 		{name: "two inputs keep both", template: implicit,
-			inputs:        gottp.Inputs{"Default_Input": "interface A\ninterface B", "in2": "interface C"},
-			want:          `[[{"name":"A"},{"name":"B"}],{"name":"C"}]`,
-			skipSourceMap: "#105"},
+			inputs: gottp.Inputs{"Default_Input": "interface A\ninterface B", "in2": "interface C"},
+			want:   `[[{"name":"A"},{"name":"B"}],{"name":"C"}]`},
 		{name: "two inputs one empty", template: implicit,
-			inputs:        gottp.Inputs{"Default_Input": "interface A\ninterface B", "in2": "nothing"},
-			want:          `[[{"name":"A"},{"name":"B"}],{}]`,
-			skipSourceMap: "#105"},
+			inputs: gottp.Inputs{"Default_Input": "interface A\ninterface B", "in2": "nothing"},
+			want:   `[[{"name":"A"},{"name":"B"}],{}]`},
 		{name: "unnamed two inputs keep both", template: unnamed,
-			inputs:        gottp.Inputs{"Default_Input": "interface A\ninterface B", "in2": "interface C"},
-			want:          `[[{"name":"A"},{"name":"B"}],[{"name":"C"}]]`,
-			skipSourceMap: "#105"},
+			inputs: gottp.Inputs{"Default_Input": "interface A\ninterface B", "in2": "interface C"},
+			want:   `[[{"name":"A"},{"name":"B"}],[{"name":"C"}]]`},
 		{name: "anonymous plus named group", template: wrap(unnamed + hostGroup),
 			inputs: gottp.Inputs{"Default_Input": "interface A\ninterface B\nhost X"},
 			want:   `[[{"name":"A"},{"name":"B"},{"h":{"host":"X"}}]]`},
@@ -124,9 +117,8 @@ func TestAnonymousGroupResultShape(t *testing.T) {
 			inputs: gottp.Inputs{"Default_Input": "interface A\n ip 1\ninterface B"},
 			want:   `[[{"ips":{"ip":"1"},"name":"A"},{"name":"B"}]]`},
 		{name: "per_template", template: perTplOpen + unnamed + "\n</template>",
-			inputs:        gottp.Inputs{"Default_Input": "interface A\ninterface B", "in2": "interface C"},
-			want:          `[{"name":"A"},{"name":"B"},{"name":"C"}]`,
-			skipSourceMap: "#105"},
+			inputs: gottp.Inputs{"Default_Input": "interface A\ninterface B", "in2": "interface C"},
+			want:   `[{"name":"A"},{"name":"B"},{"name":"C"}]`},
 		{name: "per_template one match", template: perTplOpen + unnamed + "\n</template>",
 			inputs: gottp.Inputs{"Default_Input": "interface A"},
 			want:   `[{"name":"A"}]`},
@@ -141,9 +133,6 @@ func TestAnonymousGroupResultShape(t *testing.T) {
 				name += "/sourcemap"
 			}
 			t.Run(name, func(t *testing.T) {
-				if sourceMap && tc.skipSourceMap != "" {
-					t.Skipf("source-map path differs for another reason: %s", tc.skipSourceMap)
-				}
 				compiled, err := gottp.CompileTemplate(tc.template)
 				if err != nil {
 					t.Fatalf("compile: %v", err)
