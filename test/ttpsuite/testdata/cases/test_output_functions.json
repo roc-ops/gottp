@@ -1,0 +1,516 @@
+[
+ {
+  "name": "test_output_functions/test_cerberus_validate_per_input",
+  "source": "test/pytest/test_output_functions.py::test_cerberus_validate_per_input",
+  "template": "\n<input load=\"text\">\ncsw1# show run | sec ntp\nhostname csw1\nntp peer 1.2.3.4\nntp peer 1.2.3.5\n</input>\n\n<input load=\"text\">\ncsw2# show run | sec ntp\nhostname csw2\nntp peer 1.2.3.4\nntp peer 3.3.3.3\n</input>\n\n<vars>\nntp_schema = {\n    \"ntp_peers\": {\n        'type': 'list',\n        'schema': {\n            'type': 'dict', \n            'schema': {\n                'peer': {\n                    'type': 'string', \n                    'allowed': ['1.2.3.4', '1.2.3.5']\n                }\n            }\n        }\n    }\n}\n</vars>\n\n<group name=\"_\">\nhostname {{ host_name }}\n</group>\n\n<group name=\"ntp_peers*\">\nntp peer {{ peer }}\n</group>\n\n<output validate=\"ntp_schema, info='{host_name} NTP peers valid', errors='errors'\"/>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "valid": true,
+     "info": "csw1 NTP peers valid",
+     "errors": {}
+    },
+    {
+     "valid": false,
+     "info": "csw2 NTP peers valid",
+     "errors": {
+      "ntp_peers": [
+       {
+        "1": [
+         {
+          "peer": [
+           "unallowed value 3.3.3.3"
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_output_functions/test_cerberus_validate_per_template",
+  "source": "test/pytest/test_output_functions.py::test_cerberus_validate_per_template",
+  "template": "\n<template results=\"per_template\">\n<input load=\"text\">\ncsw1# show run | sec ntp\nntp peer 1.2.3.4\nntp peer 1.2.3.5\n</input>\n\n<input load=\"text\">\ncsw1# show run | sec ntp\nntp peer 1.2.3.4\nntp peer 3.3.3.3\n</input>\n\n<vars>\nntp_schema = {\n    \"ntp_peers\": {\n        'type': 'list',\n        'schema': {\n            'type': 'dict', \n            'schema': {\n                'peer': {\n                    'type': 'string', \n                    'allowed': ['1.2.3.4', '1.2.3.5']\n                }\n            }\n        }\n    }\n}\nhostname = \"gethostname\"\n</vars>\n\n<group name=\"ntp_peers*\">\nntp peer {{ peer }}\n</group>\n\n<output validate=\"ntp_schema, info='{hostname} NTP peers valid', errors='errors'\"/>\n</template>\n    ",
+  "inputs": [],
+  "expected": [
+   {
+    "valid": false,
+    "info": "csw1 NTP peers valid",
+    "errors": {
+     "ntp_peers": [
+      {
+       "3": [
+        {
+         "peer": [
+          "unallowed value 3.3.3.3"
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "name": "test_output_functions/test_global_output_deepdiff_with_var_before",
+  "source": "test/pytest/test_output_functions.py::test_global_output_deepdiff_with_var_before",
+  "template": "\n<vars>\nbefore = [[{'description': 'some info',\n             'interface': 'GigabitEthernet1',\n             'ip': '10.123.89.56',\n             'mask': '255.255.255.255'},\n            {'interface': 'GigabitEthernet2',\n             'ip': '10.123.89.55',\n             'mask': '255.255.255.0'}]]\n</vars>\n\n<input name=\"Cisco_ios\" load=\"text\">\nr1#show interfaces | inc line protocol:\ninterface GigabitEthernet1\n description some info\n vrf forwarding MGMT\n ip address 10.123.89.56 255.255.255.0\ninterface GigabitEthernet2\n ip address 10.123.89.55 255.255.255.0\n</input>\n\n<group>\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {{ ip }} {{ mask }}\n</group>\n\n<output deepdiff=\"var_before='before'\"/>\n    ",
+  "inputs": [],
+  "expected": [
+   {
+    "values_changed": {
+     "root[0][0]['mask']": {
+      "new_value": "255.255.255.0",
+      "old_value": "255.255.255.255"
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "test_output_functions/test_group_specific_output_deepdiff_with_var_before",
+  "source": "test/pytest/test_output_functions.py::test_group_specific_output_deepdiff_with_var_before",
+  "template": "\n<vars>\nbefore = {\"interfaces\": [{'description': 'some info',\n                          'interface': 'GigabitEthernet1',\n                          'ip': '10.123.89.56',\n                          'mask': '255.255.255.255'},\n                         {'interface': 'GigabitEthernet2',\n                          'ip': '10.123.89.55',\n                          'mask': '255.255.255.0'}]}\n</vars>\n\n<input name=\"Cisco_ios\" load=\"text\">\nr1#show interfaces | inc line protocol:\ninterface GigabitEthernet1\n description some info\n vrf forwarding MGMT\n ip address 10.123.89.56 255.255.255.0\ninterface GigabitEthernet2\n ip address 10.123.89.55 255.255.255.0\n</input>\n\n<group name=\"interfaces*\" output=\"out_1\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {{ ip }} {{ mask }}\n</group>\n\n<group name=\"interfaces_2*\">\ninterface {{ interface }}\n vrf forwarding {{ vrf }}\n ip address {{ ip }} {{ mask }}\n</group>\n\n<output name=\"out_1\" deepdiff=\"var_before='before'\"/>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interfaces_2": [
+       {
+        "ip": "10.123.89.56",
+        "mask": "255.255.255.0",
+        "vrf": "MGMT",
+        "interface": "GigabitEthernet1"
+       },
+       {
+        "ip": "10.123.89.55",
+        "mask": "255.255.255.0",
+        "interface": "GigabitEthernet2"
+       }
+      ]
+     },
+     {
+      "values_changed": {
+       "root['interfaces'][0]['mask']": {
+        "new_value": "255.255.255.0",
+        "old_value": "255.255.255.255"
+       }
+      }
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_output_functions/test_group_specific_output_deepdiff_with_var_before_with_add_field",
+  "source": "test/pytest/test_output_functions.py::test_group_specific_output_deepdiff_with_var_before_with_add_field",
+  "template": "\n<vars>\nbefore = {\"interfaces\": [{'description': 'some info',\n                          'interface': 'GigabitEthernet1',\n                          'ip': '10.123.89.56',\n                          'mask': '255.255.255.255'},\n                         {'interface': 'GigabitEthernet2',\n                          'ip': '10.123.89.55',\n                          'mask': '255.255.255.0'}]}\n</vars>\n\n<input name=\"Cisco_ios\" load=\"text\">\nr1#show interfaces | inc line protocol:\ninterface GigabitEthernet1\n description some info\n vrf forwarding MGMT\n ip address 10.123.89.56 255.255.255.0\ninterface GigabitEthernet2\n ip address 10.123.89.55 255.255.255.0\n</input>\n\n<group name=\"interfaces*\" output=\"out_1\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {{ ip }} {{ mask }}\n</group>\n\n<group name=\"interfaces_2*\">\ninterface {{ interface }}\n vrf forwarding {{ vrf }}\n ip address {{ ip }} {{ mask }}\n</group>\n\n<output name=\"out_1\" deepdiff=\"var_before='before', add_field='diff'\"/>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interfaces_2": [
+       {
+        "ip": "10.123.89.56",
+        "mask": "255.255.255.0",
+        "vrf": "MGMT",
+        "interface": "GigabitEthernet1"
+       },
+       {
+        "ip": "10.123.89.55",
+        "mask": "255.255.255.0",
+        "interface": "GigabitEthernet2"
+       }
+      ]
+     },
+     {
+      "interfaces": [
+       {
+        "ip": "10.123.89.56",
+        "mask": "255.255.255.0",
+        "description": "some info",
+        "interface": "GigabitEthernet1"
+       },
+       {
+        "ip": "10.123.89.55",
+        "mask": "255.255.255.0",
+        "interface": "GigabitEthernet2"
+       }
+      ],
+      "diff": {
+       "values_changed": {
+        "root['interfaces'][0]['mask']": {
+         "new_value": "255.255.255.0",
+         "old_value": "255.255.255.255"
+        }
+       }
+      }
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_output_functions/test_yangson_validate",
+  "source": "test/pytest/test_output_functions.py::test_yangson_validate",
+  "template": "\n<macro>\ndef add_iftype(data):\n    if \"eth\" in data.lower():\n        return data, {\"type\": \"iana-if-type:ethernetCsmacd\"}\n    return data, {\"type\": None}\n</macro>\n\n<group name=\"ietf-interfaces:interfaces.interface*\">\ninterface {{ name | macro(add_iftype) }}\n description {{ description | re(\".+\") }}\n shutdown {{ enabled | set(False) | let(\"admin-status\", \"down\") }}\n {{ link-up-down-trap-enable | set(enabled) }}\n {{ admin-status | set(up) }}\n {{ enabled | set(True) }}\n {{ if-index | set(1) }}\n {{ statistics | set({\"discontinuity-time\": \"1970-01-01T00:00:00+00:00\"}) }}\n {{ oper-status | set(unknown) }}\n \n <group name=\"ietf-ip:ipv4\">\n ip mtu {{ mtu | to_int }} \n </group>\n \n <group name=\"ietf-ip:ipv4.address*\">\n ip address {{ ip | _start_ }} {{ netmask }}\n ip address {{ ip | _start_ }} {{ netmask }} secondary\n {{ origin | set(static) }}  \n </group>\n\n <group name=\"ietf-ip:ipv6.address*\">\n ipv6 address {{ ip | _start_ }}/{{ prefix-length | to_int }}\n {{ origin | set(static) }}  \n </group>\n \n</group>\n\n<output>\nvalidate_yangson=\"'./yang_modules/'\"\n</output>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface GigabitEthernet1/3.251\n description Customer #32148\n encapsulation dot1q 251\n ip address 172.16.33.10 255.255.255.128\n shutdown\n!\ninterface GigabitEthernet1/4\n description vCPEs access control\n ip address 172.16.33.10 255.255.255.128\n!\ninterface GigabitEthernet1/5\n description Works data\n ip mtu 9000\n!\ninterface GigabitEthernet1/7\n description Works data v6\n ipv6 address 2001::1/64\n ipv6 address 2001:1::1/64\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   {
+    "result": [
+     {
+      "ietf-interfaces:interfaces": {
+       "interface": [
+        {
+         "description": "Customer #32148",
+         "name": "GigabitEthernet1/3.251",
+         "type": "iana-if-type:ethernetCsmacd",
+         "link-up-down-trap-enable": "enabled",
+         "admin-status": "down",
+         "enabled": false,
+         "if-index": 1,
+         "statistics": {
+          "discontinuity-time": "1970-01-01T00:00:00+00:00"
+         },
+         "oper-status": "unknown",
+         "ietf-ip:ipv4": {
+          "address": [
+           {
+            "ip": "172.16.33.10",
+            "netmask": "255.255.255.128",
+            "origin": "static"
+           }
+          ]
+         }
+        },
+        {
+         "description": "vCPEs access control",
+         "name": "GigabitEthernet1/4",
+         "type": "iana-if-type:ethernetCsmacd",
+         "link-up-down-trap-enable": "enabled",
+         "admin-status": "up",
+         "enabled": true,
+         "if-index": 1,
+         "statistics": {
+          "discontinuity-time": "1970-01-01T00:00:00+00:00"
+         },
+         "oper-status": "unknown",
+         "ietf-ip:ipv4": {
+          "address": [
+           {
+            "ip": "172.16.33.10",
+            "netmask": "255.255.255.128",
+            "origin": "static"
+           }
+          ]
+         }
+        },
+        {
+         "description": "Works data",
+         "name": "GigabitEthernet1/5",
+         "type": "iana-if-type:ethernetCsmacd",
+         "link-up-down-trap-enable": "enabled",
+         "admin-status": "up",
+         "enabled": true,
+         "if-index": 1,
+         "statistics": {
+          "discontinuity-time": "1970-01-01T00:00:00+00:00"
+         },
+         "oper-status": "unknown",
+         "ietf-ip:ipv4": {
+          "mtu": 9000
+         }
+        },
+        {
+         "description": "Works data v6",
+         "name": "GigabitEthernet1/7",
+         "type": "iana-if-type:ethernetCsmacd",
+         "link-up-down-trap-enable": "enabled",
+         "admin-status": "up",
+         "enabled": true,
+         "if-index": 1,
+         "statistics": {
+          "discontinuity-time": "1970-01-01T00:00:00+00:00"
+         },
+         "oper-status": "unknown",
+         "ietf-ip:ipv6": {
+          "address": [
+           {
+            "ip": "2001::1",
+            "prefix-length": 64,
+            "origin": "static"
+           },
+           {
+            "ip": "2001:1::1",
+            "prefix-length": 64,
+            "origin": "static"
+           }
+          ]
+         }
+        }
+       ]
+      }
+     }
+    ],
+    "exception": {},
+    "valid": {
+     "0": true
+    },
+    "comment": ""
+   }
+  ]
+ },
+ {
+  "name": "test_output_functions/test_yangson_validate_yang_lib_in_output_tag_data",
+  "source": "test/pytest/test_output_functions.py::test_yangson_validate_yang_lib_in_output_tag_data",
+  "template": "\n<macro>\ndef add_iftype(data):\n    if \"eth\" in data.lower():\n        return data, {\"type\": \"iana-if-type:ethernetCsmacd\"}\n    return data, {\"type\": None}\n</macro>\n\n<group name=\"ietf-interfaces:interfaces.interface*\">\ninterface {{ name | macro(add_iftype) }}\n description {{ description | re(\".+\") }}\n shutdown {{ enabled | set(False) | let(\"admin-status\", \"down\") }}\n {{ link-up-down-trap-enable | set(enabled) }}\n {{ admin-status | set(up) }}\n {{ enabled | set(True) }}\n {{ if-index | set(1) }}\n {{ statistics | set({\"discontinuity-time\": \"1970-01-01T00:00:00+00:00\"}) }}\n {{ oper-status | set(unknown) }}\n \n <group name=\"ietf-ip:ipv4\">\n ip mtu {{ mtu | to_int }} \n </group>\n \n <group name=\"ietf-ip:ipv4.address*\">\n ip address {{ ip | _start_ }} {{ netmask }}\n ip address {{ ip | _start_ }} {{ netmask }} secondary\n {{ origin | set(static) }}  \n </group>\n\n <group name=\"ietf-ip:ipv6.address*\">\n ipv6 address {{ ip | _start_ }}/{{ prefix-length | to_int }}\n {{ origin | set(static) }}  \n </group>\n \n</group>\n\n<output validate_yangson=\"yang_mod_dir='./yang_modules/'\" load=\"text\">\n{\n  \"ietf-yang-library:modules-state\": {\n    \"module-set-id\": \"\",\n    \"module\": [\n      {\n        \"name\": \"iana-if-type\",\n        \"revision\": \"2017-01-19\",\n        \"namespace\": \"urn:ietf:params:xml:ns:yang:iana-if-type\",\n        \"conformance-type\": \"implement\"\n      },\n      {\n        \"name\": \"ietf-inet-types\",\n        \"revision\": \"2013-07-15\",\n        \"namespace\": \"urn:ietf:params:xml:ns:yang:ietf-inet-types\",\n        \"conformance-type\": \"import\"\n      },\n      {\n        \"name\": \"ietf-interfaces\",\n        \"revision\": \"2018-02-20\",\n        \"namespace\": \"urn:ietf:params:xml:ns:yang:ietf-interfaces\",\n        \"feature\": [\n          \"arbitrary-names\",\n          \"pre-provisioning\",\n          \"if-mib\"\n        ],\n        \"conformance-type\": \"implement\"\n      },\n      {\n        \"name\": \"ietf-ip\",\n        \"revision\": \"2018-02-22\",\n        \"namespace\": \"urn:ietf:params:xml:ns:yang:ietf-ip\",\n        \"feature\": [\n          \"ipv4-non-contiguous-netmasks\",\n          \"ipv6-privacy-autoconf\"\n        ],\n        \"conformance-type\": \"implement\"\n      },\n      {\n        \"name\": \"ietf-yang-types\",\n        \"revision\": \"2013-07-15\",\n        \"namespace\": \"urn:ietf:params:xml:ns:yang:ietf-yang-types\",\n        \"conformance-type\": \"import\"\n      }\n    ]\n  }\n}\n</output>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface GigabitEthernet1/3.251\n description Customer #32148\n encapsulation dot1q 251\n ip address 172.16.33.10 255.255.255.128\n shutdown\n!\ninterface GigabitEthernet1/4\n description vCPEs access control\n ip address 172.16.33.10 255.255.255.128\n!\ninterface GigabitEthernet1/5\n description Works data\n ip mtu 9000\n!\ninterface GigabitEthernet1/7\n description Works data v6\n ipv6 address 2001::1/64\n ipv6 address 2001:1::1/64\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   {
+    "result": [
+     {
+      "ietf-interfaces:interfaces": {
+       "interface": [
+        {
+         "description": "Customer #32148",
+         "name": "GigabitEthernet1/3.251",
+         "type": "iana-if-type:ethernetCsmacd",
+         "link-up-down-trap-enable": "enabled",
+         "admin-status": "down",
+         "enabled": false,
+         "if-index": 1,
+         "statistics": {
+          "discontinuity-time": "1970-01-01T00:00:00+00:00"
+         },
+         "oper-status": "unknown",
+         "ietf-ip:ipv4": {
+          "address": [
+           {
+            "ip": "172.16.33.10",
+            "netmask": "255.255.255.128",
+            "origin": "static"
+           }
+          ]
+         }
+        },
+        {
+         "description": "vCPEs access control",
+         "name": "GigabitEthernet1/4",
+         "type": "iana-if-type:ethernetCsmacd",
+         "link-up-down-trap-enable": "enabled",
+         "admin-status": "up",
+         "enabled": true,
+         "if-index": 1,
+         "statistics": {
+          "discontinuity-time": "1970-01-01T00:00:00+00:00"
+         },
+         "oper-status": "unknown",
+         "ietf-ip:ipv4": {
+          "address": [
+           {
+            "ip": "172.16.33.10",
+            "netmask": "255.255.255.128",
+            "origin": "static"
+           }
+          ]
+         }
+        },
+        {
+         "description": "Works data",
+         "name": "GigabitEthernet1/5",
+         "type": "iana-if-type:ethernetCsmacd",
+         "link-up-down-trap-enable": "enabled",
+         "admin-status": "up",
+         "enabled": true,
+         "if-index": 1,
+         "statistics": {
+          "discontinuity-time": "1970-01-01T00:00:00+00:00"
+         },
+         "oper-status": "unknown",
+         "ietf-ip:ipv4": {
+          "mtu": 9000
+         }
+        },
+        {
+         "description": "Works data v6",
+         "name": "GigabitEthernet1/7",
+         "type": "iana-if-type:ethernetCsmacd",
+         "link-up-down-trap-enable": "enabled",
+         "admin-status": "up",
+         "enabled": true,
+         "if-index": 1,
+         "statistics": {
+          "discontinuity-time": "1970-01-01T00:00:00+00:00"
+         },
+         "oper-status": "unknown",
+         "ietf-ip:ipv6": {
+          "address": [
+           {
+            "ip": "2001::1",
+            "prefix-length": 64,
+            "origin": "static"
+           },
+           {
+            "ip": "2001:1::1",
+            "prefix-length": 64,
+            "origin": "static"
+           }
+          ]
+         }
+        }
+       ]
+      }
+     }
+    ],
+    "exception": {},
+    "valid": {
+     "0": true
+    },
+    "comment": ""
+   }
+  ]
+ },
+ {
+  "name": "test_output_functions/test_yangson_validate_metadata_false_validation_successful",
+  "source": "test/pytest/test_output_functions.py::test_yangson_validate_metadata_false_validation_successful",
+  "template": "\n<macro>\ndef add_iftype(data):\n    if \"eth\" in data.lower():\n        return data, {\"type\": \"iana-if-type:ethernetCsmacd\"}\n    return data, {\"type\": None}\n</macro>\n\n<group name=\"ietf-interfaces:interfaces.interface*\">\ninterface {{ name | macro(add_iftype) }}\n description {{ description | re(\".+\") }}\n shutdown {{ enabled | set(False) | let(\"admin-status\", \"down\") }}\n {{ link-up-down-trap-enable | set(enabled) }}\n {{ admin-status | set(up) }}\n {{ enabled | set(True) }}\n {{ if-index | set(1) }}\n {{ statistics | set({\"discontinuity-time\": \"1970-01-01T00:00:00+00:00\"}) }}\n {{ oper-status | set(unknown) }}\n \n <group name=\"ietf-ip:ipv4\">\n ip mtu {{ mtu | to_int }} \n </group>\n \n <group name=\"ietf-ip:ipv4.address*\">\n ip address {{ ip | _start_ }} {{ netmask }}\n ip address {{ ip | _start_ }} {{ netmask }} secondary\n {{ origin | set(static) }}  \n </group>\n\n <group name=\"ietf-ip:ipv6.address*\">\n ipv6 address {{ ip | _start_ }}/{{ prefix-length | to_int }}\n {{ origin | set(static) }}  \n </group>\n \n</group>\n\n<output>\nvalidate_yangson=\"'./yang_modules/', metadata=False\"\n</output>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface GigabitEthernet1/3.251\n description Customer #32148\n encapsulation dot1q 251\n ip address 172.16.33.10 255.255.255.128\n shutdown\n!\ninterface GigabitEthernet1/4\n description vCPEs access control\n ip address 172.16.33.10 255.255.255.128\n!\ninterface GigabitEthernet1/5\n description Works data\n ip mtu 9000\n!\ninterface GigabitEthernet1/7\n description Works data v6\n ipv6 address 2001::1/64\n ipv6 address 2001:1::1/64\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "ietf-interfaces:interfaces": {
+      "interface": [
+       {
+        "description": "Customer #32148",
+        "name": "GigabitEthernet1/3.251",
+        "type": "iana-if-type:ethernetCsmacd",
+        "link-up-down-trap-enable": "enabled",
+        "admin-status": "down",
+        "enabled": false,
+        "if-index": 1,
+        "statistics": {
+         "discontinuity-time": "1970-01-01T00:00:00+00:00"
+        },
+        "oper-status": "unknown",
+        "ietf-ip:ipv4": {
+         "address": [
+          {
+           "ip": "172.16.33.10",
+           "netmask": "255.255.255.128",
+           "origin": "static"
+          }
+         ]
+        }
+       },
+       {
+        "description": "vCPEs access control",
+        "name": "GigabitEthernet1/4",
+        "type": "iana-if-type:ethernetCsmacd",
+        "link-up-down-trap-enable": "enabled",
+        "admin-status": "up",
+        "enabled": true,
+        "if-index": 1,
+        "statistics": {
+         "discontinuity-time": "1970-01-01T00:00:00+00:00"
+        },
+        "oper-status": "unknown",
+        "ietf-ip:ipv4": {
+         "address": [
+          {
+           "ip": "172.16.33.10",
+           "netmask": "255.255.255.128",
+           "origin": "static"
+          }
+         ]
+        }
+       },
+       {
+        "description": "Works data",
+        "name": "GigabitEthernet1/5",
+        "type": "iana-if-type:ethernetCsmacd",
+        "link-up-down-trap-enable": "enabled",
+        "admin-status": "up",
+        "enabled": true,
+        "if-index": 1,
+        "statistics": {
+         "discontinuity-time": "1970-01-01T00:00:00+00:00"
+        },
+        "oper-status": "unknown",
+        "ietf-ip:ipv4": {
+         "mtu": 9000
+        }
+       },
+       {
+        "description": "Works data v6",
+        "name": "GigabitEthernet1/7",
+        "type": "iana-if-type:ethernetCsmacd",
+        "link-up-down-trap-enable": "enabled",
+        "admin-status": "up",
+        "enabled": true,
+        "if-index": 1,
+        "statistics": {
+         "discontinuity-time": "1970-01-01T00:00:00+00:00"
+        },
+        "oper-status": "unknown",
+        "ietf-ip:ipv6": {
+         "address": [
+          {
+           "ip": "2001::1",
+           "prefix-length": 64,
+           "origin": "static"
+          },
+          {
+           "ip": "2001:1::1",
+           "prefix-length": 64,
+           "origin": "static"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_output_functions/test_yangson_validate_metadata_false_validation_unsuccessful",
+  "source": "test/pytest/test_output_functions.py::test_yangson_validate_metadata_false_validation_unsuccessful",
+  "template": "\n<macro>\ndef add_iftype(data):\n    if \"eth\" in data.lower():\n        return data, {\"type\": \"iana-if-type:ethernetCsmacd\"}\n    return data, {\"type\": None}\n</macro>\n\n<group name=\"ietf-interfaces:interfaces.interface*\">\ninterface {{ name | macro(add_iftype) }}\n description {{ description | re(\".+\") }}\n shutdown {{ enabled | set(False) | let(\"admin-status\", \"down\") }}\n {{ link-up-down-trap-enable | set(enabled) }}\n {{ admin-status | set(1) }}\n {{ enabled | set(True) }}\n {{ if-index | set(1) }}\n {{ statistics | set({\"discontinuity-time\": \"1970-01-01T00:00:00+00:00\"}) }}\n {{ oper-status | set(unknown) }}\n \n <group name=\"ietf-ip:ipv4\">\n ip mtu {{ mtu | to_int }} \n </group>\n \n <group name=\"ietf-ip:ipv4.address*\">\n ip address {{ ip | _start_ }} {{ netmask }}\n ip address {{ ip | _start_ }} {{ netmask }} secondary\n {{ origin | set(static) }}  \n </group>\n\n <group name=\"ietf-ip:ipv6.address*\">\n ipv6 address {{ ip | _start_ }}/{{ prefix-length | to_int }}\n {{ origin | set(static) }}  \n </group>\n \n</group>\n\n<output>\nvalidate_yangson=\"'./yang_modules/', metadata=False\"\n</output>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface GigabitEthernet1/3.251\n description Customer #32148\n encapsulation dot1q 251\n ip address 172.16.33.10 255.255.255.128\n shutdown\n!\ninterface GigabitEthernet1/4\n description vCPEs access control\n ip address 172.16.33.10 255.255.255.128\n!\ninterface GigabitEthernet1/5\n description Works data\n ip mtu 9000\n!\ninterface GigabitEthernet1/7\n description Works data v6\n ipv6 address 2001::1/64\n ipv6 address 2001:1::1/64\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   false
+  ]
+ }
+]

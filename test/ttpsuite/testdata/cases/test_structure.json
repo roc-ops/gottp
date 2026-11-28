@@ -1,0 +1,36 @@
+[
+ {
+  "name": "test_structure/test_list_structure",
+  "source": "test/pytest/test_structure.py::test_list_structure",
+  "template": "\n<input load=\"text\">\ninterface Lo0\n ip address 192.168.0.1 32\n!\ninterface Lo1\n ip address 1.1.1.1 32\n</input>\n\n<input load=\"text\">\ninterface Lo2\n ip address 2.2.2.2 32\n!\ninterface Lo3\n ip address 3.3.3.3 32\n</input>\n\n<group>\ninterface {{ interface }}\n ip address {{ ip }} {{ mask }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "ip": "192.168.0.1",
+      "mask": "32",
+      "interface": "Lo0"
+     },
+     {
+      "ip": "1.1.1.1",
+      "mask": "32",
+      "interface": "Lo1"
+     }
+    ],
+    [
+     {
+      "ip": "2.2.2.2",
+      "mask": "32",
+      "interface": "Lo2"
+     },
+     {
+      "ip": "3.3.3.3",
+      "mask": "32",
+      "interface": "Lo3"
+     }
+    ]
+   ]
+  ]
+ }
+]

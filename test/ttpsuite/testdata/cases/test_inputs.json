@@ -1,0 +1,158 @@
+[
+ {
+  "name": "test_inputs/test_inputs_url_filters_extensions",
+  "source": "test/pytest/test_inputs.py::test_inputs_url_filters_extensions",
+  "template": "\n<input name=\"in_1\">\ngroups=\"in_1_group\"\nurl = \"./mock_data/dataset_1/\"\nfilters = r\"data_\\d\"\n</input>\n\n<input name=\"in_2\" groups=\"in_2_group\">\nurl = \"./mock_data/dataset_2/\"\nextensions = [\"log\"]\n</input>\n\n<group name=\"in_1_group\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {[ ip }} {{ mask }}    \n</group>\n\n<group name=\"in_2_group\" input=\"in_2\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {[ ip }} {{ mask }}    \n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "in_1_group": [
+      {
+       "description": "data_1 file",
+       "interface": "Lo0"
+      },
+      {
+       "description": "this interface has description",
+       "interface": "Lo1"
+      }
+     ]
+    },
+    {
+     "in_1_group": [
+      {
+       "description": "data-2 file",
+       "interface": "Lo2"
+      },
+      {
+       "description": "this interface has description",
+       "interface": "Lo3"
+      }
+     ]
+    },
+    {
+     "in_2_group": [
+      {
+       "description": "data_1.log file",
+       "interface": "Lo0"
+      },
+      {
+       "description": "this interface has description",
+       "interface": "Lo1"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_inputs/test_group_inputs",
+  "source": "test/pytest/test_inputs.py::test_group_inputs",
+  "template": "\n<input name=\"in_1\">\ngroups=\"in_1_group\"\nurl = \"./mock_data/dataset_1/\"\nfilters = r\"data_\\d\"\n</input>\n\n<input name=\"in_2\" load=\"yaml\">\nurl: \"./mock_data/dataset_2/\"\nextensions: [\"log\"]\n</input>\n\n<group name=\"interfaces\" input=\"in_1\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {[ ip }} {{ mask }}    \n</group>\n\n<group name=\"interfaces\" input=\"in_2\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {[ ip }} {{ mask }}    \n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "interfaces": [
+      {
+       "description": "data_1 file",
+       "interface": "Lo0"
+      },
+      {
+       "description": "this interface has description",
+       "interface": "Lo1"
+      }
+     ]
+    },
+    {
+     "interfaces": [
+      {
+       "description": "data-2 file",
+       "interface": "Lo2"
+      },
+      {
+       "description": "this interface has description",
+       "interface": "Lo3"
+      }
+     ]
+    },
+    {
+     "interfaces": [
+      {
+       "description": "data_1.log file",
+       "interface": "Lo0"
+      },
+      {
+       "description": "this interface has description",
+       "interface": "Lo1"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_inputs/test_inputs_with_template_base_path",
+  "source": "test/pytest/test_inputs.py::test_inputs_with_template_base_path",
+  "template": "\n<template base_path=\"./mock_data/\">\n\n<input name=\"in_1\">\ngroups=\"in_1_group\"\nurl = \"/dataset_1/\"\nfilters = r\"data_\\d\"\n</input>\n\n<input name=\"in_2\" load=\"yaml\">\nurl: \"/dataset_2/\"\nextensions: [\"log\"]\n</input>\n\n<group name=\"interfaces\" input=\"in_1\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {[ ip }} {{ mask }}    \n</group>\n\n<group name=\"interfaces\" input=\"in_2\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {[ ip }} {{ mask }}    \n</group>\n\n</template>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "interfaces": [
+      {
+       "description": "data_1 file",
+       "interface": "Lo0"
+      },
+      {
+       "description": "this interface has description",
+       "interface": "Lo1"
+      }
+     ]
+    },
+    {
+     "interfaces": [
+      {
+       "description": "data-2 file",
+       "interface": "Lo2"
+      },
+      {
+       "description": "this interface has description",
+       "interface": "Lo3"
+      }
+     ]
+    },
+    {
+     "interfaces": [
+      {
+       "description": "data_1.log file",
+       "interface": "Lo0"
+      },
+      {
+       "description": "this interface has description",
+       "interface": "Lo1"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_inputs/test_input_to_groups_mapping",
+  "source": "test/pytest/test_inputs.py::test_input_to_groups_mapping",
+  "template": "\n<input name=\"sys_host\" load=\"text\">\n Static hostname: localhost.localdomain\n         Chassis: vm\n      Machine ID: 2a26648f68764152a772fc20c9a3ddb3\nOperating System: CentOS Linux 7 (Core)\n</input>\n    \n<group name=\"system\">\n Static hostname: {{ hostname }}\n         Chassis: {{ chassis }}\n      Machine ID: {{ machine_id }}\nOperating System: {{ os | ORPHRASE }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "system": {
+      "os": "CentOS Linux 7 (Core)",
+      "machine_id": "2a26648f68764152a772fc20c9a3ddb3",
+      "chassis": "vm",
+      "hostname": "localhost.localdomain"
+     }
+    }
+   ]
+  ]
+ }
+]

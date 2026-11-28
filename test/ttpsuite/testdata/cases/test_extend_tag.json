@@ -1,0 +1,483 @@
+[
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file",
+  "template": "\n<extend template=\"./assets/extend_vlan.txt\"/>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvlan 1234\n name some_vlan\n!\nvlan 910\n name one_more\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vlans": {
+      "1234": {
+       "name": "some_vlan"
+      },
+      "910": {
+       "name": "one_more"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file_anonymous",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file_anonymous",
+  "template": "\n<extend template=\"./assets/extend_vlan_anon.txt\"/>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvlan 1234\n name some_vlan\n!\nvlan 910\n name one_more\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "name": "some_vlan",
+      "vlan": "1234"
+     },
+     {
+      "name": "one_more",
+      "vlan": "910"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file_with_template_tag",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file_with_template_tag",
+  "template": "\n<extend template=\"./assets/extend_vlan_with_template_tag.txt\"/>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvlan 1234\n name some_vlan\n!\nvlan 910\n name one_more\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vlans": {
+      "1234": {
+       "name": "some_vlan"
+      },
+      "910": {
+       "name": "one_more"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file_vars_and_lookup",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file_vars_and_lookup",
+  "template": "\n<extend template=\"./assets/extend_vars_and_lookup_tag.txt\"/>\n\n<input load=\"text\">\nrouter bgp 65100\n</input>\n\n<group name=\"bgp_config\">\nrouter bgp {{ bgp_as | lookup(\"bgp_asn\", add_field=\"as_details\") }}\n{{ var_1_value | set(var_1) }}\n{{ var_2_value | set(var_2) }}\n{{ var_2_value | set(var_3) }}\n</group> \n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "bgp_config": {
+      "bgp_as": "65100",
+      "as_details": {
+       "as_description": "Private ASN",
+       "as_name": "Subs",
+       "prefix_num": "734"
+      },
+      "var_1_value": "value_1",
+      "var_2_value": "var_3"
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_within_group",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_within_group",
+  "template": "\n<input load=\"text\">\nrouter bgp 65100\n router-id 1.1.1.1\n neighbor 2.2.2.2 remote-as 65000\n</input>\n\n<group name=\"bgp_config\">\nrouter bgp {{ bgp_as }}\n\n<extend template=\"./assets/test_extend_tag_within_group.txt\"/>\n\n<group name=\"peers\">\n neighbor {{ peer }} remote-as {{ asn }}\n</group>\n\n</group> \n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "bgp_config": {
+      "bgp_as": "65100",
+      "config": {
+       "rid": "1.1.1.1"
+      },
+      "peers": {
+       "peer": "2.2.2.2",
+       "asn": "65000"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_within_group_with_child_groups_above",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_within_group_with_child_groups_above",
+  "template": "\n<input load=\"text\">\nrouter bgp 65100\n router-id 1.1.1.1\n neighbor 2.2.2.2 remote-as 65000\n</input>\n\n<group name=\"bgp_config\">\nrouter bgp {{ bgp_as }}\n\n<group name=\"peers\">\n neighbor {{ peer }} remote-as {{ asn }}\n</group>\n\n<extend template=\"./assets/test_extend_tag_within_group.txt\"/>\n\n</group> \n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "bgp_config": {
+      "bgp_as": "65100",
+      "config": {
+       "rid": "1.1.1.1"
+      },
+      "peers": {
+       "peer": "2.2.2.2",
+       "asn": "65000"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_within_group_with_non_hierarch_template",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_within_group_with_non_hierarch_template",
+  "template": "\n<input load=\"text\">\nrouter bgp 65100\n router-id 1.1.1.1\n neighbor 2.2.2.2 remote-as 65000\n</input>\n\n<group name=\"bgp_config\">\nrouter bgp {{ bgp_as }}\n\n<group name=\"config\">\n<extend template=\"./assets/test_extend_tag_within_group_with_non_hierarch_template.txt\"/>\n</group>\n\n<group name=\"peers\">\n neighbor {{ peer }} remote-as {{ asn }}\n</group>\n\n</group> \n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "bgp_config": {
+      "bgp_as": "65100",
+      "config": {
+       "rid": "1.1.1.1"
+      },
+      "peers": {
+       "peer": "2.2.2.2",
+       "asn": "65000"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_within_group_with_anonymous_group",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_within_group_with_anonymous_group",
+  "template": "\n<input load=\"text\">\nrouter bgp 65100\n router-id 1.1.1.1\n neighbor 2.2.2.2 remote-as 65000\n</input>\n\n<group name=\"bgp_config\">\nrouter bgp {{ bgp_as }}\n\n<group name=\"config\">\n<extend template=\"./assets/test_extend_tag_within_group_with_anonymous_group.txt\"/>\n</group>\n\n<group name=\"peers\">\n neighbor {{ peer }} remote-as {{ asn }}\n</group>\n\n</group> \n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "bgp_config": {
+      "bgp_as": "65100",
+      "config": {
+       "rid": "1.1.1.1"
+      },
+      "peers": {
+       "peer": "2.2.2.2",
+       "asn": "65000"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_within_group_with_multiple_groups",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_within_group_with_multiple_groups",
+  "template": "\n<input load=\"text\">\nrouter bgp 65100\n router-id 1.1.1.1\n neighbor 2.2.2.2 remote-as 65000\n neighbor 2.2.2.3 remote-as 65001\n ! \n address-family ipv4 vrf TEST_1\n address-family ipv4 vrf TEST_2\n</input>\n\n<group name=\"bgp_config\">\nrouter bgp {{ bgp_as }}\n\n<extend template=\"./assets/test_extend_tag_within_group_with_multiple_groups.txt\"/>\n\n<group name=\"peers\">\n neighbor {{ peer }} remote-as {{ asn }}\n</group>\n\n</group> \n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "bgp_config": {
+      "bgp_as": "65100",
+      "config": {
+       "rid": "1.1.1.1"
+      },
+      "peers": [
+       {
+        "peer": "2.2.2.2",
+        "asn": "65000"
+       },
+       {
+        "peer": "2.2.2.3",
+        "asn": "65001"
+       }
+      ],
+      "vrf": {
+       "TEST_1": {},
+       "TEST_2": {}
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file_group_name_filter",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file_group_name_filter",
+  "template": "\n<extend template=\"./assets/extend_groups_filter_test.txt\" groups=\"vlans.{{ vlan }}\"/>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvlan 1234\n name some_vlan\n!\nvlan 910\n name one_more\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vlans": {
+      "1234": {
+       "name": "some_vlan"
+      },
+      "910": {
+       "name": "one_more"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file_group_index_filter",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file_group_index_filter",
+  "template": "\n<extend template=\"./assets/extend_groups_filter_test.txt\" groups=\"1\"/>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvlan 1234\n name some_vlan\n!\nvlan 910\n name one_more\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vlans": {
+      "1234": {
+       "name": "some_vlan"
+      },
+      "910": {
+       "name": "one_more"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file_vars_filter",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file_vars_filter",
+  "template": "\n<vars name=\"some\">\na = 1\nb = 2\n</vars>\n\n<extend template=\"./assets/extend_test_vars_filter.txt\" vars=\"common_vars, other_vars\"/>\n\n<group name=\"vlans.{{ vlan }}\">\nvlan {{ vlan }}\n name {{ name }}\n {{ r_test | set(r) }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvlan 1234\n name some_vlan\n!\nvlan 910\n name one_more\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "common_vars": {
+      "c": 3,
+      "d": 4
+     },
+     "other_vars": {
+      "e": 5,
+      "f": 6
+     },
+     "some": {
+      "a": 1,
+      "b": 2
+     },
+     "vlans": {
+      "1234": {
+       "name": "some_vlan",
+       "r_test": "r"
+      },
+      "910": {
+       "name": "one_more",
+       "r_test": "r"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file_with_vars_inputs_filter",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file_with_vars_inputs_filter",
+  "template": "\n<extend template=\"./assets/extend_test_inputs_filter.txt\" inputs=\"vlan_1, vlan_3\"/>\n\n<group name=\"vlans.{{ vlan }}\">\nvlan {{ vlan }}\n name {{ name }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "some": {
+      "a": 1,
+      "b": 2
+     },
+     "vlans": {
+      "1234": {
+       "name": "some_vlan"
+      },
+      "910": {
+       "name": "one_more"
+      }
+     }
+    },
+    {
+     "some": {
+      "a": 1,
+      "b": 2
+     },
+     "vlans": {
+      "777": {
+       "name": "vlan_name_777"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file_lookups_filter",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file_lookups_filter",
+  "template": "\n<extend template=\"./assets/extend_test_lookups_filter.txt\" lookups=\"bgp_asn\"/>\n\n<input load=\"text\">\nrouter bgp 65100\n</input>\n\n<group name=\"bgp_config\">\nrouter bgp {{ bgp_as | lookup(\"bgp_asn\", add_field=\"as_details\") }}\n{{ var_1_value | set(var_1) }}\n{{ var_2_value | set(var_2) }}\n{{ var_3_value | set(var_3) }}\n</group> \n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "bgp_config": {
+      "bgp_as": "65100",
+      "as_details": {
+       "as_description": "Private ASN",
+       "as_name": "Subs",
+       "prefix_num": "734"
+      },
+      "var_1_value": "value_1",
+      "var_2_value": [
+       1,
+       2,
+       3,
+       4,
+       "a"
+      ],
+      "var_3_value": "var_3"
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file_output_filter",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file_output_filter",
+  "template": "\n<extend template=\"./assets/extend_test_output_filter.txt\" outputs=\"to_csv\"/>\n\n<group>\nvlan {{ vlan }}\n name {{ name }}\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvlan 1234\n name some_vlan\n!\nvlan 910\n name one_more\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   "\"name\",\"vlan\"\n\"some_vlan\",\"1234\"\n\"one_more\",\"910\""
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file_nested_group_filter",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file_nested_group_filter",
+  "template": "\n<group name=\"interfaces\">\ninterface {{ interface }}\n description {{ description }}\n shutdown {{ disabled | set(True) }}\n <extend template=\"./assets/extend_test_nested_group_filter.txt\" groups=\"ip_primary\"/>\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface Gi1\n description bla bla bla\n ip address 1.1.1.1 255.255.255.0\n!\ninterface Gi2\n name bla bla\n shutdown\n ip address 1.1.2.1 255.255.255.0\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "interfaces": [
+      {
+       "interface": "Gi1",
+       "ip_primary": {
+        "ip": "1.1.1.1",
+        "mask": "255.255.255.0"
+       }
+      },
+      {
+       "disabled": true,
+       "interface": "Gi2",
+       "ip_primary": {
+        "ip": "1.1.2.1",
+        "mask": "255.255.255.0"
+       }
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_extend_tag_from_file_with_macro",
+  "source": "test/pytest/test_extend_tag.py::test_extend_tag_from_file_with_macro",
+  "template": "\n<macro>\ndef indent(data):\n    # macro to indent each line of original template with 4 space characters\n    return \"\\n\".join(f\"    {line}\" for line in data.splitlines())\n</macro>\n\n<extend template=\"./assets/extend_vlan.txt\" macro=\"indent\"/>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n    vlan 1234\n     name some_vlan\n    !\n    vlan 910\n     name one_more\n    !\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vlans": {
+      "1234": {
+       "name": "some_vlan"
+      },
+      "910": {
+       "name": "one_more"
+      }
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_extend_tag/test_ttp_templates_dir_env_variable_with_extend",
+  "source": "test/pytest/test_extend_tag.py::test_ttp_templates_dir_env_variable_with_extend",
+  "env": {
+   "TTP_TEMPLATES_DIR": "assets/TTP_TEMPLATES_DIR_TEST"
+  },
+  "template": "\n<extend template=\"test_ttp_templates_dir_env_variable.txt\"/>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvlan 1234\n name some_vlan\n!\nvlan 910\n name one_more\n!\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vlans": {
+      "1234": {
+       "name": "some_vlan"
+      },
+      "910": {
+       "name": "one_more"
+      }
+     }
+    }
+   ]
+  ]
+ }
+]

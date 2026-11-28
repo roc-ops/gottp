@@ -1,0 +1,326 @@
+[
+ {
+  "name": "test_match_functions/test_sformat_inline",
+  "source": "test/pytest/test_match_functions.py::test_sformat_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface | sformat(\"BSQ {}\") }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage",
+      "interface": "BSQ Port-Channel11"
+     },
+     {
+      "description": "RID",
+      "interface": "BSQ Loopback0"
+     },
+     {
+      "description": "Management",
+      "interface": "BSQ Port-Channel12"
+     },
+     {
+      "description": "Management",
+      "interface": "BSQ Vlan777"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_sformat_from_vars",
+  "source": "test/pytest/test_match_functions.py::test_sformat_from_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = \"BSQ {}\"\n</vars>\n\n<group>\ninterface {{ interface | sformat(var_1) }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage",
+      "interface": "BSQ Port-Channel11"
+     },
+     {
+      "description": "RID",
+      "interface": "BSQ Loopback0"
+     },
+     {
+      "description": "Management",
+      "interface": "BSQ Port-Channel12"
+     },
+     {
+      "description": "Management",
+      "interface": "BSQ Vlan777"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_to_list_with_joinmatches",
+  "source": "test/pytest/test_match_functions.py::test_to_list_with_joinmatches",
+  "template": "\n<input load=\"text\">\ninterface GigabitEthernet3/3\n switchport trunk allowed vlan add 138,166,173 \n switchport trunk allowed vlan add 400,401,410\n</input>\n \n<group>\ninterface {{ interface }}\n switchport trunk allowed vlan add {{ trunk_vlans | to_list | joinmatches }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "GigabitEthernet3/3",
+      "trunk_vlans": [
+       "138,166,173",
+       "400,401,410"
+      ]
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_multiple_joinmatches",
+  "source": "test/pytest/test_match_functions.py::test_multiple_joinmatches",
+  "template": "\n<vars>\nhostname=\"gethostname\"\n</vars>\n\n<group name=\"vlans*\">\nStatus and Counters - VLAN Information - for ports {{ Port_Number }}\n{{ Tagged_VLAN | joinmatches(\", \") }} {{ name | joinmatches(\", \") }} | {{ ignore }} {{ ignore }} {{ ignore }} Tagged\n{{ Untagged_VLAN }}                   {{ name | joinmatches(\", \") }} | {{ ignore }} {{ ignore }} {{ ignore }} Untagged\n{{ Hostname | set(hostname) }}\n</group>   \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nSWITCH# show vlan port 2/11 detail\n\nStatus and Counters - VLAN Information - for ports 2/11\n\nPort name:\n\nVLAN ID Name | Status Voice Jumbo Mode\n\n------- -------------------- + ---------- ----- ----- --------\n\n60 ABC | Port-based No No Tagged\n\n70 DEF | Port-based No No Tagged\n\n101 GHIJ | Port-based No No Untagged\n\n105 KLMNO | Port-based No No Tagged\n\n116 PQRS | Port-based No No Tagged\n\n117 TVU | Port-based No No Tagged\n\nSWITCH# show vlan port 2/12 detail\n\nStatus and Counters - VLAN Information - for ports 2/12\n\nPort name:\n\nVLAN ID Name | Status Voice Jumbo Mode\n\n------- -------------------- + ---------- ----- ----- --------\n\n61 ABC | Port-based No No Tagged\n\n71 DEF | Port-based No No Tagged\n\n103 GHI | Port-based No No Untagged\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vlans": [
+      {
+       "Port_Number": "2/11",
+       "Tagged_VLAN": "60, 70, 105, 116, 117",
+       "name": "ABC, DEF, GHIJ, KLMNO, PQRS, TVU",
+       "Untagged_VLAN": "101",
+       "Hostname": "SWITCH"
+      },
+      {
+       "Port_Number": "2/12",
+       "Tagged_VLAN": "61, 71",
+       "name": "ABC, DEF, GHI",
+       "Untagged_VLAN": "103",
+       "Hostname": "SWITCH"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_joinmatches_with_ignore",
+  "source": "test/pytest/test_match_functions.py::test_joinmatches_with_ignore",
+  "template": "\n<vars>\nhostname=\"gethostname\"\n</vars>\n\n<group name=\"vlans*\">\nStatus and Counters - VLAN Information - for ports {{ Port_Number }}\n{{ Tagged_VLAN | joinmatches(\" \") }} {{ ignore }} | {{ ignore }} {{ ignore }} {{ ignore }} Tagged\n{{ Untagged_VLAN }}                  {{ ignore }} | {{ ignore }} {{ ignore }} {{ ignore }} Untagged\n{{ Hostname | set(hostname) }}\n</group>   \n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nSWITCH# show vlan port 2/11 detail\n\nStatus and Counters - VLAN Information - for ports 2/11\n\nPort name:\n\nVLAN ID Name | Status Voice Jumbo Mode\n\n------- -------------------- + ---------- ----- ----- --------\n\n60 ABC | Port-based No No Tagged\n\n70 DEF | Port-based No No Tagged\n\n101 GHIJ | Port-based No No Untagged\n\n105 KLMNO | Port-based No No Tagged\n\n116 PQRS | Port-based No No Tagged\n\n117 TVU | Port-based No No Tagged\n\nSWITCH# show vlan port 2/12 detail\n\nStatus and Counters - VLAN Information - for ports 2/12\n\nPort name:\n\nVLAN ID Name | Status Voice Jumbo Mode\n\n------- -------------------- + ---------- ----- ----- --------\n\n61 ABC | Port-based No No Tagged\n\n71 DEF | Port-based No No Tagged\n\n103 GHI | Port-based No No Untagged\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vlans": [
+      {
+       "Untagged_VLAN": "101",
+       "Port_Number": "2/11",
+       "Tagged_VLAN": "60 70 105 116 117",
+       "Hostname": "SWITCH"
+      },
+      {
+       "Untagged_VLAN": "103",
+       "Port_Number": "2/12",
+       "Tagged_VLAN": "61 71",
+       "Hostname": "SWITCH"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_match_variable_default_set_to_list",
+  "source": "test/pytest/test_match_functions.py::test_match_variable_default_set_to_list",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  ip address 1.1.1.1/24\ninterface Loopback0\n</input>\n\n<group>\ninterface {{ interface }}\n  ip address {{ ip | default([]) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "ip": "1.1.1.1/24",
+      "interface": "Port-Channel11"
+     },
+     {
+      "interface": "Loopback0",
+      "ip": []
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_match_variable_default_set_to_string",
+  "source": "test/pytest/test_match_functions.py::test_match_variable_default_set_to_string",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  ip address 1.1.1.1/24\ninterface Loopback0\n</input>\n\n<group>\ninterface {{ interface }}\n  ip address {{ ip | default(\"Undefined\") }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "ip": "1.1.1.1/24",
+      "interface": "Port-Channel11"
+     },
+     {
+      "interface": "Loopback0",
+      "ip": "Undefined"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_match_variable_default_for_start_regex",
+  "source": "test/pytest/test_match_functions.py::test_match_variable_default_for_start_regex",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Staff ports\n</input>\n\n<group name=\"ntp-1**\">\nntp server {{ server | default('Unconfigured') }}\n ntp source {{ source | default(\"undefined\") }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "ntp-1": {
+      "server": "Unconfigured",
+      "source": "undefined"
+     }
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_match_variable_default_set_to_dictionary",
+  "source": "test/pytest/test_match_functions.py::test_match_variable_default_set_to_dictionary",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  ip address 1.1.1.1/24\ninterface Loopback0\n</input>\n\n<group>\ninterface {{ interface }}\n  ip address {{ ip | default({\"defined\": False}) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "ip": "1.1.1.1/24",
+      "interface": "Port-Channel11"
+     },
+     {
+      "interface": "Loopback0",
+      "ip": {
+       "defined": false
+      }
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_match_variable_set_and_let_for_same_variable_with_special_chars",
+  "source": "test/pytest/test_match_functions.py::test_match_variable_set_and_let_for_same_variable_with_special_chars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n ip address 1.1.1.1/24\ninterface Loopback0\n ip address 1.1.2.1/24\n shutdown\n</input>\n\n<group>\ninterface {{ interface }}\n ip address {{ ip | default({\"defined\": False}) }}\n shutdown {{ enabled | set(False) | let(\"admin-status\", \"down\") }}\n {{ link-up-down-trap-enable | set(enabled) }}\n {{ admin-status | set(up) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "ip": "1.1.1.1/24",
+      "interface": "Port-Channel11",
+      "link-up-down-trap-enable": "enabled",
+      "admin-status": "up"
+     },
+     {
+      "enabled": false,
+      "admin-status": "down",
+      "ip": "1.1.2.1/24",
+      "interface": "Loopback0",
+      "link-up-down-trap-enable": "enabled"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_let_and_set",
+  "source": "test/pytest/test_match_functions.py::test_let_and_set",
+  "template": "\ninterface {{ name }}\n description {{ description | re(\".+\") }}\n shutdown {{ enabled | set(False) | let(\"admin-status\", \"down\") }}\n {{ link-up-down-trap-enable | set(enabled) }}\n {{ admin-status | set(up) }}\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface Port-Channel11\n ip address 1.1.1.1/24\n description bla bla bla\n shutdown\ninterface Port-Channel22\n ip address 1.1.2.1/24\n description bla bla2 bla2\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "enabled": false,
+      "admin-status": "down",
+      "description": "bla bla bla",
+      "name": "Port-Channel11",
+      "link-up-down-trap-enable": "enabled"
+     },
+     {
+      "description": "bla bla2 bla2",
+      "name": "Port-Channel22",
+      "link-up-down-trap-enable": "enabled",
+      "admin-status": "up"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_line_with_joinmatches",
+  "source": "test/pytest/test_match_functions.py::test_line_with_joinmatches",
+  "template": "\nSystem Description: {{ system-description | re(\".+\") | joinmatches(\" \") }}\n{{ system-description | _line_ | joinmatches(\" \") }}\nTime remaining: {{ ignore }} seconds {{ _end_ }}\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nChassis id: 12346.1234.1234\nPort id: Eth1/1\nLocal Port id: Eth6/1\nPort Description: Uplink to vrf1\nSystem Name: switch-name-1\nSystem Description: Cisco Nexus Operating System (NX-OS) Software 21.324(3)N2(3.12b)\nTAC support: http://www.cisco.com/tac\nCopyright (c) 2002-2099, Cisco Systems, Inc. All rights reserved.\nTime remaining: 333 seconds\nSystem Capabilities: B, R\nEnabled Capabilities: B, R\nManagement Address: 1.1.1.1\nVlan ID: 111\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "system-description": "Cisco Nexus Operating System (NX-OS) Software 21.324(3)N2(3.12b) TAC support: http://www.cisco.com/tac Copyright (c) 2002-2099, Cisco Systems, Inc. All rights reserved."
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_match_functions/test_copy",
+  "source": "test/pytest/test_match_functions.py::test_copy",
+  "template": "\ninterface {{ name }}\n ip address {{ ip_last_octet | copy(\"ip_address\") | split(\".\") | item(-1) }} {{ mask }}\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface Port-Channel11\n ip address 1.1.1.123 255.255.255.255\ninterface Port-Channel22\n ip address 1.1.1.124 255.255.255.255\n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "ip_last_octet": "123",
+      "ip_address": "1.1.1.123",
+      "mask": "255.255.255.255",
+      "name": "Port-Channel11"
+     },
+     {
+      "ip_last_octet": "124",
+      "ip_address": "1.1.1.124",
+      "mask": "255.255.255.255",
+      "name": "Port-Channel22"
+     }
+    ]
+   ]
+  ]
+ }
+]

@@ -1,0 +1,33 @@
+[
+ {
+  "name": "test_group_name_attribute/test_group_same_null_path_for_several_groups",
+  "source": "test/pytest/test_group_name_attribute.py::test_group_same_null_path_for_several_groups",
+  "template": "\n<group name=\"vrfs\">\nvrf {{name}}\n  <group name=\"_\">\n  import route-target {{ _start_ }}\n   {{ import | to_list | joinmatches }}\n  </group>\n  !\n  <group name=\"_\">\n  export route-target {{ _start_ }}\n   {{ export | to_list | joinmatches }}\n  </group>\n</group>\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nvrf xyz\n address-family ipv4 unicast\n  import route-target\n   65000:3507\n   65000:3511\n   65000:5453\n   65000:5535\n  !\n  export route-target\n   65000:5453\n   65000:5535\n  !\n !\n!    \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    {
+     "vrfs": {
+      "name": "xyz",
+      "import": [
+       "65000:3507",
+       "65000:3511",
+       "65000:5453",
+       "65000:5535"
+      ],
+      "export": [
+       "65000:5453",
+       "65000:5535"
+      ]
+     }
+    }
+   ]
+  ]
+ }
+]

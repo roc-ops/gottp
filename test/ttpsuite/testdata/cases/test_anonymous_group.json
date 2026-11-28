@@ -1,0 +1,80 @@
+[
+ {
+  "name": "test_anonymous_group/test_simple_anonymous_template",
+  "source": "test/pytest/test_anonymous_group.py::test_simple_anonymous_template",
+  "template": "interface {{ interface }}\n  description {{ description | ORPHRASE }}",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\ninterface Port-Chanel11\n  description Storage Management\ninterface Loopback0\n  description RID\n",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage Management",
+      "interface": "Port-Chanel11"
+     },
+     {
+      "description": "RID",
+      "interface": "Loopback0"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_anonymous_group/test_anonymous_group_with_vars",
+  "source": "test/pytest/test_anonymous_group.py::test_anonymous_group_with_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Chanel11\n  description Storage Management\ninterface Loopback0\n  description RID\n</input>\n\n<vars name=\"my.var.s\">\na = 1\nb = 2\n</vars>\n\n<group>\ninterface {{ interface }}\n  description {{ description | ORPHRASE }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage Management",
+      "interface": "Port-Chanel11"
+     },
+     {
+      "description": "RID",
+      "interface": "Loopback0"
+     },
+     {
+      "my": {
+       "var": {
+        "s": {
+         "a": 1,
+         "b": 2
+        }
+       }
+      }
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_anonymous_group/test_anonymous_group_with_child_group_empty_absolute_path",
+  "source": "test/pytest/test_anonymous_group.py::test_anonymous_group_with_child_group_empty_absolute_path",
+  "template": "\n<template results=\"per_template\">\n<input name=\"Cisco_ios\" load=\"text\">\nr2#show interfaces | inc line protocol\ninterface GigabitEthernet1\n vrf forwarding MGMT\n ip address 10.123.89.55 255.255.255.0\n</input>\n\n<input name=\"Cisco_ios\" load=\"text\">\nr1#show interfaces | inc line protocol:\ninterface GigabitEthernet1\n description some info\n vrf forwarding MGMT\n ip address 10.123.89.56 255.255.255.0\ninterface GigabitEthernet2\n ip address 10.123.89.55 255.255.255.0\n</input>\n\n<group void=\"\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n <group name=\"/\">\n ip address {{ ip }} {{ mask }}\n </group>\n</group>\n</template>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "ip": "10.123.89.55",
+     "mask": "255.255.255.0"
+    },
+    {
+     "ip": "10.123.89.56",
+     "mask": "255.255.255.0"
+    },
+    {
+     "ip": "10.123.89.55",
+     "mask": "255.255.255.0"
+    }
+   ]
+  ]
+ }
+]

@@ -1,0 +1,776 @@
+{
+ "_comment": "TTP 0.10.1 suite cases that don't match yet. issue = the issue the first strict difference belongs to; also = issues hit after it. A reason starting with 'design:' marks a deliberate difference. A case listed here that passes fails the test, so remove it when its issue is fixed.",
+ "cases": {
+  "test_N2G_formatter/test_n2g_formatter": {
+   "issue": 80,
+   "reason": "format=\"n2g\" is not supported"
+  },
+  "test_anonymous_group/test_anonymous_group_with_child_group_empty_absolute_path": {
+   "issue": 70,
+   "reason": "several inline <input> tags with the same name: only one is parsed"
+  },
+  "test_anonymous_group/test_anonymous_group_with_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$.len\", 3, 2]"
+  },
+  "test_anonymous_group/test_simple_anonymous_template": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_answers_and_docs/test_answer_hpe_bgp": {
+   "issue": 87,
+   "reason": "group path with several {{var}} segments written without spaces is not substituted"
+  },
+  "test_answers_and_docs/test_asa_acls_issue_55": {
+   "issue": 88,
+   "reason": "itemize on a child group drops its values"
+  },
+  "test_answers_and_docs/test_asa_acls_issue_55_uses_itemize_with_dynamic_path": {
+   "issue": 88,
+   "reason": "itemize on a child group drops its values"
+  },
+  "test_answers_and_docs/test_docs_ttp_dictionary_usage_example": {
+   "reason": "design: python macro (uses _ttp_[\"match\"][\"to_ip\"] and the ipaddress object API)"
+  },
+  "test_answers_and_docs/test_faq_multiline_output_matching": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].peer_system_description.sys_description\", \"Cisco IOS Software, Catalyst 1234 L3 Switch Software (cat1234e-ENTSERVICESK9-M), Version 1"
+  },
+  "test_answers_and_docs/test_fortigate_intf_parsing": {
+   "issue": 28,
+   "reason": "parent group whose _start_ line has no variables drops its child groups"
+  },
+  "test_answers_and_docs/test_github_issue_22": {
+   "issue": 67,
+   "reason": "raw-string argument ignore(r\"\\s+\") matches nothing"
+  },
+  "test_answers_and_docs/test_github_issue_33_answer_1": {
+   "issue": 67,
+   "reason": "raw-string argument re(r\"\\S+\") matches nothing"
+  },
+  "test_answers_and_docs/test_github_issue_34_answer": {
+   "issue": 91,
+   "reason": "group with no matching lines does not emit its default() values"
+  },
+  "test_answers_and_docs/test_github_issue_37_cleaned_data_template": {
+   "issue": 28,
+   "reason": "parent group whose start line is \"service {{ ignore }}\" drops its child groups"
+  },
+  "test_answers_and_docs/test_github_issue_37_cleaned_up_data": {
+   "issue": 28,
+   "reason": "parent group whose start line is \"service {{ ignore }}\" drops its child groups"
+  },
+  "test_answers_and_docs/test_github_issue_37_original_data_template": {
+   "issue": 28,
+   "reason": "parent group whose start line is \"service {{ ignore }}\" drops its child groups (the macro also uses Python \"import re\")"
+  },
+  "test_answers_and_docs/test_github_issue_42": {
+   "issue": 30,
+   "reason": "indented template lines also match the \"!\" lines at other indents"
+  },
+  "test_answers_and_docs/test_github_issue_42_answer": {
+   "issue": 30,
+   "reason": "indented template lines also match lines at other indents"
+  },
+  "test_answers_and_docs/test_interface_template_not_collecting_all_data_reduced": {
+   "issue": 89,
+   "reason": "group holding only child groups: sibling anonymous children collapse into one record"
+  },
+  "test_answers_and_docs/test_interface_template_not_collecting_all_data_solution": {
+   "issue": 90,
+   "reason": "multi-line <vars> dict with a trailing comma is not parsed, so group default= fills the variable name"
+  },
+  "test_answers_and_docs/test_ios_bgp_pers_pars": {
+   "issue": 89,
+   "reason": "group holding only child groups (no lines of its own) returns nothing"
+  },
+  "test_answers_and_docs/test_ip_address_parsing": {
+   "issue": 92,
+   "reason": "to_ip does not accept \"address netmask\""
+  },
+  "test_answers_and_docs/test_issue_45": {
+   "issue": 30,
+   "reason": "indented template lines match data at any indentation"
+  },
+  "test_answers_and_docs/test_issue_45_1": {
+   "issue": 30,
+   "reason": "indented template lines match data at any indentation"
+  },
+  "test_answers_and_docs/test_issue_45_filtering_fix": {
+   "issue": 30,
+   "reason": "indented template lines match data at any indentation"
+  },
+  "test_answers_and_docs/test_issue_45_for_junos_cfg": {
+   "issue": 63,
+   "reason": "set(True)/set(False) gives a string"
+  },
+  "test_answers_and_docs/test_issue_47_answer": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_answers_and_docs/test_issue_48_answer": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"In this course, we examine the economics of personnel management in organizations.\\nUsing mainstream microeconomic and"
+  },
+  "test_answers_and_docs/test_issue_48_answer_more": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"This course is the first part of the two-semester course IBIO*4521/2. This course is\\na two-semester (F,W) undergradua"
+  },
+  "test_answers_and_docs/test_issue_50": {
+   "issue": 35,
+   "reason": "strip('\"') does not strip the quotes"
+  },
+  "test_answers_and_docs/test_issue_52_answer": {
+   "issue": 79,
+   "reason": "_line_ with joinmatches also captures the _start_ line"
+  },
+  "test_answers_and_docs/test_issue_57_headers_parsing": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_answers_and_docs/test_issue_57_headers_parsing_using_columns": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_answers_and_docs/test_issue_57_one_more": {
+   "issue": 28,
+   "reason": "parent group whose _start_ line (\"Local: {{_start_}}\") has no variables drops its child groups"
+  },
+  "test_answers_and_docs/test_issue_57_one_more_empty_dict_in_res": {
+   "issue": 28,
+   "reason": "parent group whose _start_ line (\"Local: {{_start_}}\") has no variables drops its child groups"
+  },
+  "test_answers_and_docs/test_issue_62": {
+   "issue": 67,
+   "reason": "raw-string argument ignore(r'\\s+') matches nothing"
+  },
+  "test_answers_and_docs/test_issue_89": {
+   "issue": 76,
+   "reason": "dynamic-path value \"Bundle-Ether801.101\" is split on the dot"
+  },
+  "test_answers_and_docs/test_issue_94": {
+   "issue": 28,
+   "reason": "parent group whose _start_ line has no variables drops its child groups"
+  },
+  "test_answers_and_docs/test_issue_94_1": {
+   "issue": 28,
+   "reason": "parent group whose _start_ line has no variables drops its child groups"
+  },
+  "test_answers_and_docs/test_reddit_answer_1": {
+   "issue": 101,
+   "reason": "<output> with its settings in the tag body (format = \"csv\") is ignored"
+  },
+  "test_answers_and_docs/test_reddit_answer_2": {
+   "reason": "design: python macro (the macro block uses \"import ipaddress\")"
+  },
+  "test_answers_and_docs/test_same_config_different_contexts": {
+   "issue": 100,
+   "reason": "lines owned by a void child group are also collected by the parent; root cause not isolated"
+  },
+  "test_answers_and_docs/test_slack_answer_2": {
+   "issue": 100,
+   "reason": "nested port/ethernet sections lose captures; root cause not isolated"
+  },
+  "test_answers_and_docs/test_slack_answer_3": {
+   "issue": 35,
+   "reason": "strip('\"') does not strip the quotes"
+  },
+  "test_answers_and_docs/test_slack_answer_3_full": {
+   "issue": 100,
+   "reason": "vprn records nest an extra id level; root cause not isolated"
+  },
+  "test_answers_and_docs/test_stackoverflow_62421344_python_parse_text": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_answers_and_docs/test_start_with_set": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].inactive\", false, \"False\"]",
+   "also": [
+    63
+   ]
+  },
+  "test_answers_and_docs/test_vlans_parsing": {
+   "issue": 28,
+   "reason": "parent group whose _start_ line has no variables drops its child groups"
+  },
+  "test_extend_tag/test_extend_tag_from_file_anonymous": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_extend_tag/test_extend_tag_from_file_group_index_filter": {
+   "issue": 93,
+   "reason": "<extend groups=\"1\"> filter: the selected group is not loaded"
+  },
+  "test_extend_tag/test_extend_tag_from_file_group_name_filter": {
+   "issue": 93,
+   "reason": "<extend groups=\"vlans.{{ vlan }}\"> filter: the selected group is not loaded"
+  },
+  "test_extend_tag/test_extend_tag_from_file_lookups_filter": {
+   "issue": 93,
+   "reason": "<vars> from the extended file are not loaded"
+  },
+  "test_extend_tag/test_extend_tag_from_file_nested_group_filter": {
+   "issue": 74,
+   "reason": "<extend> inside a <group> is ignored"
+  },
+  "test_extend_tag/test_extend_tag_from_file_output_filter": {
+   "issue": 62,
+   "reason": "csv output renders one row per match (anonymous group list level); after that: [\"$[0]\", \"\\\"name\\\",\\\"vlan\\\"\\n\\\"some_vlan\\\",\\\"1234\\\"\\n\\\"one_more\\\",\\\"910\\\"\", \"\\\"name\\\",\\\"vlan\\\"\\n\\\"some_vlan\\\",\\\"1234\\\"\"]"
+  },
+  "test_extend_tag/test_extend_tag_from_file_vars_and_lookup": {
+   "issue": 93,
+   "reason": "<vars> from the extended file are not loaded"
+  },
+  "test_extend_tag/test_extend_tag_from_file_vars_filter": {
+   "issue": 93,
+   "reason": "<extend vars=...> filter: the selected <vars> are not loaded"
+  },
+  "test_extend_tag/test_extend_tag_from_file_with_macro": {
+   "reason": "design: python macro (the macro uses an f-string)"
+  },
+  "test_extend_tag/test_extend_tag_from_file_with_vars_inputs_filter": {
+   "issue": 93,
+   "reason": "<vars> from the extended file are not loaded"
+  },
+  "test_extend_tag/test_extend_tag_within_group": {
+   "issue": 74,
+   "reason": "<extend> inside a <group> is ignored"
+  },
+  "test_extend_tag/test_extend_tag_within_group_with_anonymous_group": {
+   "issue": 74,
+   "reason": "<extend> inside a <group> is ignored"
+  },
+  "test_extend_tag/test_extend_tag_within_group_with_child_groups_above": {
+   "issue": 74,
+   "reason": "<extend> inside a <group> is ignored"
+  },
+  "test_extend_tag/test_extend_tag_within_group_with_multiple_groups": {
+   "issue": 74,
+   "reason": "<extend> inside a <group> is ignored"
+  },
+  "test_extend_tag/test_extend_tag_within_group_with_non_hierarch_template": {
+   "issue": 74,
+   "reason": "<extend> inside a <group> is ignored"
+  },
+  "test_group_chain_attribute/test_group_chain_attribute_list": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"test loopback0\", \"<missing>\"]"
+  },
+  "test_group_chain_attribute/test_group_chain_attribute_list_multi_func": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"test loopback0\", \"<missing>\"]"
+  },
+  "test_group_chain_attribute/test_group_chain_attribute_string_inline": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].test_macro\", \"DONE\", \"<missing>\"]"
+  },
+  "test_group_chain_attribute/test_group_chain_attribute_string_var": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].test_macro\", \"DONE\", \"<missing>\"]"
+  },
+  "test_group_functions/test_child_group_default_referencing_variable": {
+   "issue": 70,
+   "reason": "several inline <input> tags without names: only the first is parsed"
+  },
+  "test_group_functions/test_group_default_referencing_variable_parent_group_no_re_one_input": {
+   "issue": 91,
+   "reason": "group with no matching lines does not emit its default= values"
+  },
+  "test_group_functions/test_group_default_referencing_variable_parent_group_no_re_two_inputs": {
+   "issue": 91,
+   "reason": "group with no matching lines does not emit its default= values"
+  },
+  "test_group_functions/test_group_macro_chaining": {
+   "issue": 97,
+   "reason": "group macro that changes data and returns None: the next macro gets None"
+  },
+  "test_group_functions/test_group_macro_chaining_returns_dictionary": {
+   "issue": 97,
+   "reason": "group macro that returns None: the next macro gets None"
+  },
+  "test_group_functions/test_group_macro_returns_false": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"this interface has description\", \"<missing>\"]",
+   "also": [
+    97
+   ]
+  },
+  "test_group_functions/test_group_macro_returns_none": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_group_functions/test_group_macro_returns_true": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_group_functions/test_group_set_function_source_from_global_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0]\", [{\"hostname\": \"router_1\"}], {\"hostname\": \"router_1\"}]"
+  },
+  "test_group_functions/test_group_to_int_for_non_integer": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[1].mtu\", 8000, \"8000\"]",
+   "also": [
+    72
+   ]
+  },
+  "test_group_functions/test_group_to_int_missing_key_issue_109": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[2].mtu\", 9200.0, \"9200.0\"]",
+   "also": [
+    72
+   ]
+  },
+  "test_group_functions/test_group_to_int_with_intlist_false_issue_109": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_group_functions/test_group_to_int_with_intlist_true_issue_109": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_group_functions/test_group_to_int_with_intlist_with_not_all_integers": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_group_functions/test_group_validate_function": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0]\", [{\"interface\": \"Lo0\", \"hostname\": \"device-1\", \"validation_result\": false, \"info\": \"Lo0 has description\", \"err_details\": {\"descripti"
+  },
+  "test_group_functions/test_itemize": {
+   "issue": 88,
+   "reason": "itemize(key=...) in functions= produces nothing"
+  },
+  "test_group_functions/test_itemize_dynamic_path_attribute": {
+   "issue": 88,
+   "reason": "itemize path argument is ignored"
+  },
+  "test_group_functions/test_top_group_default_referencing_variable_dictionary": {
+   "issue": 70,
+   "reason": "several inline <input> tags without names: only the first is parsed"
+  },
+  "test_group_lookup/test_group_lookup_in_template_results_per_input_action_update": {
+   "issue": 77,
+   "reason": "nested <template> children with results= are merged"
+  },
+  "test_group_lookup/test_group_lookup_in_template_results_per_template_action_add_field": {
+   "issue": 77,
+   "reason": "nested <template> children with results= are merged"
+  },
+  "test_group_lookup/test_group_lookup_using_group_from_another_input_action_update": {
+   "issue": 75,
+   "reason": "group-level lookup= attribute is ignored"
+  },
+  "test_group_lookup/test_group_lookup_using_group_in_same_input_action_update": {
+   "issue": 75,
+   "reason": "group-level lookup= attribute is ignored"
+  },
+  "test_group_lookup/test_group_lookup_using_lookup_table_action_add_field": {
+   "issue": 75,
+   "reason": "group-level lookup= attribute is ignored"
+  },
+  "test_group_lookup/test_group_lookup_using_lookup_table_action_replace": {
+   "issue": 75,
+   "reason": "group-level lookup= attribute is ignored"
+  },
+  "test_group_lookup/test_group_lookup_using_lookup_table_action_update": {
+   "issue": 75,
+   "reason": "group-level lookup= attribute is ignored"
+  },
+  "test_group_name_attribute/test_group_same_null_path_for_several_groups": {
+   "issue": 30,
+   "reason": "indented template lines also match the \"!\" lines at other indents"
+  },
+  "test_headers_indicator/test_headers_docs_example": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_headers_indicator/test_headers_indicator_columns_merged": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_headers_indicator/test_headers_indicator_left_aligned": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_headers_indicator/test_headers_indicator_multiline_header": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_headers_indicator/test_headers_indicator_space_indented_header": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_headers_indicator/test_headers_indicator_tab_indented_header": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_headers_indicator/test_headers_last_column_empty": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_headers_indicator/test_headers_on_tabular_output": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_headers_indicator/test_headers_shorter_lines": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_headers_indicator/test_headers_with_column": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_headers_indicator/test_with_garbage": {
+   "issue": 68,
+   "reason": "_headers_ indicator unimplemented"
+  },
+  "test_inputs/test_group_inputs": {
+   "issue": 94,
+   "reason": "<input> with url= to a directory (filters=, extensions=) loads nothing"
+  },
+  "test_inputs/test_inputs_url_filters_extensions": {
+   "issue": 94,
+   "reason": "<input> with url= to a directory (filters=, extensions=) loads nothing"
+  },
+  "test_inputs/test_inputs_with_template_base_path": {
+   "issue": 94,
+   "reason": "<input> with url= to a directory under <template base_path> loads nothing"
+  },
+  "test_lookups/test_lookup_include_csv": {
+   "issue": 96,
+   "reason": "<lookup load=\"csv\" include=...> is not loaded"
+  },
+  "test_match_condition_fun/test_contains_from_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_match_condition_fun/test_contains_inline": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_match_condition_fun/test_contains_multi": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_match_condition_fun/test_contains_re_from_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
+   "also": [
+    63
+   ]
+  },
+  "test_match_condition_fun/test_contains_re_inline": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"<missing>\", \"RID\"]",
+   "also": [
+    69
+   ]
+  },
+  "test_match_condition_fun/test_endswith_re_from_vars": {
+   "issue": 67,
+   "reason": "raw-string value r\"Channel\\d+\" in <vars> matches nothing"
+  },
+  "test_match_condition_fun/test_endswith_re_inline": {
+   "issue": 67,
+   "reason": "raw-string argument endswith_re(r\"Channel\\d+\") matches nothing"
+  },
+  "test_match_condition_fun/test_equal_from_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_match_condition_fun/test_equal_inline": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_match_condition_fun/test_exclude_from_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"<missing>\", \"RID\"]",
+   "also": [
+    69
+   ]
+  },
+  "test_match_condition_fun/test_exclude_inline": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"<missing>\", \"RID\"]",
+   "also": [
+    69
+   ]
+  },
+  "test_match_condition_fun/test_exclude_re_from_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$.len\", 1, 2]"
+  },
+  "test_match_condition_fun/test_exclude_re_inline": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[1].description\", \"Management\", \"RID\"]"
+  },
+  "test_match_condition_fun/test_notendswith_re_from_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
+   "also": [
+    63
+   ]
+  },
+  "test_match_condition_fun/test_notendswith_re_inline": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
+   "also": [
+    63
+   ]
+  },
+  "test_match_condition_fun/test_notequal_from_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_match_condition_fun/test_notequal_inline": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_match_condition_fun/test_notstartswith_re_from_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
+   "also": [
+    63
+   ]
+  },
+  "test_match_condition_fun/test_notstartswith_re_inline": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
+   "also": [
+    63
+   ]
+  },
+  "test_match_condition_fun/test_startswith_re_from_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
+   "also": [
+    63
+   ]
+  },
+  "test_match_condition_fun/test_startswith_re_inline": {
+   "issue": 67,
+   "reason": "raw-string argument startswith_re(r\"Por\\S\") matches nothing"
+  },
+  "test_match_functions/test_copy": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ip_address\", \"1.1.1.123\", \"<missing>\"]",
+   "also": [
+    66
+   ]
+  },
+  "test_match_functions/test_joinmatches_with_ignore": {
+   "issue": 73,
+   "reason": "gethostname not resolved"
+  },
+  "test_match_functions/test_let_and_set": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].admin-status\", \"down\", \"up\"]",
+   "also": [
+    71
+   ]
+  },
+  "test_match_functions/test_line_with_joinmatches": {
+   "issue": 79,
+   "reason": "_line_ with joinmatches also captures lines matched by another template line"
+  },
+  "test_match_functions/test_match_variable_default_set_to_dictionary": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ip\", \"1.1.1.1/24\", \" 1.1.1.1/24\"]",
+   "also": [
+    64
+   ]
+  },
+  "test_match_functions/test_match_variable_default_set_to_list": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ip\", \"1.1.1.1/24\", \" 1.1.1.1/24\"]",
+   "also": [
+    64
+   ]
+  },
+  "test_match_functions/test_match_variable_default_set_to_string": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ip\", \"1.1.1.1/24\", \" 1.1.1.1/24\"]",
+   "also": [
+    64
+   ]
+  },
+  "test_match_functions/test_match_variable_set_and_let_for_same_variable_with_special_chars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ip\", \"1.1.1.1/24\", \" 1.1.1.1/24\"]",
+   "also": [
+    64
+   ]
+  },
+  "test_match_functions/test_multiple_joinmatches": {
+   "issue": 73,
+   "reason": "gethostname not resolved"
+  },
+  "test_match_functions/test_sformat_from_vars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_match_functions/test_sformat_inline": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_match_functions/test_to_list_with_joinmatches": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_misc/test_asterisk_issue_97": {
+   "issue": 76,
+   "reason": "dynamic-path value containing \".*\" is split into path segments"
+  },
+  "test_misc/test_child_group_do_not_start_if_no_parent_started": {
+   "issue": 99,
+   "reason": "record()/set= across groups: first child record lost, recorded value not set"
+  },
+  "test_misc/test_group_end_indicator_when_last_start_is_bigger_than_last_end": {
+   "issue": 99,
+   "reason": "record()/set= across groups: recorded value not set"
+  },
+  "test_misc/test_groups_with_defaults_only_and_with_children_with_defaults_only": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ntp-1.another_child_grp_with_default\", {\"val2\": \"None\", \"deeper_child_with_defaults\": {\"val5\": \"something\", \"val4\": \"something\"}}, \"<",
+   "also": [
+    91
+   ]
+  },
+  "test_misc/test_hierarch_template": {
+   "issue": 73,
+   "reason": "gethostname not resolved"
+  },
+  "test_misc/test_inner_group_strange_parsing_results": {
+   "reason": "design: python macro (uses _ttp_[\"match\"][\"to_ip\"], str.format and the ipaddress object API)"
+  },
+  "test_misc/test_issue_95": {
+   "issue": 97,
+   "reason": "group macro that changes data in place and returns None: the change is lost"
+  },
+  "test_misc/test_match_vars_multiple_non_alpha_chars": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_misc/test_match_vars_set_with_hyphen": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description-bla\", \"Storage\", \" Storage\"]",
+   "also": [
+    64
+   ]
+  },
+  "test_misc/test_match_vars_starts_with_digit": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_misc/test_match_vars_with_dot": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_misc/test_match_vars_with_hyphen": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_misc/test_tail_match_no_group_functions_processing": {
+   "issue": 64,
+   "reason": "default() variable captures the leading space"
+  },
+  "test_misc/test_ttp_templates_dir_env_variable": {
+   "issue": 95,
+   "reason": "template given as a file name is not loaded from TTP_TEMPLATES_DIR"
+  },
+  "test_output_formatters/test_csv_formatter_simple": {
+   "issue": 62,
+   "reason": "csv output renders one row per match (anonymous group list level); after that: [\"$[0]\", \"\\\"interface\\\",\\\"vlan\\\"\\n\\\"Port-Chanel11\\\",\\\"10\\\"\\n\\\"Loopback0\\\",\\\"20\\\"\", \"\\\"interface\\\",\\\"vlan\\\"\\n\\\"Port-Chanel11\\\",\\\"10\\\"\"]"
+  },
+  "test_output_formatters/test_csv_formatter_simple_empty_tag": {
+   "issue": 62,
+   "reason": "csv output renders one row per match (anonymous group list level); after that: [\"$[0]\", \"\\\"interface\\\",\\\"vlan\\\"\\n\\\"Port-Chanel11\\\",\\\"10\\\"\\n\\\"Loopback0\\\",\\\"20\\\"\", \"\\\"interface\\\",\\\"vlan\\\"\\n\\\"Port-Chanel11\\\",\\\"10\\\"\"]"
+  },
+  "test_output_formatters/test_csv_formatter_with_is_equal": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].interfaces2\", \"<missing>\", {\"trunks2\": [{\"description\": \"some description\", \"interface\": \"GigabitEthernet3/3\", \"trunk_vlans\": \"138,16"
+  },
+  "test_output_formatters/test_jinja2_formatter": {
+   "issue": 80,
+   "reason": "format=\"jinja2\" with an inline template errors"
+  },
+  "test_output_formatters/test_table_formatter": {
+   "issue": 98,
+   "reason": "formatter output gets an extra list level"
+  },
+  "test_output_formatters/test_table_formatter_multiple_input": {
+   "issue": 98,
+   "reason": "formatter output gets an extra list level"
+  },
+  "test_output_formatters/test_table_formatter_with_key": {
+   "issue": 98,
+   "reason": "formatter output gets an extra list level"
+  },
+  "test_output_formatters/test_tabulate_formatter": {
+   "issue": 102,
+   "reason": "format_attributes (tablefmt) is ignored"
+  },
+  "test_output_functions/test_cerberus_validate_per_input": {
+   "issue": 80,
+   "reason": "output function validate (cerberus) is not run"
+  },
+  "test_output_functions/test_cerberus_validate_per_template": {
+   "issue": 80,
+   "reason": "output function validate (cerberus) is not run"
+  },
+  "test_output_functions/test_global_output_deepdiff_with_var_before": {
+   "issue": 80,
+   "reason": "output function deepdiff is not registered"
+  },
+  "test_output_functions/test_group_specific_output_deepdiff_with_var_before": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].interfaces\", \"<missing>\", [{\"description\": \"some info\", \"interface\": \"GigabitEthernet1\", \"ip\": \"10.123.89.56\", \"mask\": \"255.255.255.0"
+  },
+  "test_output_functions/test_group_specific_output_deepdiff_with_var_before_with_add_field": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].interfaces\", \"<missing>\", [{\"description\": \"some info\", \"interface\": \"GigabitEthernet1\", \"ip\": \"10.123.89.56\", \"mask\": \"255.255.255.0"
+  },
+  "test_output_functions/test_yangson_validate": {
+   "issue": 80,
+   "reason": "output function validate_yangson is not registered"
+  },
+  "test_output_functions/test_yangson_validate_metadata_false_validation_successful": {
+   "issue": 80,
+   "reason": "output function validate_yangson is not registered"
+  },
+  "test_output_functions/test_yangson_validate_metadata_false_validation_unsuccessful": {
+   "issue": 80,
+   "reason": "output function validate_yangson is not registered"
+  },
+  "test_output_functions/test_yangson_validate_yang_lib_in_output_tag_data": {
+   "issue": 80,
+   "reason": "output function validate_yangson is not registered"
+  },
+  "test_regexes/test_multiple_inline_regexes": {
+   "issue": 67,
+   "reason": "raw-string argument re(r\"GigabitEthernet\\S+\") matches nothing"
+  },
+  "test_regexes/test_pipe_separated_regexes": {
+   "issue": 67,
+   "reason": "raw-string argument re(r\"\\d+\") matches nothing"
+  },
+  "test_structure/test_list_structure": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level; after that: [\"$[0]\", [{\"ip\": \"192.168.0.1\", \"mask\": \"32\", \"interface\": \"Lo0\"}, {\"ip\": \"1.1.1.1\", \"mask\": \"32\", \"interface\": \"Lo1\"}], {\"interface\": \"Lo0\""
+  },
+  "test_template_variables/test_include_attribute_with_yaml_loader": {
+   "issue": 96,
+   "reason": "<vars load=\"yaml\" include=...> is not loaded"
+  },
+  "test_ttp_parser_methods/test_quick_parse_function": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  },
+  "test_ttp_parser_methods/test_quick_parse_function_template_only": {
+   "issue": 62,
+   "reason": "top-level anonymous group loses one list level"
+  }
+ }
+}

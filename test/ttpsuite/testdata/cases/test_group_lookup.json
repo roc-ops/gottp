@@ -1,0 +1,266 @@
+[
+ {
+  "name": "test_group_lookup/test_group_lookup_using_lookup_table_action_replace",
+  "source": "test/pytest/test_group_lookup.py::test_group_lookup_using_lookup_table_action_replace",
+  "template": "\n<input load=\"text\">\nProtocol  Address     Age (min)  Hardware Addr   Type   Interface\nInternet  10.12.13.2        98   0950.5785.5cd1  ARPA   FastEthernet2.13\nInternet  10.12.14.3       131   0150.7685.14d5  ARPA   GigabitEthernet2.13\n</input>\n\n<lookup name=\"lookup_data\" load=\"ini\">\n[ip_addresses]\n10.12.13.2 = app_1\n10.12.14.3 = app_2\n</lookup>\n\n<group name=\"arp\" lookup=\"'ip', name='lookup_data.ip_addresses', replace=True\">\nInternet  {{ ip }}  {{ age | DIGIT }}   {{ mac }}  ARPA   {{ interface }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "arp": [
+      {
+       "ip": "app_1",
+       "age": "98",
+       "mac": "0950.5785.5cd1",
+       "interface": "FastEthernet2.13"
+      },
+      {
+       "ip": "app_2",
+       "age": "131",
+       "mac": "0150.7685.14d5",
+       "interface": "GigabitEthernet2.13"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_lookup/test_group_lookup_using_lookup_table_action_add_field",
+  "source": "test/pytest/test_group_lookup.py::test_group_lookup_using_lookup_table_action_add_field",
+  "template": "\n<input load=\"text\">\nProtocol  Address     Age (min)  Hardware Addr   Type   Interface\nInternet  10.12.13.2        98   0950.5785.5cd1  ARPA   FastEthernet2.13\nInternet  10.12.14.3       131   0150.7685.14d5  ARPA   GigabitEthernet2.13\n</input>\n\n<lookup name=\"lookup_data\" load=\"python\">\n{ \"ip_addresses\": {\n  \"10.12.13.2\": \"app_1\",\n  \"10.12.14.3\": \"app_2\"}}\n</lookup>\n\n<group name=\"arp\" lookup=\"'ip', name='lookup_data.ip_addresses', add_field='APP'\">\nInternet  {{ ip }}  {{ age | DIGIT }}   {{ mac }}  ARPA   {{ interface }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "arp": [
+      {
+       "ip": "10.12.13.2",
+       "age": "98",
+       "mac": "0950.5785.5cd1",
+       "interface": "FastEthernet2.13",
+       "APP": "app_1"
+      },
+      {
+       "ip": "10.12.14.3",
+       "age": "131",
+       "mac": "0150.7685.14d5",
+       "interface": "GigabitEthernet2.13",
+       "APP": "app_2"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_lookup/test_group_lookup_using_lookup_table_action_update",
+  "source": "test/pytest/test_group_lookup.py::test_group_lookup_using_lookup_table_action_update",
+  "template": "\n<input load=\"text\">\nProtocol  Address     Age (min)  Hardware Addr   Type   Interface\nInternet  10.12.13.2        98   0950.5785.5cd1  ARPA   FastEthernet2.13\nInternet  10.12.14.3       131   0150.7685.14d5  ARPA   GigabitEthernet2.13\n</input>\n\n<lookup name=\"lookup_data\" load=\"yaml\">\nip_addresses:\n  10.12.13.2: \n    app_name: app_1\n    app_owner: team2\n  10.12.14.3: \n    app_name: app_2\n    app_owner: team_2\n</lookup>\n\n<group name=\"arp\" lookup=\"'ip', name='lookup_data.ip_addresses', update=True\">\nInternet  {{ ip }}  {{ age | DIGIT }}   {{ mac }}  ARPA   {{ interface }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "arp": [
+      {
+       "ip": "10.12.13.2",
+       "age": "98",
+       "mac": "0950.5785.5cd1",
+       "interface": "FastEthernet2.13",
+       "app_name": "app_1",
+       "app_owner": "team2"
+      },
+      {
+       "ip": "10.12.14.3",
+       "age": "131",
+       "mac": "0150.7685.14d5",
+       "interface": "GigabitEthernet2.13",
+       "app_name": "app_2",
+       "app_owner": "team_2"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_lookup/test_group_lookup_using_group_in_same_input_action_update",
+  "source": "test/pytest/test_group_lookup.py::test_group_lookup_using_group_in_same_input_action_update",
+  "template": "\n<input load=\"text\">\ninterface FastEthernet2.13\n description Customer CPE interface\n ip address 10.12.13.1 255.255.255.0\n vrf forwarding CPE-VRF\n!\ninterface GigabitEthernet2.13\n description Customer CPE interface\n ip address 10.12.14.1 255.255.255.0\n vrf forwarding CUST1\n!\nProtocol  Address     Age (min)  Hardware Addr   Type   Interface\nInternet  10.12.13.2        98   0950.5785.5cd1  ARPA   FastEthernet2.13\nInternet  10.12.14.3       131   0150.7685.14d5  ARPA   GigabitEthernet2.13\n</input>\n\n<group name=\"interfaces.{{ interface }}\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {{ subnet | PHRASE | to_ip | network | to_str }}\n vrf forwarding {{ vrf }}\n</group>\n\n<group name=\"arp\" lookup=\"interface, group='interfaces', update=True\">\nInternet  {{ ip }}  {{ age | DIGIT }}   {{ mac }}  ARPA   {{ interface }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "interfaces": {
+      "FastEthernet2.13": {
+       "vrf": "CPE-VRF",
+       "subnet": "10.12.13.0/24",
+       "description": "Customer CPE interface"
+      },
+      "GigabitEthernet2.13": {
+       "vrf": "CUST1",
+       "subnet": "10.12.14.0/24",
+       "description": "Customer CPE interface"
+      }
+     },
+     "arp": [
+      {
+       "ip": "10.12.13.2",
+       "age": "98",
+       "mac": "0950.5785.5cd1",
+       "interface": "FastEthernet2.13",
+       "vrf": "CPE-VRF",
+       "subnet": "10.12.13.0/24",
+       "description": "Customer CPE interface"
+      },
+      {
+       "ip": "10.12.14.3",
+       "age": "131",
+       "mac": "0150.7685.14d5",
+       "interface": "GigabitEthernet2.13",
+       "vrf": "CUST1",
+       "subnet": "10.12.14.0/24",
+       "description": "Customer CPE interface"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_lookup/test_group_lookup_using_group_from_another_input_action_update",
+  "source": "test/pytest/test_group_lookup.py::test_group_lookup_using_group_from_another_input_action_update",
+  "template": "\n<input name=\"interfaces\" load=\"text\">\ninterface FastEthernet2.13\n description Customer CPE interface\n ip address 10.12.13.1 255.255.255.0\n vrf forwarding CPE-VRF\n!\ninterface GigabitEthernet2.13\n description Customer CPE interface\n ip address 10.12.14.1 255.255.255.0\n vrf forwarding CUST1\n!\n</input>\n\n<input name=\"arp\" load=\"text\">\nProtocol  Address     Age (min)  Hardware Addr   Type   Interface\nInternet  10.12.13.2        98   0950.5785.5cd1  ARPA   FastEthernet2.13\nInternet  10.12.14.3       131   0150.7685.14d5  ARPA   GigabitEthernet2.13\n</input>\n\n<group name=\"interfaces.{{ interface }}\" input=\"interfaces\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {{ subnet | PHRASE | to_ip | network | to_str }}\n vrf forwarding {{ vrf }}\n</group>\n\n<group name=\"arp\" lookup=\"interface, group='interfaces', update=True\" input=\"arp\">\nInternet  {{ ip }}  {{ age | DIGIT }}   {{ mac }}  ARPA   {{ interface }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "interfaces": {
+      "FastEthernet2.13": {
+       "vrf": "CPE-VRF",
+       "subnet": "10.12.13.0/24",
+       "description": "Customer CPE interface"
+      },
+      "GigabitEthernet2.13": {
+       "vrf": "CUST1",
+       "subnet": "10.12.14.0/24",
+       "description": "Customer CPE interface"
+      }
+     }
+    },
+    {
+     "arp": [
+      {
+       "ip": "10.12.13.2",
+       "age": "98",
+       "mac": "0950.5785.5cd1",
+       "interface": "FastEthernet2.13",
+       "vrf": "CPE-VRF",
+       "subnet": "10.12.13.0/24",
+       "description": "Customer CPE interface"
+      },
+      {
+       "ip": "10.12.14.3",
+       "age": "131",
+       "mac": "0150.7685.14d5",
+       "interface": "GigabitEthernet2.13",
+       "vrf": "CUST1",
+       "subnet": "10.12.14.0/24",
+       "description": "Customer CPE interface"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_group_lookup/test_group_lookup_in_template_results_per_input_action_update",
+  "source": "test/pytest/test_group_lookup.py::test_group_lookup_in_template_results_per_input_action_update",
+  "template": "\n<template name=\"interfaces\">\n<input load=\"text\">\ninterface FastEthernet2.13\n description Customer CPE interface\n ip address 10.12.13.1 255.255.255.0\n vrf forwarding CPE-VRF\n!\ninterface GigabitEthernet2.13\n description Customer CPE interface\n ip address 10.12.14.1 255.255.255.0\n vrf forwarding CUST1\n!\n</input>\n\n<group name=\"{{ interface }}\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {{ subnet | PHRASE | to_ip | network | to_str }}\n vrf forwarding {{ vrf }}\n</group>\n</template>\n\n<template name=\"arp\">\n<input load=\"text\">\nProtocol  Address     Age (min)  Hardware Addr   Type   Interface\nInternet  10.12.13.2        98   0950.5785.5cd1  ARPA   FastEthernet2.13\nInternet  10.12.14.3       131   0150.7685.14d5  ARPA   GigabitEthernet2.13\n</input>\n\n<group lookup=\"interface, template='interfaces', update=True\">\nInternet  {{ ip }}  {{ age | DIGIT }}   {{ mac }}  ARPA   {{ interface }}\n</group>\n</template>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "FastEthernet2.13": {
+      "vrf": "CPE-VRF",
+      "subnet": "10.12.13.0/24",
+      "description": "Customer CPE interface"
+     },
+     "GigabitEthernet2.13": {
+      "vrf": "CUST1",
+      "subnet": "10.12.14.0/24",
+      "description": "Customer CPE interface"
+     }
+    }
+   ],
+   [
+    [
+     {
+      "ip": "10.12.13.2",
+      "age": "98",
+      "mac": "0950.5785.5cd1",
+      "interface": "FastEthernet2.13",
+      "vrf": "CPE-VRF",
+      "subnet": "10.12.13.0/24",
+      "description": "Customer CPE interface"
+     },
+     {
+      "ip": "10.12.14.3",
+      "age": "131",
+      "mac": "0150.7685.14d5",
+      "interface": "GigabitEthernet2.13",
+      "vrf": "CUST1",
+      "subnet": "10.12.14.0/24",
+      "description": "Customer CPE interface"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_group_lookup/test_group_lookup_in_template_results_per_template_action_add_field",
+  "source": "test/pytest/test_group_lookup.py::test_group_lookup_in_template_results_per_template_action_add_field",
+  "template": "\n<template name=\"interfaces\" results=\"per_template\">\n<input load=\"text\">\ninterface FastEthernet2.13\n description Customer CPE interface\n ip address 10.12.13.1 255.255.255.0\n vrf forwarding CPE-VRF\n!\n</input>\n\n<input load=\"text\">\ninterface GigabitEthernet2.13\n description Customer CPE interface\n ip address 10.12.14.1 255.255.255.0\n vrf forwarding CUST1\n!\n</input>\n\n<group name=\"{{ interface }}\">\ninterface {{ interface }}\n description {{ description | ORPHRASE }}\n ip address {{ subnet | PHRASE | to_ip | network | to_str }}\n vrf forwarding {{ vrf }}\n</group>\n</template>\n\n<template name=\"arp\">\n<input load=\"text\">\nProtocol  Address     Age (min)  Hardware Addr   Type   Interface\nInternet  10.12.13.2        98   0950.5785.5cd1  ARPA   FastEthernet2.13\nInternet  10.12.14.3       131   0150.7685.14d5  ARPA   GigabitEthernet2.13\n</input>\n\n<group lookup=\"interface, template='interfaces', add_field='intf_info'\">\nInternet  {{ ip }}  {{ age | DIGIT }}   {{ mac }}  ARPA   {{ interface }}\n</group>\n</template>\n",
+  "inputs": [],
+  "expected": [
+   {
+    "FastEthernet2.13": {
+     "vrf": "CPE-VRF",
+     "subnet": "10.12.13.0/24",
+     "description": "Customer CPE interface"
+    },
+    "GigabitEthernet2.13": {
+     "vrf": "CUST1",
+     "subnet": "10.12.14.0/24",
+     "description": "Customer CPE interface"
+    }
+   },
+   [
+    [
+     {
+      "ip": "10.12.13.2",
+      "age": "98",
+      "mac": "0950.5785.5cd1",
+      "interface": "FastEthernet2.13",
+      "intf_info": {
+       "vrf": "CPE-VRF",
+       "subnet": "10.12.13.0/24",
+       "description": "Customer CPE interface"
+      }
+     },
+     {
+      "ip": "10.12.14.3",
+      "age": "131",
+      "mac": "0150.7685.14d5",
+      "interface": "GigabitEthernet2.13",
+      "intf_info": {
+       "vrf": "CUST1",
+       "subnet": "10.12.14.0/24",
+       "description": "Customer CPE interface"
+      }
+     }
+    ]
+   ]
+  ]
+ }
+]

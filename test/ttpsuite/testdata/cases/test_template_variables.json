@@ -1,0 +1,45 @@
+[
+ {
+  "name": "test_template_variables/test_include_attribute_with_yaml_loader",
+  "source": "test/pytest/test_template_variables.py::test_include_attribute_with_yaml_loader",
+  "template": "\n<vars name=\"loaded_vars\" load=\"yaml\" include=\"./assets/yaml_vars.txt\"/>\n\n<input load=\"text\">\nProtocol  Address     Age (min)  Hardware Addr   Type   Interface\nInternet  10.12.13.1        98   0950.5785.5cd1  ARPA   FastEthernet2.13\nInternet  10.12.13.2        98   0950.5785.5cd2  ARPA   Loopback0\nInternet  10.12.13.3       131   0150.7685.14d5  ARPA   GigabitEthernet2.13\nInternet  10.12.13.4       198   0950.5C8A.5c41  ARPA   GigabitEthernet2.17\n</input>\n\n<group name=\"arp_test\">\nInternet  {{ ip }}  {{ age }}   {{ mac }}  ARPA   {{ interface | re(\"INTF_RE\") }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "loaded_vars": {
+      "var_1": "value_1",
+      "var_2": [
+       1,
+       2,
+       3,
+       4,
+       "a"
+      ],
+      "INTF_RE": "GigabitEthernet\\S+|Fast\\S+"
+     },
+     "arp_test": [
+      {
+       "ip": "10.12.13.1",
+       "age": "98",
+       "mac": "0950.5785.5cd1",
+       "interface": "FastEthernet2.13"
+      },
+      {
+       "ip": "10.12.13.3",
+       "age": "131",
+       "mac": "0150.7685.14d5",
+       "interface": "GigabitEthernet2.13"
+      },
+      {
+       "ip": "10.12.13.4",
+       "age": "198",
+       "mac": "0950.5C8A.5c41",
+       "interface": "GigabitEthernet2.17"
+      }
+     ]
+    }
+   ]
+  ]
+ }
+]

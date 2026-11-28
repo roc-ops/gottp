@@ -1,0 +1,165 @@
+[
+ {
+  "name": "test_output_formatters/test_csv_formatter_simple",
+  "source": "test/pytest/test_output_formatters.py::test_csv_formatter_simple",
+  "template": "\n<input load=\"text\">\ninterface Port-Chanel11\n  vlan 10\ninterface Loopback0\n  vlan 20\n</input>\n\n<group>\ninterface {{ interface }}\n  vlan {{ vlan | to_int }}\n</group>\n\n<output\nformat=\"csv\"\n/>\n",
+  "inputs": [],
+  "expected": [
+   "\"interface\",\"vlan\"\n\"Port-Chanel11\",\"10\"\n\"Loopback0\",\"20\""
+  ]
+ },
+ {
+  "name": "test_output_formatters/test_csv_formatter_simple_empty_tag",
+  "source": "test/pytest/test_output_formatters.py::test_csv_formatter_simple_empty_tag",
+  "template": "\n<input load=\"text\">\ninterface Port-Chanel11\n  vlan 10\ninterface Loopback0\n  vlan 20\n</input>\n\n<group>\ninterface {{ interface }}\n  vlan {{ vlan | to_int }}\n</group>\n\n<output\nformat=\"csv\"\n>\n</output>\n",
+  "inputs": [],
+  "expected": [
+   "\"interface\",\"vlan\"\n\"Port-Chanel11\",\"10\"\n\"Loopback0\",\"20\""
+  ]
+ },
+ {
+  "name": "test_output_formatters/test_csv_formatter_with_is_equal",
+  "source": "test/pytest/test_output_formatters.py::test_csv_formatter_with_is_equal",
+  "template": "\n<input load=\"text\" groups=\"interfaces2.trunks2\">\ninterface GigabitEthernet3/3\n switchport trunk allowed vlan add 138,166-173 \n description some description\n!\ninterface GigabitEthernet3/4\n switchport trunk allowed vlan add 100-105\n!\ninterface GigabitEthernet3/5\n switchport trunk allowed vlan add 459,531,704-707\n ip address 1.1.1.1 255.255.255.255\n vrf forwarding ABC_VRF\n!\n</input>\n\n<!--group with group specific outputs:-->\n<group name=\"interfaces2.trunks2\" output=\"out_csv2, test3-1\">\ninterface {{ interface }}\n switchport trunk allowed vlan add {{ trunk_vlans }}\n description {{ description | ORPHRASE }}\n vrf forwarding {{ vrf }}\n ip address {{ ip }} {{ mask }}\n!{{ _end_ }}\n</group>\n\n<out>\nname=\"out_csv2\"\npath=\"interfaces2.trunks2\"\nformat=\"csv\"\nsep=\",\"\nmissing=\"undefined\"\ndescription=\"group specific csv outputter\"\n</out>\n\n<out \nname=\"test3-1\"\nload=\"text\"\nreturner=\"self\"\nfunctions=\"is_equal\"\ndescription=\"test csv group specific outputter\"\n>\"description\",\"interface\",\"ip\",\"mask\",\"trunk_vlans\",\"vrf\"\n\"some description\",\"GigabitEthernet3/3\",\"undefined\",\"undefined\",\"138,166-173\",\"undefined\"\n\"undefined\",\"GigabitEthernet3/4\",\"undefined\",\"undefined\",\"100-105\",\"undefined\"\n\"undefined\",\"GigabitEthernet3/5\",\"1.1.1.1\",\"255.255.255.255\",\"459,531,704-707\",\"ABC_VRF\"</out>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "output_name": "test3-1",
+      "output_description": "test csv group specific outputter",
+      "is_equal": true
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_output_formatters/test_tabulate_formatter",
+  "source": "test/pytest/test_output_formatters.py::test_tabulate_formatter",
+  "template": "\n<input load=\"text\">\nrouter bgp 65100\n  neighbor 10.145.1.9\n    description vic-mel-core1\n  !\n  neighbor 192.168.101.1\n    description qld-bri-core1\n</input>\n\n<group name=\"bgp_config\">\nrouter bgp {{ bgp_as }}\n <group name=\"peers\">\n  neighbor {{ peer }}\n    description {{ description  }}\n </group>\n</group> \n    \n<output \npath=\"bgp_config.peers\" \nformat=\"tabulate\" \nformat_attributes=\"tablefmt='fancy_grid'\"\n/>\n    ",
+  "inputs": [],
+  "expected": [
+   "╒═══════════════╤═══════════════╕\n│ description   │ peer          │\n╞═══════════════╪═══════════════╡\n│ vic-mel-core1 │ 10.145.1.9    │\n├───────────────┼───────────────┤\n│ qld-bri-core1 │ 192.168.101.1 │\n╘═══════════════╧═══════════════╛"
+  ]
+ },
+ {
+  "name": "test_output_formatters/test_table_formatter",
+  "source": "test/pytest/test_output_formatters.py::test_table_formatter",
+  "template": "\n<input load=\"text\">\nrouter bgp 65100\n  neighbor 10.145.1.9\n    description vic-mel-core1\n  !\n  neighbor 192.168.101.1\n    description qld-bri-core1\n</input>\n\n<group name=\"bgp_config\">\nrouter bgp {{ bgp_as }}\n <group name=\"peers\">\n  neighbor {{ peer }}\n    description {{ description  }}\n </group>\n</group> \n    \n<output \npath=\"bgp_config.peers\" \nformat=\"table\" \nheaders=\"description, peer, asn\"\nmissing=\"Undefined\"\n/>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     "description",
+     "peer",
+     "asn"
+    ],
+    [
+     "vic-mel-core1",
+     "10.145.1.9",
+     "Undefined"
+    ],
+    [
+     "qld-bri-core1",
+     "192.168.101.1",
+     "Undefined"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_output_formatters/test_table_formatter_with_key",
+  "source": "test/pytest/test_output_formatters.py::test_table_formatter_with_key",
+  "template": "\n<input load=\"text\">\ninterface Loopback0\n description Router-id-loopback\n ip address 192.168.0.113/24\n!\ninterface Loopback1\n description Router-id-loopback\n ip address 192.168.0.1/24\n!\ninterface Vlan778\n ip address 2002::fd37/124\n ip vrf CPE1\n!\ninterface Vlan779\n ip address 2002::bbcd/124\n ip vrf CPE2\n!\n</input>\n<group name=\"interfaces**.{{ interface }}\">\ninterface {{ interface }}\n ip address {{ ip }}/{{ mask }}\n description {{ description }}\n ip vrf {{ vrf }}\n</group>\n\n<output \npath=\"interfaces\" \nformat=\"table\" \nheaders=\"intf, ip, mask, vrf, description, switchport\"\nkey=\"intf\"\nmissing=\"Undefined\"\n/>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     "intf",
+     "ip",
+     "mask",
+     "vrf",
+     "description",
+     "switchport"
+    ],
+    [
+     "Loopback0",
+     "192.168.0.113",
+     "24",
+     "Undefined",
+     "Router-id-loopback",
+     "Undefined"
+    ],
+    [
+     "Loopback1",
+     "192.168.0.1",
+     "24",
+     "Undefined",
+     "Router-id-loopback",
+     "Undefined"
+    ],
+    [
+     "Vlan778",
+     "2002::fd37",
+     "124",
+     "CPE1",
+     "Undefined",
+     "Undefined"
+    ],
+    [
+     "Vlan779",
+     "2002::bbcd",
+     "124",
+     "CPE2",
+     "Undefined",
+     "Undefined"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_output_formatters/test_table_formatter_multiple_input",
+  "source": "test/pytest/test_output_formatters.py::test_table_formatter_multiple_input",
+  "template": "\n<input load=\"text\">\ninterface Loopback0\n ip address 192.168.0.113/24\n!\ninterface Vlan778\n ip address 2002::fd37/124\n!\n</input>\n\n<input load=\"text\">\ninterface Loopback10\n ip address 192.168.0.10/24\n!\ninterface Vlan710\n ip address 2002::fd10/124\n!\n</input>\n\n<group>\ninterface {{ interface }}\n ip address {{ ip }}/{{ mask }}\n</group>\n\n<output format=\"table\"/>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     "interface",
+     "ip",
+     "mask"
+    ],
+    [
+     "Loopback0",
+     "192.168.0.113",
+     "24"
+    ],
+    [
+     "Vlan778",
+     "2002::fd37",
+     "124"
+    ],
+    [
+     "Loopback10",
+     "192.168.0.10",
+     "24"
+    ],
+    [
+     "Vlan710",
+     "2002::fd10",
+     "124"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_output_formatters/test_jinja2_formatter",
+  "source": "test/pytest/test_output_formatters.py::test_jinja2_formatter",
+  "template": "\n<input load=\"text\">\ninterface Loopback0\n ip address 192.168.0.113/24\n!\ninterface Vlan778\n ip address 2002::fd37/124\n!\n</input>\n\n<input load=\"text\">\ninterface Loopback10\n ip address 192.168.0.10/24\n!\ninterface Vlan710\n ip address 2002::fd10/124\n!\n</input>\n\n<group>\ninterface {{ interface }}\n ip address {{ ip }}/{{ mask }}\n</group>\n\n<output format=\"jinja2\">{{ _data_ }}</output>\n    ",
+  "inputs": [],
+  "expected": [
+   "[[{'ip': '192.168.0.113', 'mask': '24', 'interface': 'Loopback0'}, {'ip': '2002::fd37', 'mask': '124', 'interface': 'Vlan778'}], [{'ip': '192.168.0.10', 'mask': '24', 'interface': 'Loopback10'}, {'ip': '2002::fd10', 'mask': '124', 'interface': 'Vlan710'}]]"
+  ]
+ }
+]

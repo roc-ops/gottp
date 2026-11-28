@@ -1,0 +1,421 @@
+[
+ {
+  "name": "test_match_condition_fun/test_contains_re_inline",
+  "source": "test/pytest/test_match_condition_fun.py::test_contains_re_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage Management\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface | contains_re(\"Port-Channel\") }}\n  description {{ description }}\n  {{ is_lag | set(True) }}\n  {{ is_loopback| set(False) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Port-Channel11",
+      "is_lag": true,
+      "is_loopback": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_contains_re_from_vars",
+  "source": "test/pytest/test_match_condition_fun.py::test_contains_re_from_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management_2\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = \"Port-.+\"\n</vars>\n\n<group>\ninterface {{ interface | contains_re(var_1) }}\n  description {{ description }}\n  {{ is_lag | set(True) }}\n  {{ is_loopback| set(False) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage",
+      "interface": "Port-Channel11",
+      "is_lag": true,
+      "is_loopback": false
+     },
+     {
+      "description": "Management_2",
+      "interface": "Port-Channel12",
+      "is_lag": true,
+      "is_loopback": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_startswith_re_inline",
+  "source": "test/pytest/test_match_condition_fun.py::test_startswith_re_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage Management\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface | startswith_re(r\"Por\\S\") }}\n  description {{ description }}\n  {{ is_lag | set(True) }}\n  {{ is_loopback| set(False) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Port-Channel11",
+      "is_lag": true,
+      "is_loopback": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_startswith_re_from_vars",
+  "source": "test/pytest/test_match_condition_fun.py::test_startswith_re_from_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management_2\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = \"Port-.+\"\n</vars>\n\n<group>\ninterface {{ interface | startswith_re(var_1) }}\n  description {{ description }}\n  {{ is_lag | set(True) }}\n  {{ is_loopback| set(False) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage",
+      "interface": "Port-Channel11",
+      "is_lag": true,
+      "is_loopback": false
+     },
+     {
+      "description": "Management_2",
+      "interface": "Port-Channel12",
+      "is_lag": true,
+      "is_loopback": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_endswith_re_inline",
+  "source": "test/pytest/test_match_condition_fun.py::test_endswith_re_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage Management\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface | endswith_re(r\"Channel\\d+\") }}\n  description {{ description }}\n  {{ is_lag | set(True) }}\n  {{ is_loopback| set(False) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Port-Channel11",
+      "is_lag": true,
+      "is_loopback": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_endswith_re_from_vars",
+  "source": "test/pytest/test_match_condition_fun.py::test_endswith_re_from_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage Management\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = r\"Channel\\d+\"\n</vars>\n\n<group>\ninterface {{ interface | endswith_re(var_1) }}\n  description {{ description }}\n  {{ is_lag | set(True) }}\n  {{ is_loopback| set(False) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Port-Channel11",
+      "is_lag": true,
+      "is_loopback": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_notstartswith_re_inline",
+  "source": "test/pytest/test_match_condition_fun.py::test_notstartswith_re_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage Management\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface | notstartswith_re(r\"Loop\\S+\") }}\n  description {{ description }}\n  {{ is_lag | set(True) }}\n  {{ is_loopback| set(False) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Port-Channel11",
+      "is_lag": true,
+      "is_loopback": false
+     },
+     {
+      "description": "Management",
+      "interface": "Vlan777",
+      "is_lag": true,
+      "is_loopback": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_notstartswith_re_from_vars",
+  "source": "test/pytest/test_match_condition_fun.py::test_notstartswith_re_from_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage Management\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = r\"Loop\\S+\"\n</vars>\n\n<group>\ninterface {{ interface | notstartswith_re(var_1) }}\n  description {{ description }}\n  {{ is_lag | set(True) }}\n  {{ is_loopback| set(False) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Port-Channel11",
+      "is_lag": true,
+      "is_loopback": false
+     },
+     {
+      "description": "Management",
+      "interface": "Vlan777",
+      "is_lag": true,
+      "is_loopback": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_notendswith_re_inline",
+  "source": "test/pytest/test_match_condition_fun.py::test_notendswith_re_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage Management\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface | notendswith_re(r\"back\\d+\") }}\n  description {{ description }}\n  {{ is_lag | set(True) }}\n  {{ is_loopback| set(False) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Port-Channel11",
+      "is_lag": true,
+      "is_loopback": false
+     },
+     {
+      "description": "Management",
+      "interface": "Vlan777",
+      "is_lag": true,
+      "is_loopback": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_notendswith_re_from_vars",
+  "source": "test/pytest/test_match_condition_fun.py::test_notendswith_re_from_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage Management\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = r\"back\\d+|lan\\d+\"\n</vars>\n\n<group>\ninterface {{ interface | notendswith_re(var_1) }}\n  description {{ description }}\n  {{ is_lag | set(True) }}\n  {{ is_loopback| set(False) }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Port-Channel11",
+      "is_lag": true,
+      "is_loopback": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_exclude_re_inline",
+  "source": "test/pytest/test_match_condition_fun.py::test_exclude_re_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage Management\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface | exclude_re(r\"back.+\") }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Port-Channel11"
+     },
+     {
+      "description": "Management",
+      "interface": "Vlan777"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_exclude_re_from_vars",
+  "source": "test/pytest/test_match_condition_fun.py::test_exclude_re_from_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage \ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = r\"back\\d+|lan\\d+\"\n</vars>\n\n<group>\ninterface {{ interface | exclude_re(var_1) }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage",
+      "interface": "Port-Channel11"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_exclude_inline",
+  "source": "test/pytest/test_match_condition_fun.py::test_exclude_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage Management\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface | exclude(Loop) }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Port-Channel11"
+     },
+     {
+      "description": "Management",
+      "interface": "Vlan777"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_exclude_from_vars",
+  "source": "test/pytest/test_match_condition_fun.py::test_exclude_from_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage Management\ninterface Loopback0\n  description RID\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = \"Loop\"\n</vars>\n\n<group>\ninterface {{ interface | exclude(var_1) }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "interface": "Port-Channel11"
+     },
+     {
+      "description": "Management",
+      "interface": "Vlan777"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_contains_inline",
+  "source": "test/pytest/test_match_condition_fun.py::test_contains_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface | contains(Port) }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage",
+      "interface": "Port-Channel11"
+     },
+     {
+      "description": "Management",
+      "interface": "Port-Channel12"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_contains_from_vars",
+  "source": "test/pytest/test_match_condition_fun.py::test_contains_from_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = \"Port\"\n</vars>\n\n<group>\ninterface {{ interface | contains(var_1) }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage",
+      "interface": "Port-Channel11"
+     },
+     {
+      "description": "Management",
+      "interface": "Port-Channel12"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_contains_multi",
+  "source": "test/pytest/test_match_condition_fun.py::test_contains_multi",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = \"Port\"\n</vars>\n\n<group>\ninterface {{ interface | contains(var_1, Vlan) }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage",
+      "interface": "Port-Channel11"
+     },
+     {
+      "description": "Management",
+      "interface": "Port-Channel12"
+     },
+     {
+      "description": "Management",
+      "interface": "Vlan777"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_equal_inline",
+  "source": "test/pytest/test_match_condition_fun.py::test_equal_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface | equal(\"Port-Channel12\") }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Management",
+      "interface": "Port-Channel12"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_equal_from_vars",
+  "source": "test/pytest/test_match_condition_fun.py::test_equal_from_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = \"Port-Channel12\"\n</vars>\n\n<group>\ninterface {{ interface | equal(var_1) }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Management",
+      "interface": "Port-Channel12"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_notequal_inline",
+  "source": "test/pytest/test_match_condition_fun.py::test_notequal_inline",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<group>\ninterface {{ interface | notequal(\"Port-Channel12\") }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage",
+      "interface": "Port-Channel11"
+     },
+     {
+      "description": "RID",
+      "interface": "Loopback0"
+     },
+     {
+      "description": "Management",
+      "interface": "Vlan777"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_match_condition_fun/test_notequal_from_vars",
+  "source": "test/pytest/test_match_condition_fun.py::test_notequal_from_vars",
+  "template": "\n<input load=\"text\">\ninterface Port-Channel11\n  description Storage\ninterface Loopback0\n  description RID\ninterface Port-Channel12\n  description Management\ninterface Vlan777\n  description Management\n</input>\n\n<vars>\nvar_1 = \"Port-Channel12\"\n</vars>\n\n<group>\ninterface {{ interface | notequal(var_1) }}\n  description {{ description }}\n</group>\n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "description": "Storage",
+      "interface": "Port-Channel11"
+     },
+     {
+      "description": "RID",
+      "interface": "Loopback0"
+     },
+     {
+      "description": "Management",
+      "interface": "Vlan777"
+     }
+    ]
+   ]
+  ]
+ }
+]

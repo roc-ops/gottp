@@ -1,0 +1,116 @@
+[
+ {
+  "name": "test_regexes/test_pipe_separated_regexes",
+  "source": "test/pytest/test_regexes.py::test_pipe_separated_regexes",
+  "template": "\n<input load=\"text\">\nProtocol  Address     Age (min)  Hardware Addr   Type   Interface\nInternet  10.12.13.1        98   0950.5785.5cd1  ARPA   FastEthernet2.13\nInternet  10.12.13.2        98   0950.5785.5cd2  ARPA   Loopback0\nInternet  10.12.13.3       131   0150.7685.14d5  ARPA   GigabitEthernet2.13\nInternet  10.12.13.4       198   0950.5C8A.5c41  ARPA   GigabitEthernet2.17\n</input>\n\n<vars>\nINTF_RE = r\"GigabitEthernet\\S+|Fast\\S+\"\n</vars>\n\n<group name=\"arp_test\">\nInternet  {{ ip | re(\"IP\")}}  {{ age | re(r\"\\d+\") }}   {{ mac }}  ARPA   {{ interface | re(\"INTF_RE\") }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "arp_test": [
+      {
+       "ip": "10.12.13.1",
+       "age": "98",
+       "mac": "0950.5785.5cd1",
+       "interface": "FastEthernet2.13"
+      },
+      {
+       "ip": "10.12.13.3",
+       "age": "131",
+       "mac": "0150.7685.14d5",
+       "interface": "GigabitEthernet2.13"
+      },
+      {
+       "ip": "10.12.13.4",
+       "age": "198",
+       "mac": "0950.5C8A.5c41",
+       "interface": "GigabitEthernet2.17"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_regexes/test_multiple_inline_regexes",
+  "source": "test/pytest/test_regexes.py::test_multiple_inline_regexes",
+  "template": "\n<input load=\"text\">\nProtocol  Address     Age (min)  Hardware Addr   Type   Interface\nInternet  10.12.13.1        98   0950.5785.5cd1  ARPA   FastEthernet2.13\nInternet  10.12.13.2        98   0950.5785.5cd2  ARPA   Loopback0\nInternet  10.12.13.3       131   0150.7685.14d5  ARPA   GigabitEthernet2.13\nInternet  10.12.13.4       198   0950.5C8A.5c41  ARPA   GigabitEthernet2.17\n</input>\n\n<vars>\nINTF_RE = r\"GigabitEthernet\\S+|Fast\\S+\"\n</vars>\n\n<group name=\"arp_test\">\nInternet  {{ ip }}  {{ age }}   {{ mac }}  ARPA   {{ interface | re(r\"GigabitEthernet\\S+\") | re(r\"Fast\\S+\") }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "arp_test": [
+      {
+       "ip": "10.12.13.1",
+       "age": "98",
+       "mac": "0950.5785.5cd1",
+       "interface": "FastEthernet2.13"
+      },
+      {
+       "ip": "10.12.13.3",
+       "age": "131",
+       "mac": "0150.7685.14d5",
+       "interface": "GigabitEthernet2.13"
+      },
+      {
+       "ip": "10.12.13.4",
+       "age": "198",
+       "mac": "0950.5C8A.5c41",
+       "interface": "GigabitEthernet2.17"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_regexes/test_MAC_regex_formatter",
+  "source": "test/pytest/test_regexes.py::test_MAC_regex_formatter",
+  "template": "\n<input load=\"text\">\nProtocol  Address     Age (min)  Hardware Addr      Type   Interface\nInternet  10.12.13.2        98   0950:5785:5cd2     ARPA   Loopback0\nInternet  10.12.13.3       131   0150.7685.14d5     ARPA   GigabitEthernet2.13\nInternet  10.12.13.1        98   0950-5785-5cd1     ARPA   FastEthernet2.13\nInternet  10.12.13.4       198   09:50:5C:8A:5c:41  ARPA   GigabitEthernet2.17\nInternet  10.12.13.5       198   09.50.5C.8A.5c.41  ARPA   GigabitEthernet2.17\nInternet  10.12.13.6       198   09-50-5C-8A-5c-41  ARPA   GigabitEthernet2.17\nInternet  10.12.13.6       198   09505C8A5c41       ARPA   GigabitEthernet2.will_not_match\nInternet  10.12.13.6       198   09505C8:A5c41      ARPA   GigabitEthernet2.will_not_match\nInternet  10.12.13.6       198   09505C.8.A5c41      ARPA   GigabitEthernet2.will_not_match\n</input>\n\n<group name=\"arp_test\">\nInternet  {{ ip }}  {{ age }}   {{ mac | MAC }}  ARPA   {{ interface }}\n</group>\n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "arp_test": [
+      {
+       "ip": "10.12.13.2",
+       "age": "98",
+       "mac": "0950:5785:5cd2",
+       "interface": "Loopback0"
+      },
+      {
+       "ip": "10.12.13.3",
+       "age": "131",
+       "mac": "0150.7685.14d5",
+       "interface": "GigabitEthernet2.13"
+      },
+      {
+       "ip": "10.12.13.1",
+       "age": "98",
+       "mac": "0950-5785-5cd1",
+       "interface": "FastEthernet2.13"
+      },
+      {
+       "ip": "10.12.13.4",
+       "age": "198",
+       "mac": "09:50:5C:8A:5c:41",
+       "interface": "GigabitEthernet2.17"
+      },
+      {
+       "ip": "10.12.13.5",
+       "age": "198",
+       "mac": "09.50.5C.8A.5c.41",
+       "interface": "GigabitEthernet2.17"
+      },
+      {
+       "ip": "10.12.13.6",
+       "age": "198",
+       "mac": "09-50-5C-8A-5c-41",
+       "interface": "GigabitEthernet2.17"
+      }
+     ]
+    }
+   ]
+  ]
+ }
+]

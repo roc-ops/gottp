@@ -1,0 +1,1233 @@
+[
+ {
+  "name": "test_headers_indicator/test_headers_indicator_left_aligned",
+  "source": "test/pytest/test_headers_indicator.py::test_headers_indicator_left_aligned",
+  "template": "\n<input load=\"text\">\nPort      Name               Status       Vlan       Duplex  Speed Type\nGi0/1     PIT-VDU213         connected    18         a-full  a-100 10/100/1000BaseTX\nGi0/2     PIT-VDU211         connected    18         a-full  a-100 10/100/1000BaseTX\nGi0/3     PIT-VDU212         notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/4                        connected    18         a-full  a-100 10/100/1000BaseTX\nGi0/5                        notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/6                        notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/7                        notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/8                        notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/9                        notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/10                       notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/11                       notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/12                       notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/13                       disabled     1            auto   auto 10/100/1000BaseTX\nGi0/14                       disabled     1            auto   auto 10/100/1000BaseTX\nGi0/15                       connected    trunk        full   1000 1000BaseLX SFP\nGi0/16    pitrs2201 te1/1/4  connected    trunk        full   1000  1000BaseLX SFP\n</input>\n\n<group>\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ }}\n</group>   \n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "Port": "Gi0/1",
+      "Name": "PIT-VDU213",
+      "Status": "connected",
+      "Vlan": "18",
+      "Duplex": "a-full",
+      "Speed": "a-100",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/2",
+      "Name": "PIT-VDU211",
+      "Status": "connected",
+      "Vlan": "18",
+      "Duplex": "a-full",
+      "Speed": "a-100",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/3",
+      "Name": "PIT-VDU212",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/4",
+      "Name": "",
+      "Status": "connected",
+      "Vlan": "18",
+      "Duplex": "a-full",
+      "Speed": "a-100",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/5",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/6",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/7",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/8",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/9",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/10",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/11",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/12",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/13",
+      "Name": "",
+      "Status": "disabled",
+      "Vlan": "1",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/14",
+      "Name": "",
+      "Status": "disabled",
+      "Vlan": "1",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/15",
+      "Name": "",
+      "Status": "connected",
+      "Vlan": "trunk",
+      "Duplex": "full",
+      "Speed": "1000",
+      "Type": "1000BaseLX SFP"
+     },
+     {
+      "Port": "Gi0/16",
+      "Name": "pitrs2201 te1/1/4",
+      "Status": "connected",
+      "Vlan": "trunk",
+      "Duplex": "full",
+      "Speed": "1000",
+      "Type": "1000BaseLX SFP"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_headers_indicator/test_headers_indicator_space_indented_header",
+  "source": "test/pytest/test_headers_indicator.py::test_headers_indicator_space_indented_header",
+  "template": "\n<input load=\"text\">\n   Network            Next Hop            Metric     LocPrf     Weight Path\n*>e11.11.1.111/32     12.123.12.1              0                     0 65000 ?\n*>e222.222.222.2/32   12.123.12.1              0                     0 65000 ?\n*>e333.33.333.333/32  12.123.12.1              0                     0 65000 ?\n</input>\n\n<group>\n   Network            Next_Hop            Metric     LocPrf     Weight Path  {{ _headers_ }}\n</group>   \n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "Network": "*>e11.11.1.111/32",
+      "Next_Hop": "12.123.12.1",
+      "Metric": "0",
+      "LocPrf": "",
+      "Weight": "0",
+      "Path": "65000 ?"
+     },
+     {
+      "Network": "*>e222.222.222.2/32",
+      "Next_Hop": "12.123.12.1",
+      "Metric": "0",
+      "LocPrf": "",
+      "Weight": "0",
+      "Path": "65000 ?"
+     },
+     {
+      "Network": "*>e333.33.333.333/32",
+      "Next_Hop": "12.123.12.1",
+      "Metric": "0",
+      "LocPrf": "",
+      "Weight": "0",
+      "Path": "65000 ?"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_headers_indicator/test_headers_indicator_multiline_header",
+  "source": "test/pytest/test_headers_indicator.py::test_headers_indicator_multiline_header",
+  "template": "\n<input load=\"text\">\n--------------------------------------------------------------------------------\nPort      Name               Status       Vlan       Duplex  Speed Type\n--------------------------------------------------------------------------------\nGi0/1     PIT-VDU213         connected    18         a-full  a-100 10/100/1000BaseTX\nGi0/2     PIT-VDU211         connected    18         a-full  a-100 10/100/1000BaseTX\nGi0/3     PIT-VDU212         notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/4                        connected    18         a-full  a-100 10/100/1000BaseTX\nGi0/5                        notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/6                        notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/7                        notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/8                        notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/9                        notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/10                       notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/11                       notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/12                       notconnect   18           auto   auto 10/100/1000BaseTX\nGi0/13                       disabled     1            auto   auto 10/100/1000BaseTX\nGi0/14                       disabled     1            auto   auto 10/100/1000BaseTX\nGi0/15                       connected    trunk        full   1000 1000BaseLX SFP\nGi0/16    pitrs2201 te1/1/4  connected    trunk        full   1000  1000BaseLX SFP\n</input>\n\n<group macro='clean_up'>\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ }}\n</group>   \n\n<macro>\ndef clean_up(data):\n    if \"----\" in data[\"Port\"]:\n        return False\n    return True\n</macro>\n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "Port": "Gi0/1",
+      "Name": "PIT-VDU213",
+      "Status": "connected",
+      "Vlan": "18",
+      "Duplex": "a-full",
+      "Speed": "a-100",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/2",
+      "Name": "PIT-VDU211",
+      "Status": "connected",
+      "Vlan": "18",
+      "Duplex": "a-full",
+      "Speed": "a-100",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/3",
+      "Name": "PIT-VDU212",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/4",
+      "Name": "",
+      "Status": "connected",
+      "Vlan": "18",
+      "Duplex": "a-full",
+      "Speed": "a-100",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/5",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/6",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/7",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/8",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/9",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/10",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/11",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/12",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/13",
+      "Name": "",
+      "Status": "disabled",
+      "Vlan": "1",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/14",
+      "Name": "",
+      "Status": "disabled",
+      "Vlan": "1",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/15",
+      "Name": "",
+      "Status": "connected",
+      "Vlan": "trunk",
+      "Duplex": "full",
+      "Speed": "1000",
+      "Type": "1000BaseLX SFP"
+     },
+     {
+      "Port": "Gi0/16",
+      "Name": "pitrs2201 te1/1/4",
+      "Status": "connected",
+      "Vlan": "trunk",
+      "Duplex": "full",
+      "Speed": "1000",
+      "Type": "1000BaseLX SFP"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_headers_indicator/test_headers_indicator_columns_merged",
+  "source": "test/pytest/test_headers_indicator.py::test_headers_indicator_columns_merged",
+  "template": "\n<input load=\"text\">\nPort   Name             Status    Vlan       Duplex  Speed Type\nGi0/1  PIT-VDU213       connected 18         a-full  a-100 10/100/1000BaseTX\nGi0/3  PIT-VDU212       notconnect18           auto   auto 10/100/1000BaseTX\nGi0/5                   notconnect18           auto   auto 10/100/1000BaseTX\nGi0/15                  connected trunk        full   1000 1000BaseLX SFP\nGi0/16 pitrs2201 te1/1/4connected trunk        full   1000  1000BaseLX SFP\n</input>\n\n<group>\nPort   Name             Status    Vlan       Duplex  Speed Type   {{ _headers_ }}\n</group>   \n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "Port": "Gi0/1",
+      "Name": "PIT-VDU213",
+      "Status": "connected",
+      "Vlan": "18",
+      "Duplex": "a-full",
+      "Speed": "a-100",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/3",
+      "Name": "PIT-VDU212",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/5",
+      "Name": "",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/15",
+      "Name": "",
+      "Status": "connected",
+      "Vlan": "trunk",
+      "Duplex": "full",
+      "Speed": "1000",
+      "Type": "1000BaseLX SFP"
+     },
+     {
+      "Port": "Gi0/16",
+      "Name": "pitrs2201 te1/1/4",
+      "Status": "connected",
+      "Vlan": "trunk",
+      "Duplex": "full",
+      "Speed": "1000",
+      "Type": "1000BaseLX SFP"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_headers_indicator/test_headers_indicator_tab_indented_header",
+  "source": "test/pytest/test_headers_indicator.py::test_headers_indicator_tab_indented_header",
+  "template": "\n<input load=\"text\">\n    Network               Next Hop            Metric     LocPrf     Weight Path\n*>ef11.11.1.111/32     12.123.12.1              0                     0 65000 ?\n*>ef222.222.222.2/32   12.123.12.1              0                     0 65000 ?\n*>ef333.333.333.333/32 12.123.12.1              0                     0 65000 ?\n</input>\n\n<group>\n    Network            Next_Hop            Metric     LocPrf     Weight Path  {{ _headers_ }}\n</group>   \n",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "Network": "*>ef11.11.1.111/32",
+      "Next_Hop": "12.123.12.1",
+      "Metric": "0",
+      "LocPrf": "",
+      "Weight": "0",
+      "Path": "65000 ?"
+     },
+     {
+      "Network": "*>ef222.222.222.2/32",
+      "Next_Hop": "12.123.12.1",
+      "Metric": "0",
+      "LocPrf": "",
+      "Weight": "0",
+      "Path": "65000 ?"
+     },
+     {
+      "Network": "*>ef333.333.333.333/32",
+      "Next_Hop": "12.123.12.1",
+      "Metric": "0",
+      "LocPrf": "",
+      "Weight": "0",
+      "Path": "65000 ?"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_headers_indicator/test_headers_docs_example",
+  "source": "test/pytest/test_headers_indicator.py::test_headers_docs_example",
+  "template": "\n<input load=\"text\">\nPort      Name               Status       Vlan       Duplex  Speed Type\nGi0/1     PIT-VDU213         connected    18         a-full  a-100 10/100/1000BaseTX\nGi0/4                        connected    18         a-full  a-100 10/100/1000BaseTX\nGi0/16    pitrs2201 te1/1/4  connected    trunk        full   1000  1000BaseLX SFP\n</input>\n\n<group>\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ }}\n</group>   \n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "Port": "Gi0/1",
+      "Name": "PIT-VDU213",
+      "Status": "connected",
+      "Vlan": "18",
+      "Duplex": "a-full",
+      "Speed": "a-100",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/4",
+      "Name": "",
+      "Status": "connected",
+      "Vlan": "18",
+      "Duplex": "a-full",
+      "Speed": "a-100",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/16",
+      "Name": "pitrs2201 te1/1/4",
+      "Status": "connected",
+      "Vlan": "trunk",
+      "Duplex": "full",
+      "Speed": "1000",
+      "Type": "1000BaseLX SFP"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_headers_indicator/test_headers_shorter_lines",
+  "source": "test/pytest/test_headers_indicator.py::test_headers_shorter_lines",
+  "template": "\nFilesystem              K1_blocks Used    Available Use_ Mounted_on {{ _headers_ }}\n",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nFilesystem              1K-blocks    Used Available Use% Mounted on\ntmpfs                     1457328       0   1457328   0% /sys/fs/cgroup\n/dev/mapper/centos-root  14034944 5783384   8251560  42% /\n/dev/sda1                 1038336  220604    817732  22% /boot\n    "
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "Filesystem": "tmpfs",
+      "K1_blocks": "1457328",
+      "Used": "0",
+      "Available": "1457328",
+      "Use_": "0%",
+      "Mounted_on": "/sys/fs/cgroup"
+     },
+     {
+      "Filesystem": "/dev/mapper/centos-root",
+      "K1_blocks": "14034944",
+      "Used": "5783384",
+      "Available": "8251560",
+      "Use_": "42%",
+      "Mounted_on": "/"
+     },
+     {
+      "Filesystem": "/dev/sda1",
+      "K1_blocks": "1038336",
+      "Used": "220604",
+      "Available": "817732",
+      "Use_": "22%",
+      "Mounted_on": "/boot"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_headers_indicator/test_headers_last_column_empty",
+  "source": "test/pytest/test_headers_indicator.py::test_headers_last_column_empty",
+  "template": "\nFilesystem              K1_blocks Used    Available Use_ Mounted_on {{ _headers_ }}\n",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\nFilesystem              1K-blocks    Used Available Use% Mounted on\ntmpfs                     1457328       0   1457328   0% /sys/fs/cgroup\n/dev/mapper/centos-root  14034944 5783384   8251560  2%\n/dev/sda1                 1038336  220604    817732  22% /boot\n    "
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "Filesystem": "tmpfs",
+      "K1_blocks": "1457328",
+      "Used": "0",
+      "Available": "1457328",
+      "Use_": "0%",
+      "Mounted_on": "/sys/fs/cgroup"
+     },
+     {
+      "Filesystem": "/dev/mapper/centos-root",
+      "K1_blocks": "14034944",
+      "Used": "5783384",
+      "Available": "8251560",
+      "Use_": "2%",
+      "Mounted_on": ""
+     },
+     {
+      "Filesystem": "/dev/sda1",
+      "K1_blocks": "1038336",
+      "Used": "220604",
+      "Available": "817732",
+      "Use_": "22%",
+      "Mounted_on": "/boot"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_headers_indicator/test_with_garbage",
+  "source": "test/pytest/test_headers_indicator.py::test_with_garbage",
+  "template": "\n<input load=\"text\">\ninterface Lo0\n ip address 124.171.238.50/29\n!\ninterface Lo1\n ip address 1.1.1.1/30\n!\nPort      Name               Status       Vlan       Duplex  Speed Type\nGi0/1     PIT-VDU213         connected    18         a-full  a-100 10/100/1000BaseTX\nGi0/4                        connected    18         a-full  a-100 10/100/1000BaseTX\nGi0/16    pitrs2201 te1/1/4  connected    trunk        full   1000  1000BaseLX SFP\n</input>\n\n<group>\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ }}\n</group>   \n    ",
+  "inputs": [],
+  "expected": [
+   [
+    [
+     {
+      "Port": "Gi0/1",
+      "Name": "PIT-VDU213",
+      "Status": "connected",
+      "Vlan": "18",
+      "Duplex": "a-full",
+      "Speed": "a-100",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/4",
+      "Name": "",
+      "Status": "connected",
+      "Vlan": "18",
+      "Duplex": "a-full",
+      "Speed": "a-100",
+      "Type": "10/100/1000BaseTX"
+     },
+     {
+      "Port": "Gi0/16",
+      "Name": "pitrs2201 te1/1/4",
+      "Status": "connected",
+      "Vlan": "trunk",
+      "Duplex": "full",
+      "Speed": "1000",
+      "Type": "1000BaseLX SFP"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "test_headers_indicator/test_headers_with_column",
+  "source": "test/pytest/test_headers_indicator.py::test_headers_with_column",
+  "template": "\n<input load=\"text\">\nPort      Name               Status       Vlan       Duplex  Speed Type\nGi0/1\nGi0/2     PIT-VDU212\nGi0/3     PIT-VDU212         notconnect\nGi0/4     PIT-VDU212         notconnect   18\nGi0/5     PIT-VDU212         notconnect   18         auto\nGi0/6     PIT-VDU212         notconnect   18         auto    auto\nGi0/7     PIT-VDU212         notconnect   18         auto    auto  10/100/1000BaseTX\n</input>\n\n<group name=\"columns_10\">\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ | columns(10) }}\n</group>  \n\n<group name=\"columns_7\">\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ | columns(7) }}\n</group>   \n\n<group name=\"columns_6\">\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ | columns(6) }}\n</group>   \n\n<group name=\"columns_5\">\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ | columns(5) }}\n</group>   \n\n<group name=\"columns_4\">\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ | columns(4) }}\n</group>   \n\n<group name=\"columns_3\">\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ | columns(3) }}\n</group> \n\n<group name=\"columns_2\">\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ | columns(2) }}\n</group> \n\n<group name=\"columns_1\">\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ | columns(1) }}\n</group> \n\n<group name=\"columns_0\">\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ | columns(0) }}\n</group> \n\n<group name=\"columns__1\">\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ | columns(-1) }}\n</group> \n\n<group name=\"no_columns\">\nPort      Name               Status       Vlan       Duplex  Speed Type   {{ _headers_ }}\n</group> \n",
+  "inputs": [],
+  "expected": [
+   [
+    {
+     "columns_10": {
+      "Port": "Gi0/7",
+      "Name": "PIT-VDU212",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     "columns_7": {
+      "Port": "Gi0/7",
+      "Name": "PIT-VDU212",
+      "Status": "notconnect",
+      "Vlan": "18",
+      "Duplex": "auto",
+      "Speed": "auto",
+      "Type": "10/100/1000BaseTX"
+     },
+     "columns_6": [
+      {
+       "Port": "Gi0/6",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/7",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": "10/100/1000BaseTX"
+      }
+     ],
+     "columns_5": [
+      {
+       "Port": "Gi0/5",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/6",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/7",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": "10/100/1000BaseTX"
+      }
+     ],
+     "columns_4": [
+      {
+       "Port": "Gi0/4",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/5",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/6",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/7",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": "10/100/1000BaseTX"
+      }
+     ],
+     "columns_3": [
+      {
+       "Port": "Gi0/3",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/4",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/5",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/6",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/7",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": "10/100/1000BaseTX"
+      }
+     ],
+     "columns_2": [
+      {
+       "Port": "Gi0/2",
+       "Name": "PIT-VDU212",
+       "Status": "",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/3",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/4",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/5",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/6",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/7",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": "10/100/1000BaseTX"
+      }
+     ],
+     "columns_1": [
+      {
+       "Port": "Gi0/1",
+       "Name": "",
+       "Status": "",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/2",
+       "Name": "PIT-VDU212",
+       "Status": "",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/3",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/4",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/5",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/6",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/7",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": "10/100/1000BaseTX"
+      }
+     ],
+     "columns_0": [
+      {
+       "Port": "Gi0/1",
+       "Name": "",
+       "Status": "",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/2",
+       "Name": "PIT-VDU212",
+       "Status": "",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/3",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/4",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/5",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/6",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/7",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": "10/100/1000BaseTX"
+      }
+     ],
+     "columns__1": [
+      {
+       "Port": "Gi0/1",
+       "Name": "",
+       "Status": "",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/2",
+       "Name": "PIT-VDU212",
+       "Status": "",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/3",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/4",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/5",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/6",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/7",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": "10/100/1000BaseTX"
+      }
+     ],
+     "no_columns": [
+      {
+       "Port": "Gi0/5",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/6",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": ""
+      },
+      {
+       "Port": "Gi0/7",
+       "Name": "PIT-VDU212",
+       "Status": "notconnect",
+       "Vlan": "18",
+       "Duplex": "auto",
+       "Speed": "auto",
+       "Type": "10/100/1000BaseTX"
+      }
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "name": "test_headers_indicator/test_headers_on_tabular_output",
+  "source": "test/pytest/test_headers_indicator.py::test_headers_on_tabular_output",
+  "template": "\nPartition_Name   L3V  Index  Max__Aflex  Admin_Count {{ _headers_ }}\n    ",
+  "inputs": [
+   {
+    "name": "Default_Input",
+    "data": "\n\nPartition Name   L3V  Index  Max. Aflex  Admin Count\n----------------------------------------------------\nsivr_icm         No   1      32          0\nent_mgmt         No   2      32          0\nCloud            No   3  *   32          0\nlync             No   4      32          0\nsap              No   5      32          0\nconfig_mgmts     No   6      32          0\nUprising         No   7      32          0\nERC_MGMT         No   8      32          0\nsc_sw_ctrl       No   9      32          0\ncust_hub         No   10     32          0\nA10-CIS          No   11     32          0\nSAP_Dev_Admin    No   12 *   32          0\nsentry_ext       No   13     32          0\nweb_ecom_srvs    No   14     32          0\ndir_sec_svc      No   15     32          0\neng_ops          No   16     32          0\nmw_mgmt          No   17     32          0\noracle_db_adm    No   18     32          0\nidm_mgmt         No   19     32          0\ninfo_mgmt        No   20 *   32          0\nsa_ops_natapps   No   21     32          0\neng_supt         No   37 *   32          0\nretail_apps      No   128    32          0    \n    ",
+    "constructor": true
+   }
+  ],
+  "expected": [
+   [
+    [
+     {
+      "Partition_Name": "-----------------",
+      "L3V": "-----",
+      "Index": "-------",
+      "Max__Aflex": "------------",
+      "Admin_Count": "-----------"
+     },
+     {
+      "Partition_Name": "sivr_icm",
+      "L3V": "No",
+      "Index": "1",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "ent_mgmt",
+      "L3V": "No",
+      "Index": "2",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "Cloud",
+      "L3V": "No",
+      "Index": "3  *",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "lync",
+      "L3V": "No",
+      "Index": "4",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "sap",
+      "L3V": "No",
+      "Index": "5",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "config_mgmts",
+      "L3V": "No",
+      "Index": "6",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "Uprising",
+      "L3V": "No",
+      "Index": "7",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "ERC_MGMT",
+      "L3V": "No",
+      "Index": "8",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "sc_sw_ctrl",
+      "L3V": "No",
+      "Index": "9",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "cust_hub",
+      "L3V": "No",
+      "Index": "10",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "A10-CIS",
+      "L3V": "No",
+      "Index": "11",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "SAP_Dev_Admin",
+      "L3V": "No",
+      "Index": "12 *",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "sentry_ext",
+      "L3V": "No",
+      "Index": "13",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "web_ecom_srvs",
+      "L3V": "No",
+      "Index": "14",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "dir_sec_svc",
+      "L3V": "No",
+      "Index": "15",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "eng_ops",
+      "L3V": "No",
+      "Index": "16",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "mw_mgmt",
+      "L3V": "No",
+      "Index": "17",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "oracle_db_adm",
+      "L3V": "No",
+      "Index": "18",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "idm_mgmt",
+      "L3V": "No",
+      "Index": "19",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "info_mgmt",
+      "L3V": "No",
+      "Index": "20 *",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "sa_ops_natapps",
+      "L3V": "No",
+      "Index": "21",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "eng_supt",
+      "L3V": "No",
+      "Index": "37 *",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     },
+     {
+      "Partition_Name": "retail_apps",
+      "L3V": "No",
+      "Index": "128",
+      "Max__Aflex": "32",
+      "Admin_Count": "0"
+     }
+    ]
+   ]
+  ]
+ }
+]
