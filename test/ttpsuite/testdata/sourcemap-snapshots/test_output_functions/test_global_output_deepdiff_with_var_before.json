@@ -3,12 +3,12 @@
   "Cisco_ios": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
    {"LineNumber":1,"Matched":false,"Matches":[]},
-   {"LineNumber":2,"Matched":false,"Matches":[]},
-   {"LineNumber":3,"Matched":false,"Matches":[]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":26}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":22,"GroupName":"","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":22}},"ResultPath":"_anonymous_*"}]},
    {"LineNumber":4,"Matched":false,"Matches":[]},
-   {"LineNumber":5,"Matched":false,"Matches":[]},
-   {"LineNumber":6,"Matched":false,"Matches":[]},
-   {"LineNumber":7,"Matched":false,"Matches":[]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":38,"GroupName":"","PatternIndex":2,"Variables":{"ip":{"StartCol":12,"EndCol":24},"mask":{"StartCol":25,"EndCol":38}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":26}},"ResultPath":"_anonymous_*"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":38,"GroupName":"","PatternIndex":2,"Variables":{"ip":{"StartCol":12,"EndCol":24},"mask":{"StartCol":25,"EndCol":38}},"ResultPath":"_anonymous_*"}]},
    {"LineNumber":8,"Matched":false,"Matches":[]}
   ]
  }
