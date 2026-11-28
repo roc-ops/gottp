@@ -1,0 +1,8 @@
+start 1
+ val a
+ stop
+ val b
+start 2
+ val c
+ stop
+ val d

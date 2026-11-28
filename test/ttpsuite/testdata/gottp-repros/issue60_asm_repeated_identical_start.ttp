@@ -1,0 +1,4 @@
+<group name="g">
+id {{ id }}
+ v {{ v }}
+</group>

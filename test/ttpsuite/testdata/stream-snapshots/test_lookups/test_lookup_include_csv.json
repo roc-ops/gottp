@@ -1,0 +1,5 @@
+{
+ "records": [
+  {"group_path":"bgp_config","src_range":[1,18],"record":{"bgp_as":"65101"}}
+ ]
+}

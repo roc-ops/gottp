@@ -1,0 +1,4 @@
+<group name="g">
+hdr {{ h | _start_ }}
+{{ rest | _line_ | contains("x") }}
+</group>

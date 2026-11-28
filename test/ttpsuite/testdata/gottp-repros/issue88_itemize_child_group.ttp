@@ -1,0 +1,6 @@
+<group name="o">
+object-group {{ n }}
+ <group name="objs" itemize="obj">
+ network-object object {{ obj }}
+ </group>
+</group>

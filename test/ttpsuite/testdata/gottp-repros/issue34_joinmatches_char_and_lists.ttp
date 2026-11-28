@@ -1,0 +1,5 @@
+<group name="g">
+hdr {{ h }}
+ s {{ s | joinmatches(",") }}
+ l {{ l | split("-") | joinmatches }}
+</group>

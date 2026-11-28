@@ -1,0 +1,7 @@
+{
+ "records": [
+  {"group_path":"","src_range":[1,43],"record":{"mtu":"ABC","name":"GigabitEthernet1/1"}},
+  {"group_path":"","src_range":[43,90],"record":{"mtu":"8000","name":"GigabitEthernet1/2"}},
+  {"group_path":"","src_range":[90,139],"record":{"mtu":"9200.0","name":"GigabitEthernet1/2"}}
+ ]
+}

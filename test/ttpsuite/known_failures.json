@@ -1,13 +1,49 @@
 {
  "_comment": "TTP 0.10.1 suite cases that don't match yet. issue = the issue the first strict difference belongs to; also = issues hit after it. A reason starting with 'design:' marks a deliberate difference. A case listed here that passes fails the test, so remove it when its issue is fixed.",
  "cases": {
+  "gottp-repros/issue100_void_sibling_startempty_joinmatches": {
+   "issue": 100,
+   "reason": "a parent joinmatches line also collects lines inside a void child group started by {{ _start_ }}"
+  },
+  "gottp-repros/issue118_joinmatches_stops_at_sibling_start": {
+   "issue": 118,
+   "reason": "a joinmatches line keeps collecting after a sibling group's _start_"
+  },
+  "gottp-repros/issue119_second_start_line_stays_in_own_section": {
+   "issue": 119,
+   "reason": "a child group's second _start_ line matches lines that belong to a sibling group"
+  },
+  "gottp-repros/issue120_sibling_groups_same_name": {
+   "issue": 120,
+   "reason": "sibling groups with the same name: the second replaces the first"
+  },
   "gottp-repros/issue128_end_line_values_are_saved": {
    "issue": 128,
    "reason": "values captured on an _end_ line are saved into the record"
   },
+  "gottp-repros/issue128_end_line_values_no_children": {
+   "issue": 128,
+   "reason": "values captured on an _end_ line are saved into the record (group without children)"
+  },
+  "gottp-repros/issue136_start_only_line_matches_trailing_text": {
+   "issue": 136,
+   "reason": "a \"text {{ _start_ }}\" line also matches lines with more text after it"
+  },
+  "gottp-repros/issue136_startempty_tie_with_start_pattern": {
+   "issue": 136,
+   "reason": "a \"text {{ _start_ }}\" line also matches lines with more text after it, so it splits the record"
+  },
+  "gottp-repros/issue28_empty_record_after_saved_record": {
+   "issue": 28,
+   "reason": "a record with no values is never emitted (TTP saves it once the path holds a record)"
+  },
   "gottp-repros/issue28_parent_start_line_without_variables": {
    "issue": 28,
    "reason": "parent group whose _start_ line has no variables drops its child groups"
+  },
+  "gottp-repros/issue29_joinmatches_on_first_line": {
+   "issue": 29,
+   "reason": "joinmatches on the first line merges consecutive records into one"
   },
   "gottp-repros/issue29_joinmatches_on_start_line": {
    "issue": 29,
@@ -17,13 +53,45 @@
    "issue": 31,
    "reason": "ignore(\"<vars name>\") empties the group"
   },
+  "gottp-repros/issue32_end_pattern_wins_position": {
+   "issue": 32,
+   "reason": "an end pattern and an ordinary pattern on one line both fill the record"
+  },
+  "gottp-repros/issue32_first_ordinary_pattern_wins_position": {
+   "issue": 32,
+   "reason": "one data line fills variables from several template lines"
+  },
+  "gottp-repros/issue32_ignore_only_pattern_wins_position": {
+   "issue": 32,
+   "reason": "a line of only ignore() variables doesn't take the data line from the next template line"
+  },
   "gottp-repros/issue32_one_line_fills_several_template_lines": {
    "issue": 32,
    "reason": "one data line fills variables from several template lines"
   },
+  "gottp-repros/issue32_start_pattern_wins_position": {
+   "issue": 32,
+   "reason": "a start pattern and an ordinary pattern on one line both fill the record"
+  },
+  "gottp-repros/issue32_start_tie_before_and_after_first_record": {
+   "issue": 32,
+   "reason": "two start patterns on one line each start a record"
+  },
   "gottp-repros/issue33_trailing_ignore_with_trailing_whitespace": {
    "issue": 33,
    "reason": "trailing {{ ignore(\".*\") }} fails when the data line has trailing whitespace"
+  },
+  "gottp-repros/issue34_join_line_joins_every_variable": {
+   "issue": 34,
+   "reason": "on a joinmatches line, TTP joins the line's other variables too"
+  },
+  "gottp-repros/issue34_joinmatches_char_and_lists": {
+   "issue": 34,
+   "reason": "split() | joinmatches returns a joined string instead of a merged list"
+  },
+  "gottp-repros/issue34_joinmatches_keeps_value_types": {
+   "issue": 34,
+   "reason": "joinmatches turns to_int values into a joined string instead of a list of ints"
   },
   "gottp-repros/issue34_split_joinmatches": {
    "issue": 34,
@@ -32,6 +100,54 @@
   "gottp-repros/issue36_unknown_function_falls_back_to_str_method": {
    "issue": 36,
    "reason": "swapcase (str method fallback) is silently skipped"
+  },
+  "gottp-repros/issue60_asm_bare_line_variable": {
+   "issue": 60,
+   "reason": "a {{ _line_ }} variable's joined lines are dropped from the record"
+  },
+  "gottp-repros/issue60_asm_line_condition_skips_line": {
+   "issue": 60,
+   "reason": "a _line_ line rejected by a condition stops later lines from joining"
+  },
+  "gottp-repros/issue60_asm_no_line_gap_limit": {
+   "issue": 60,
+   "reason": "gottp-only rule: a line more than 100 lines after the start isn't added (maxGapLines)"
+  },
+  "gottp-repros/issue69_failed_start_condition_ends_record": {
+   "issue": 69,
+   "reason": "a start line rejected by a condition doesn't close the previous record"
+  },
+  "gottp-repros/issue79_line_joinmatches_skips_start_line": {
+   "issue": 79,
+   "reason": "_line_ with joinmatches also captures the _start_ line"
+  },
+  "gottp-repros/issue79_line_without_joinmatches_joins_lines": {
+   "issue": 79,
+   "reason": "_line_ captures the _start_ line instead of joining the lines after it"
+  },
+  "gottp-repros/issue88_itemize_child_group": {
+   "issue": 88,
+   "reason": "itemize on a child group drops its values"
+  },
+  "gottp-repros/issue88_itemize_path_argument": {
+   "issue": 88,
+   "reason": "itemize ignores its path argument"
+  },
+  "gottp-repros/issue89_anonymous_child_groups": {
+   "issue": 89,
+   "reason": "anonymous child groups of a group without lines collapse into one record"
+  },
+  "gottp-repros/issue89_group_with_only_child_groups": {
+   "issue": 89,
+   "reason": "a group that holds only child groups returns nothing"
+  },
+  "gottp-repros/issue91_child_group_defaults_without_match": {
+   "issue": 91,
+   "reason": "a group with no matching lines does not emit its default values"
+  },
+  "gottp-repros/issue99_record_and_set_across_groups": {
+   "issue": 99,
+   "reason": "record()/set=: the recorded value is not set and the first child record is lost"
   },
   "test_N2G_formatter/test_n2g_formatter": {
    "issue": 80,

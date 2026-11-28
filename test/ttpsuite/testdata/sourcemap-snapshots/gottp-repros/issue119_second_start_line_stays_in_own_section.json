@@ -1,0 +1,14 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":5,"GroupName":"vrfs","PatternIndex":0,"Variables":{"name":{"StartCol":4,"EndCol":5}},"ResultPath":"vrfs"}]},
+   {"LineNumber":1,"Matched":false,"Matches":[]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"imp","PatternIndex":1,"Variables":{"rt":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.imp[0]"},{"StartCol":0,"EndCol":4,"GroupName":"exp","PatternIndex":1,"Variables":{"rt":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.exp[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"imp","PatternIndex":1,"Variables":{"rt":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.imp[1]"},{"StartCol":0,"EndCol":4,"GroupName":"exp","PatternIndex":1,"Variables":{"rt":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.exp[1]"}]},
+   {"LineNumber":4,"Matched":false,"Matches":[]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"imp","PatternIndex":1,"Variables":{"rt":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.imp[2]"},{"StartCol":0,"EndCol":4,"GroupName":"exp","PatternIndex":1,"Variables":{"rt":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.exp[2]"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"imp","PatternIndex":1,"Variables":{"rt":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.imp[3]"},{"StartCol":0,"EndCol":4,"GroupName":"exp","PatternIndex":1,"Variables":{"rt":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.exp[3]"}]},
+   {"LineNumber":7,"Matched":false,"Matches":[]}
+  ]
+ }
+}

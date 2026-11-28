@@ -1,0 +1,5 @@
+<group name="g">
+hdr {{ h }}
+{{ a }} : {{ b }}
+{{ c }} : {{ d }}
+</group>

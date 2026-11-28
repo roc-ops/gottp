@@ -1,0 +1,5 @@
+start 1
+ val a
+ stop now
+start 2
+ stop later

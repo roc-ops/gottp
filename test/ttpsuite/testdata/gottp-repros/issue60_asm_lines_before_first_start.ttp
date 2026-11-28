@@ -1,0 +1,4 @@
+<group name="g">
+hdr {{ h | _start_ }}
+ v {{ v }}
+</group>

@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"","src_range":[1,44],"record":{"interface":"Lo0","ip":"192.168.0.1","mask":"32"}},
+  {"group_path":"","src_range":[44,81],"record":{"interface":"Lo1","ip":"1.1.1.1","mask":"32"}}
+ ]
+}

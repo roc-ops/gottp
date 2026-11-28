@@ -1,0 +1,9 @@
+<group name="p">
+<group>
+interface {{ i }}
+ mac {{ m }}
+</group>
+<group>
+interface {{ i }} l2
+</group>
+</group>

@@ -1,0 +1,8 @@
+<group name="v">
+vrf {{ name }}
+  ns {{ ns | joinmatches }}
+<group name="o" void="">
+foo {{ _start_ }}
+  ns {{ ns | joinmatches }}
+</group>
+</group>

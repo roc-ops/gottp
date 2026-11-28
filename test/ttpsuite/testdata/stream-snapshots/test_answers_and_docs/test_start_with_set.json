@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"","src_range":[1,19],"record":{"inactive":"False"}},
+  {"group_path":"","src_range":[19,51],"record":{"inactive":"True"}}
+ ]
+}

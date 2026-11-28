@@ -1,0 +1,5 @@
+<group name="g">
+hdr {{ h }}
+ {{ ignore }} {{ ignore }}
+ v {{ v }}
+</group>

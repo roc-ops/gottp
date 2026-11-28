@@ -1,0 +1,7 @@
+{
+ "records": [
+  {"group_path":"people","src_range":[1,15],"record":{"name":"Jane"}},
+  {"group_path":"people","src_range":[15,32],"record":{"name":"Michael"}},
+  {"group_path":"people","src_range":[32,50],"record":{"name":"July"}}
+ ]
+}

@@ -1,0 +1,5 @@
+host a
+foo bar
+baz
+host b
+qux

@@ -1,0 +1,10 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":14,"GroupName":"o","PatternIndex":0,"Variables":{"n":{"StartCol":13,"EndCol":14}},"ResultPath":"o"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"objs","PatternIndex":0,"Variables":{"obj":{"StartCol":23,"EndCol":24}},"ResultPath":""}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"objs","PatternIndex":0,"Variables":{"obj":{"StartCol":23,"EndCol":24}},"ResultPath":""}]},
+   {"LineNumber":3,"Matched":false,"Matches":[]}
+  ]
+ }
+}

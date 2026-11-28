@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"","src_range":[1,29],"record":{"name":"some_vlan","vlan":"1234"}},
+  {"group_path":"","src_range":[29,59],"record":{"name":"one_more","vlan":"910"}}
+ ]
+}

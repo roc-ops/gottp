@@ -2,24 +2,26 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (gottp `4065098` plus the #62 fix):
+Current result (gottp `4cc1450` plus the refactor C0 pins, #60):
 
 ```
-go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:'
+go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
 TTP 0.10.1 suite: pass 49 / skipped-by-issue 147 / design 4 of 200
-gottp repros: pass 6 / skipped-by-issue 8 / design 0 of 14
-source-map parity: same 217 / diverge 0 of 217
+gottp repros: pass 18 / skipped-by-issue 37 / design 0 of 55
+source-map parity: same 258 / diverge 0 of 258
+stream snapshots: 114 streamable of 258 cases
 ```
 
-The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are four:
+The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
 
 - `TestTTPSuite`: TTP's own 200 cases against TTP 0.10.1's results (below).
 - `TestGottpRepros`: gottp bug repros against TTP 0.10.1's results ([gottp repros](#gottp-repros)).
 - `TestSourceMapParity`: every case from both, plus the gottp-only cases in `testdata/sourcemap-parity`, parsed with source maps off and on, must give the same data and key fields ([Source-map parity](#source-map-parity)).
 - `TestSourceMapSnapshots`: the source map of every parity case must match its snapshot in `testdata/sourcemap-snapshots` ([Source-map snapshots](#source-map-snapshots)).
+- `TestStreamSnapshots`: what `ParseStream` emits for every parity case it accepts must match its snapshot in `testdata/stream-snapshots`, and the streamed records must be the records `Parse` returns ([Stream snapshots](#stream-snapshots)).
 
 ## How it works
 
@@ -49,6 +51,43 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue60_table_tail_line_is_ordinary` | passes; a `method="table"` line after a child group is not a start pattern (#60) |
 | `issue60_tail_start_line_starts_own_record` | passes; a `_start_` line after a child group starts its own record (#60) |
 | `issue128_end_line_values_are_saved` | #128 |
+| `issue128_end_line_values_no_children` | #128, in a group without children |
+
+Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Those gottp gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
+
+| Repro | Rule |
+|---|---|
+| `issue28_empty_record_after_saved_record` | a record with no values is saved once the path already holds a record (#28) |
+| `issue29_joinmatches_on_first_line` | a joinmatches first line is a start pattern, so each match starts a record (#29) |
+| `issue32_start_pattern_wins_position` | a start pattern beats an ordinary one on the same line (#32) |
+| `issue32_first_ordinary_pattern_wins_position` | of two ordinary patterns on one line, the first template line wins (#32) |
+| `issue32_end_pattern_wins_position` | an end pattern beats an ordinary one on the same line, and its values are dropped (#32) |
+| `issue32_start_tie_before_and_after_first_record` | two start patterns on one line: the last wins before any record, the record's own group after (#32) |
+| `issue32_ignore_only_pattern_wins_position` | a line of only `ignore` variables still wins its position (#32) |
+| `issue34_joinmatches_keeps_value_types` | joinmatches keeps `to_int` values: one value stays an int, several make a list (#34) |
+| `issue34_joinmatches_char_and_lists` | joinmatches with a join character, and lists that extend (#34) |
+| `issue34_join_line_joins_every_variable` | on a joinmatches line, every variable of the line is joined (#34) |
+| `issue69_failed_start_condition_ends_record` | a start line rejected by a condition ends the record (#69) |
+| `issue79_line_joinmatches_skips_start_line` | `_line_` loses its position to the start line (#79) |
+| `issue79_line_without_joinmatches_joins_lines` | `_line_` joins lines even without joinmatches (#79) |
+| `issue136_start_only_line_matches_trailing_text` | `text {{ _start_ }}` matches only that exact text (#136) |
+| `issue136_startempty_tie_with_start_pattern` | the same, where a start pattern also matches the line (#136) |
+| `issue60_asm_startempty_records` | `{{ _start_ }}` starts an empty record |
+| `issue60_asm_end_then_restart` | after `_end_`, lines are dropped until the next start |
+| `issue60_asm_add_without_overwrite` | a repeated ordinary line keeps its first value |
+| `issue60_asm_lines_before_first_start` | lines before the first start are dropped |
+| `issue60_asm_repeated_identical_start` | a repeated identical start line starts a new record |
+| `issue60_asm_two_start_patterns` | two `_start_` lines take turns starting records |
+| `issue60_asm_table_records` / `issue60_asm_table_first_pattern_wins` | `method="table"` |
+| `issue60_asm_failed_second_start_pattern` | a rejected `_start_` line ends the record, and the next start reopens the group |
+| `issue60_asm_end_pattern_same_text_as_start` | an `_end_` line with the same text as the start line |
+| `issue60_asm_join_after_add` | joinmatches after an ordinary line set the variable |
+| `issue60_asm_joinmatches_to_list` | `to_list | joinmatches` |
+| `issue60_asm_no_line_gap_limit` | no limit on the distance from the start line (gottp's `maxGapLines` is gottp-only) |
+| `issue60_asm_bare_line_variable` | a `{{ _line_ }}` variable keeps its joined lines |
+| `issue60_asm_line_condition_skips_line` | a `_line_` line rejected by a condition is skipped, not the rest |
+
+Related issues with nested groups (refactor C2), each a minimal repro from the issue: `issue88_itemize_child_group`, `issue88_itemize_path_argument`, `issue89_group_with_only_child_groups`, `issue89_anonymous_child_groups`, `issue91_child_group_defaults_without_match`, `issue99_record_and_set_across_groups`, `issue100_void_sibling_startempty_joinmatches` (a reduction of `test_same_config_different_contexts`), `issue118_joinmatches_stops_at_sibling_start`, `issue119_second_start_line_stays_in_own_section`, `issue120_sibling_groups_same_name`.
 
 ## Source-map parity
 
@@ -67,6 +106,15 @@ The table is empty: refactor A1 (#60) fixed the 14 divergences it used to list (
 ```
 go test ./test/ttpsuite -run TestSourceMapSnapshots -update-sourcemap-snapshots
 git diff test/ttpsuite/testdata/sourcemap-snapshots
+```
+
+## Stream snapshots
+
+`TestStreamSnapshots` runs `ParseStream` on every source-map parity case and, for each one the streaming gate accepts, compares the callbacks (record, `srcRange`, `groupPath`, in order) with `testdata/stream-snapshots/<case>.json`. A case the gate rejects has no snapshot, so a snapshot left for one fails, as does a missing snapshot. It also requires the streamed records to be the records `Parse` returns, ignoring order, except for the cases in `streamParityExceptions`, whose `Parse` result also holds outputs, `<vars name>` or lookup data that `ParseStream` never emits. After a deliberate change:
+
+```
+go test ./test/ttpsuite -run TestStreamSnapshots -update-stream-snapshots
+git diff test/ttpsuite/testdata/stream-snapshots
 ```
 
 ## Regenerating the data

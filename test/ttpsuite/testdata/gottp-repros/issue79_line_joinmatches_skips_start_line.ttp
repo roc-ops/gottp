@@ -1,0 +1,4 @@
+<group name="g">
+host {{ h | _start_ }}
+{{ rest | _line_ | joinmatches }}
+</group>

@@ -1,0 +1,4 @@
+<group name="g">
+id {{ id | _start_ }}
+{{ kind }} {{ rest }}
+</group>

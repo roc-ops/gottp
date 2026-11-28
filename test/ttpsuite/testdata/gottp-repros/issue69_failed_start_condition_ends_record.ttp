@@ -1,0 +1,4 @@
+<group name="g">
+interface {{ name | exclude("Loop") }}
+  description {{ d }}
+</group>

@@ -1,0 +1,5 @@
+<group name="g">
+Header {{ _start_ }}
+ a {{ a }}
+ b {{ b }}
+</group>

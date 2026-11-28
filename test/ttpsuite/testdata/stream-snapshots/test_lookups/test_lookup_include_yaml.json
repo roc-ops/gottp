@@ -1,0 +1,5 @@
+{
+ "records": [
+  {"group_path":"bgp_config","src_range":[1,18],"record":{"as_details":{"as_description":"Private ASN","as_name":"Subs","prefix_num":"734"},"bgp_as":"65100"}}
+ ]
+}

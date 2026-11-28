@@ -1,0 +1,5 @@
+<group name="g">
+id {{ a | _start_ }}
+name {{ n | _start_ | exclude("bad") }}
+ v {{ v }}
+</group>

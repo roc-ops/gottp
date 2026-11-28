@@ -1,0 +1,7 @@
+{
+ "records": [
+  {"group_path":"","src_range":[1,59],"record":{"interface":"Port-Channel11"}},
+  {"group_path":"","src_range":[59,97],"record":{"description":"RID","interface":"Loopback0"}},
+  {"group_path":"","src_range":[97,140],"record":{"description":"Management","interface":"Vlan777"}}
+ ]
+}

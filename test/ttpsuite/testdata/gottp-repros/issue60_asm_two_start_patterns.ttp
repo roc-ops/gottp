@@ -1,0 +1,5 @@
+<group name="g">
+A {{ a | _start_ }}
+B {{ b | _start_ }}
+ v {{ v }}
+</group>

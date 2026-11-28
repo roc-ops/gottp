@@ -1,0 +1,7 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[0,17],"record":{"a":"1","b":"2"}},
+  {"group_path":"g","src_range":[17,29],"record":{"a":"3"}},
+  {"group_path":"g","src_range":[29,41],"record":{"b":"4"}}
+ ]
+}

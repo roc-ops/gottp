@@ -1,0 +1,11 @@
+<group name="vrfs">
+vrf {{ name }}
+  <group name="imp">
+  import {{ _start_ }}
+   {{ rt | _start_ }}
+  </group>
+  <group name="exp">
+  export {{ _start_ }}
+   {{ rt | _start_ }}
+  </group>
+</group>
