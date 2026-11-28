@@ -1,6 +1,6 @@
 {
  "records": [
-  {"group_path":"g","src_range":[0,25],"record":{"e":"now","s":"1","v":"a"}},
-  {"group_path":"g","src_range":[25,45],"record":{"e":"later","s":"2"}}
+  {"group_path":"g","src_range":[0,24],"record":{"s":"1","v":"a"}},
+  {"group_path":"g","src_range":[25,44],"record":{"s":"2"}}
  ]
 }

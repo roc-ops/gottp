@@ -9,11 +9,11 @@
    {"LineNumber":5,"Matched":false,"Matches":[]},
    {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"l3_interfaces_list.{{ intf_type }}","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":19}},"ResultPath":"l3_interfaces_list.loopbacks"}]},
    {"LineNumber":7,"Matched":false,"Matches":[]},
-   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":27,"GroupName":"l3_interfaces_list.{{ intf_type }}","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":27}},"ResultPath":"l3_interfaces_list.vlans"},{"StartCol":0,"EndCol":27,"GroupName":"l3_interfaces_list.{{ intf_type }}","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":27}},"ResultPath":"l3_interfaces_list.loopbacks"}]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":27,"GroupName":"l3_interfaces_list.{{ intf_type }}","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":27}},"ResultPath":"l3_interfaces_list.loopbacks"}]},
    {"LineNumber":9,"Matched":false,"Matches":[]},
    {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"l3_interfaces_list.{{ intf_type }}","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":17}},"ResultPath":"l3_interfaces_list.vlans"}]},
    {"LineNumber":11,"Matched":false,"Matches":[]},
-   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"l3_interfaces_list.{{ intf_type }}","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":29}},"ResultPath":"l3_interfaces_list.vlans"},{"StartCol":0,"EndCol":29,"GroupName":"l3_interfaces_list.{{ intf_type }}","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":29}},"ResultPath":"l3_interfaces_list.loopbacks"}]},
+   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"l3_interfaces_list.{{ intf_type }}","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":29}},"ResultPath":"l3_interfaces_list.vlans"}]},
    {"LineNumber":13,"Matched":false,"Matches":[]},
    {"LineNumber":14,"Matched":false,"Matches":[]}
   ]

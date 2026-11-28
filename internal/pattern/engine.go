@@ -514,7 +514,7 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 			// Can be either "{{ _line_ }}" or just "_line_"
 			if trimmedLine == "{{ _line_ }}" || trimmedLine == "{{_line_}}" || trimmedLine == "_line_" {
 				// _line_ on its own line should match any line
-				return "^.+$", nil
+				return "^(.+)$", nil
 			}
 		}
 	}

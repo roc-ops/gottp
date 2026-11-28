@@ -8,8 +8,17 @@ import (
 	"github.com/roc-ops/gottp"
 )
 
-// TestLargeGroupWithStartMergesAllFields tests that _start_ bypasses maxGapLines,
-// allowing 60+ field records to merge fully, and that Starlark macros execute.
+// fieldLabel gives field line i a label of letters only: Python TTP turns
+// digits in a template line's text into \d+, so "Field-01" and "Field-02"
+// would compile to the same regex and the first template line would take
+// every one of those data lines (#32).
+func fieldLabel(i int) string {
+	return string(rune('A'+(i-1)/26)) + string(rune('a'+(i-1)%26))
+}
+
+// TestLargeGroupWithStartMergesAllFields tests that 60+ field records merge
+// fully (there is no limit on the distance from the start line, as in Python
+// TTP), and that Starlark macros execute.
 func TestLargeGroupWithStartMergesAllFields(t *testing.T) {
 	// Build a template with 63 match lines
 	var tmplLines []string
@@ -21,7 +30,7 @@ def test_macro(data):
 <group name="entry*" macro="test_macro">`)
 	tmplLines = append(tmplLines, `MAC Address                                      :{{ mac-address | _start_ }}`)
 	for i := 1; i <= 60; i++ {
-		tmplLines = append(tmplLines, fmt.Sprintf("Field-%02d                                         :{{ field-%02d }}", i, i))
+		tmplLines = append(tmplLines, fmt.Sprintf("Field-%s                                         :{{ field-%02d }}", fieldLabel(i), i))
 	}
 	tmplLines = append(tmplLines, `Last-Field                                       :{{ last-field }}`)
 	tmplLines = append(tmplLines, `sysDescr                                         :{{ sys-descr | re(".+") }}`)
@@ -32,7 +41,7 @@ def test_macro(data):
 	var inputLines []string
 	inputLines = append(inputLines, "MAC Address                                      :38f8.5edd.5e02")
 	for i := 1; i <= 60; i++ {
-		inputLines = append(inputLines, fmt.Sprintf("Field-%02d                                         :value%02d", i, i))
+		inputLines = append(inputLines, fmt.Sprintf("Field-%s                                         :value%02d", fieldLabel(i), i))
 	}
 	inputLines = append(inputLines, "Last-Field                                       :present")
 	inputLines = append(inputLines, "sysDescr                                         :DOCSIS 3.1 Cable Modem")
@@ -41,7 +50,7 @@ def test_macro(data):
 	inputLines = append(inputLines, "")
 	inputLines = append(inputLines, "MAC Address                                      :6cff.ced0.7ab0")
 	for i := 1; i <= 60; i++ {
-		inputLines = append(inputLines, fmt.Sprintf("Field-%02d                                         :val%02db", i, i))
+		inputLines = append(inputLines, fmt.Sprintf("Field-%s                                         :val%02db", fieldLabel(i), i))
 	}
 	inputLines = append(inputLines, "Last-Field                                       :present-b")
 	inputLines = append(inputLines, "sysDescr                                         :Another Modem")

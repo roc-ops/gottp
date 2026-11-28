@@ -1,5 +1,5 @@
 {
  "records": [
-  {"group_path":"r","src_range":[0,21],"record":{"local":"1","uplink":"2"}}
+  {"group_path":"r","src_range":[0,21],"record":{"local":"1"}}
  ]
 }

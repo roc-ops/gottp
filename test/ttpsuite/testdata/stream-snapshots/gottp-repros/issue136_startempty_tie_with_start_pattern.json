@@ -1,6 +1,5 @@
 {
  "records": [
-  {"group_path":"g","src_range":[0,0],"record":{"name":"Gi1"}},
   {"group_path":"g","src_range":[0,19],"record":{"v":"x"}}
  ]
 }

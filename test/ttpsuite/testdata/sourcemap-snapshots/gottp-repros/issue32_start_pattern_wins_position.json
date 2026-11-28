@@ -1,9 +1,9 @@
 {
  "inputs": {
   "Default_Input": [
-   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"g","PatternIndex":0,"Variables":{"id":{"StartCol":3,"EndCol":4}},"ResultPath":"g[0]"},{"StartCol":0,"EndCol":4,"GroupName":"g","PatternIndex":1,"Variables":{"kind":{"StartCol":0,"EndCol":2},"rest":{"StartCol":3,"EndCol":4}},"ResultPath":"g[0]"}]},
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"g","PatternIndex":0,"Variables":{"id":{"StartCol":3,"EndCol":4}},"ResultPath":"g[0]"}]},
    {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":3,"GroupName":"g","PatternIndex":1,"Variables":{"kind":{"StartCol":0,"EndCol":1},"rest":{"StartCol":2,"EndCol":3}},"ResultPath":"g[0]"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"g","PatternIndex":0,"Variables":{"id":{"StartCol":3,"EndCol":4}},"ResultPath":"g[1]"},{"StartCol":0,"EndCol":4,"GroupName":"g","PatternIndex":1,"Variables":{"kind":{"StartCol":0,"EndCol":2},"rest":{"StartCol":3,"EndCol":4}},"ResultPath":"g[1]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"g","PatternIndex":0,"Variables":{"id":{"StartCol":3,"EndCol":4}},"ResultPath":"g[1]"}]},
    {"LineNumber":3,"Matched":false,"Matches":[]}
   ]
  }

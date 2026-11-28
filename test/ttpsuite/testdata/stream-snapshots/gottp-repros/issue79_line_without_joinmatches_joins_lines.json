@@ -1,6 +1,6 @@
 {
  "records": [
-  {"group_path":"g","src_range":[0,19],"record":{"h":"a","rest":"host a"}},
-  {"group_path":"g","src_range":[19,30],"record":{"h":"b","rest":"host b"}}
+  {"group_path":"g","src_range":[0,19],"record":{"h":"a","rest":"foo bar\nbaz"}},
+  {"group_path":"g","src_range":[19,30],"record":{"h":"b","rest":"qux"}}
  ]
 }

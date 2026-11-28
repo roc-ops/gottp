@@ -21,10 +21,6 @@
    "issue": 128,
    "reason": "values captured on an _end_ line are saved into the record"
   },
-  "gottp-repros/issue128_end_line_values_no_children": {
-   "issue": 128,
-   "reason": "values captured on an _end_ line are saved into the record (group without children)"
-  },
   "gottp-repros/issue136_start_only_line_matches_trailing_text": {
    "issue": 136,
    "reason": "a \"text {{ _start_ }}\" line also matches lines with more text after it"
@@ -41,89 +37,17 @@
    "issue": 28,
    "reason": "parent group whose _start_ line has no variables drops its child groups"
   },
-  "gottp-repros/issue29_joinmatches_on_first_line": {
-   "issue": 29,
-   "reason": "joinmatches on the first line merges consecutive records into one"
-  },
-  "gottp-repros/issue29_joinmatches_on_start_line": {
-   "issue": 29,
-   "reason": "joinmatches on a _start_ line merges consecutive records into one"
-  },
   "gottp-repros/issue31_ignore_vars_name": {
    "issue": 31,
    "reason": "ignore(\"<vars name>\") empties the group"
-  },
-  "gottp-repros/issue32_end_pattern_wins_position": {
-   "issue": 32,
-   "reason": "an end pattern and an ordinary pattern on one line both fill the record"
-  },
-  "gottp-repros/issue32_first_ordinary_pattern_wins_position": {
-   "issue": 32,
-   "reason": "one data line fills variables from several template lines"
-  },
-  "gottp-repros/issue32_ignore_only_pattern_wins_position": {
-   "issue": 32,
-   "reason": "a line of only ignore() variables doesn't take the data line from the next template line"
-  },
-  "gottp-repros/issue32_one_line_fills_several_template_lines": {
-   "issue": 32,
-   "reason": "one data line fills variables from several template lines"
-  },
-  "gottp-repros/issue32_start_pattern_wins_position": {
-   "issue": 32,
-   "reason": "a start pattern and an ordinary pattern on one line both fill the record"
-  },
-  "gottp-repros/issue32_start_tie_before_and_after_first_record": {
-   "issue": 32,
-   "reason": "two start patterns on one line each start a record"
   },
   "gottp-repros/issue33_trailing_ignore_with_trailing_whitespace": {
    "issue": 33,
    "reason": "trailing {{ ignore(\".*\") }} fails when the data line has trailing whitespace"
   },
-  "gottp-repros/issue34_join_line_joins_every_variable": {
-   "issue": 34,
-   "reason": "on a joinmatches line, TTP joins the line's other variables too"
-  },
-  "gottp-repros/issue34_joinmatches_char_and_lists": {
-   "issue": 34,
-   "reason": "split() | joinmatches returns a joined string instead of a merged list"
-  },
-  "gottp-repros/issue34_joinmatches_keeps_value_types": {
-   "issue": 34,
-   "reason": "joinmatches turns to_int values into a joined string instead of a list of ints"
-  },
-  "gottp-repros/issue34_split_joinmatches": {
-   "issue": 34,
-   "reason": "split() | joinmatches returns a joined string instead of a merged list"
-  },
   "gottp-repros/issue36_unknown_function_falls_back_to_str_method": {
    "issue": 36,
    "reason": "swapcase (str method fallback) is silently skipped"
-  },
-  "gottp-repros/issue60_asm_bare_line_variable": {
-   "issue": 60,
-   "reason": "a {{ _line_ }} variable's joined lines are dropped from the record"
-  },
-  "gottp-repros/issue60_asm_line_condition_skips_line": {
-   "issue": 60,
-   "reason": "a _line_ line rejected by a condition stops later lines from joining"
-  },
-  "gottp-repros/issue60_asm_no_line_gap_limit": {
-   "issue": 60,
-   "reason": "gottp-only rule: a line more than 100 lines after the start isn't added (maxGapLines)"
-  },
-  "gottp-repros/issue69_failed_start_condition_ends_record": {
-   "issue": 69,
-   "reason": "a start line rejected by a condition doesn't close the previous record"
-  },
-  "gottp-repros/issue79_line_joinmatches_skips_start_line": {
-   "issue": 79,
-   "reason": "_line_ with joinmatches also captures the _start_ line"
-  },
-  "gottp-repros/issue79_line_without_joinmatches_joins_lines": {
-   "issue": 79,
-   "reason": "_line_ captures the _start_ line instead of joining the lines after it"
   },
   "gottp-repros/issue88_itemize_child_group": {
    "issue": 88,
@@ -171,10 +95,6 @@
   },
   "test_answers_and_docs/test_docs_ttp_dictionary_usage_example": {
    "reason": "design: python macro (uses _ttp_[\"match\"][\"to_ip\"] and the ipaddress object API)"
-  },
-  "test_answers_and_docs/test_faq_multiline_output_matching": {
-   "issue": 79,
-   "reason": "_line_ with joinmatches also captures the _start_ and _end_ lines"
   },
   "test_answers_and_docs/test_fortigate_intf_parsing": {
    "issue": 28,
@@ -254,10 +174,6 @@
   "test_answers_and_docs/test_issue_48_answer_more": {
    "issue": 112,
    "reason": "chain(var) naming a <vars> list is ignored"
-  },
-  "test_answers_and_docs/test_issue_52_answer": {
-   "issue": 79,
-   "reason": "_line_ with joinmatches also captures the _start_ line"
   },
   "test_answers_and_docs/test_issue_57_headers_parsing": {
    "issue": 68,
@@ -549,8 +465,8 @@
    "reason": "set(True)/set(False) gives a string"
   },
   "test_match_condition_fun/test_contains_re_inline": {
-   "issue": 69,
-   "reason": "a _start_ line rejected by a condition doesn't close the previous record"
+   "issue": 63,
+   "reason": "set(True) / set(False) is a string"
   },
   "test_match_condition_fun/test_endswith_re_from_vars": {
    "issue": 67,
@@ -559,14 +475,6 @@
   "test_match_condition_fun/test_endswith_re_inline": {
    "issue": 67,
    "reason": "raw-string argument endswith_re(r\"Channel\\d+\") matches nothing"
-  },
-  "test_match_condition_fun/test_exclude_from_vars": {
-   "issue": 69,
-   "reason": "a _start_ line rejected by a condition doesn't close the previous record"
-  },
-  "test_match_condition_fun/test_exclude_inline": {
-   "issue": 69,
-   "reason": "a _start_ line rejected by a condition doesn't close the previous record"
   },
   "test_match_condition_fun/test_exclude_re_from_vars": {
    "issue": 67,
@@ -611,10 +519,6 @@
   "test_match_functions/test_let_and_set": {
    "issue": 71,
    "reason": "let() on a matched line is overridden by a later set()"
-  },
-  "test_match_functions/test_line_with_joinmatches": {
-   "issue": 79,
-   "reason": "_line_ with joinmatches also captures lines matched by another template line"
   },
   "test_match_functions/test_match_variable_default_set_to_dictionary": {
    "issue": 64,
