@@ -10,9 +10,9 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 
 ```
 TTP 0.10.1 suite: pass 73 / skipped-by-issue 123 / design 4 of 200
-gottp repros: pass 60 / skipped-by-issue 6 / design 0 of 66
-source-map parity: same 269 / diverge 0 of 269
-stream snapshots: 114 streamable of 269 cases
+gottp repros: pass 65 / skipped-by-issue 6 / design 0 of 71
+source-map parity: same 274 / diverge 0 of 274
+stream snapshots: 114 streamable of 274 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -104,6 +104,11 @@ Fixes on top of C2, each recorded from TTP 0.10.1; all pass:
 | `issue60_c2_absolute_dynamic_child_path` | an absolute path with a `{{ variable }}` |
 | `issue60_c2_absolute_child_with_relative_child` | a relative child of an absolute group goes below it |
 | `issue60_c2_void_top_keeps_children` | the children of a `void` top group are kept |
+| `issue60_c2_record_target_no_merge` | `record="x, tgt"` records `x` as `tgt` and merges no records |
+| `issue60_c2_record_same_value_no_merge` | two records with the same `record=` value stay two records |
+| `issue60_c2_record_after_contains` | `contains="z" record="x"`: a record `contains=` drops records nothing |
+| `issue60_c2_child_record_after_contains` | the same in a child group |
+| `issue60_c2_group_functions_attribute_order` | group function attributes run in template order: `del="z" contains="z"` drops every record |
 
 ## Source-map parity
 

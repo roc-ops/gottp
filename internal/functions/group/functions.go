@@ -171,7 +171,7 @@ func record(data map[string]interface{}, args []string, kwargs map[string]interf
 		if kwargs != nil {
 			kwargs[target] = sourceValue
 			// Also store in global recorded vars (for cross-group access, e.g., sformat)
-			if recordedVars, ok := kwargs["_recorded_vars"].(map[string]interface{}); ok {
+			if recordedVars, ok := kwargs["_recorded_vars"].(map[string]interface{}); ok && recordedVars != nil {
 				recordedVars[target] = sourceValue
 			}
 		}

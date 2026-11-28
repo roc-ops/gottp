@@ -3,7 +3,6 @@ package compiled
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -28,9 +27,9 @@ type Runtime struct {
 	inputRegistry     *input.Registry
 	outputRegistry    *output.Registry
 	macroRegistry     *macro.MacroRegistry
-	pathResolver      *PathResolver                     // active dynamic-path cache; per input during a parse (see usePathResolverFor)
-	pathResolvers     map[string]*PathResolver          // per-parse dynamic-path caches, keyed by input name
-	lastParse         *lastParseResults                 // outputs of the most recent parse, shared by every per-parse copy
+	pathResolver      *PathResolver            // active dynamic-path cache; per input during a parse (see usePathResolverFor)
+	pathResolvers     map[string]*PathResolver // per-parse dynamic-path caches, keyed by input name
+	lastParse         *lastParseResults        // outputs of the most recent parse, shared by every per-parse copy
 	matchCollector    *MatchCollector
 	yangValidator     *yang.Validator
 	validationResults map[string]*yang.ValidationResult // group name -> validation result
@@ -640,101 +639,12 @@ type postOpts struct {
 // r.smObs.lastNodes.
 func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map[string]interface{}, recs []*smRecord, vars map[string]interface{}, opts postOpts) (interface{}, error) {
 	obs := r.smObs
-	// Special handling for record attribute - group matches by recorded variable value
-	// This must happen BEFORE other group functions, as it affects how matches are grouped
-	// Python TTP: when record="vrf" is used, matches are grouped by the vrf variable value
-	// Matches with the same vrf value are grouped together, different vrf values are separate entries
-	if recordAttr, ok := group.Attributes["record"]; ok && recordAttr != "" {
-		recordVar := strings.TrimSpace(recordAttr)
-
-		// recordOrder keeps record values in first-seen order so output order
-		// follows input order (Python TTP) rather than Go map order (#78).
-		groupedByRecord := make(map[string][]map[string]interface{})
-		var recordOrder []string
-		var recsByRecord map[string][]*smRecord
-		if obs != nil {
-			recsByRecord = make(map[string][]*smRecord)
-		}
-
-		for mi, match := range mergedMatches {
-			// Get the value of the record variable from the match
-			recordValue := ""
-			if val, exists := match[recordVar]; exists {
-				// Convert to string for grouping
-				recordValue = fmt.Sprintf("%v", val)
-			}
-			if _, seen := groupedByRecord[recordValue]; !seen {
-				recordOrder = append(recordOrder, recordValue)
-			}
-			groupedByRecord[recordValue] = append(groupedByRecord[recordValue], match)
-			if obs != nil {
-				recsByRecord[recordValue] = append(recsByRecord[recordValue], smAt(recs, mi))
-			}
-		}
-
-		// Convert grouped matches to a list (Python TTP behavior: record groups matches as a list)
-		// Each unique record value becomes a separate entry in the list
-		var groupedMatches []map[string]interface{}
-		var groupedRecs []*smRecord
-		for _, recordValue := range recordOrder {
-			matches := groupedByRecord[recordValue]
-			// For each group of matches with the same record value, merge them into one match
-			// Python TTP: when record is used, matches with the same record value are grouped together
-			if len(matches) > 0 {
-				// Merge all matches with the same record value into one match
-				mergedMatch := make(map[string]interface{})
-				for _, m := range matches {
-					for k, v := range m {
-						// If key already exists and values differ, convert to list
-						if existing, exists := mergedMatch[k]; exists {
-							if !reflect.DeepEqual(existing, v) {
-								// Convert to list if not already a list
-								if existingList, ok := existing.([]interface{}); ok {
-									mergedMatch[k] = append(existingList, v)
-								} else {
-									mergedMatch[k] = []interface{}{existing, v}
-								}
-							}
-						} else {
-							mergedMatch[k] = v
-						}
-					}
-				}
-				groupedMatches = append(groupedMatches, mergedMatch)
-				if obs != nil {
-					groupedRecs = append(groupedRecs, obs.smCollapse(group, recsByRecord[recordValue]))
-				}
-			}
-		}
-
-		// Replace mergedMatches with grouped matches
-		mergedMatches = groupedMatches
-		recs = groupedRecs
-
-		// TTP's group record function: record="source[, target]" records the
-		// record's source value as the variable target, which later groups
-		// (a child's set=, say) and paths see.
-		if r.recordedVars != nil {
-			args := strings.Split(recordVar, ",")
-			source := strings.TrimSpace(args[0])
-			target := source
-			if len(args) > 1 {
-				target = strings.Trim(strings.TrimSpace(args[1]), `"'`)
-			}
-			for _, match := range mergedMatches {
-				if v, ok := match[source]; ok {
-					r.recordedVars[target] = v
-				}
-			}
-		}
-	}
-
-	// Process group function attributes (containsall, contains, del, exclude, excludeall, etc.)
-	// These are group attributes that act as functions to filter/transform matches
-	// They should be processed before the functions/chain attribute
-	// Note: record attribute is handled above, so we skip it here
-	groupFunctionAttrs := builtinAttrGroupFunctions
-	for _, attrName := range groupFunctionAttrs {
+	// Run the group's function attributes (record, contains, del, sformat,
+	// custom group functions, ...) in template order, as TTP does: each
+	// sees only the records the ones before it kept, so record= after
+	// contains= records nothing for a record contains= drops.
+	for _, attrName := range r.groupFuncAttrs(group) {
+		builtin := isBuiltinAttrGroupFunc(attrName)
 		// Special handling for expand - empty string means expand all dot-separated keys
 		if attrName == "expand" {
 			if _, ok := group.Attributes[attrName]; ok {
@@ -788,8 +698,8 @@ func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map
 					if keep {
 						expandedMatches = append(expandedMatches, newData)
 						if obs != nil {
-					kept = append(kept, mi)
-				}
+							kept = append(kept, mi)
+						}
 					}
 				}
 				mergedMatches = expandedMatches
@@ -800,7 +710,7 @@ func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map
 			}
 		}
 
-		if attrValue, ok := group.Attributes[attrName]; ok && attrValue != "" {
+		if attrValue, ok := group.Attributes[attrName]; ok && (attrValue != "" || !builtin) {
 			var args []string
 			kwargs := make(map[string]interface{})
 
@@ -855,7 +765,7 @@ func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map
 						args = append(args, value)
 					}
 				}
-			} else {
+			} else if attrValue != "" {
 				// Parse comma-separated arguments for other functions
 				args = strings.Split(attrValue, ",")
 				for i := range args {
@@ -941,6 +851,9 @@ func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map
 				// Execute function
 				newData, keep, err := fn(data, args, kwargs)
 				if err != nil {
+					if !builtin {
+						return nil, fmt.Errorf("custom group function %s failed: %w", attrName, err)
+					}
 					return nil, fmt.Errorf("group function %s failed: %w", attrName, err)
 				}
 
@@ -948,78 +861,8 @@ func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map
 				if keep {
 					filteredMatches = append(filteredMatches, newData)
 					if obs != nil {
-					kept = append(kept, mi)
-				}
-				}
-			}
-			mergedMatches = filteredMatches
-			if obs != nil {
-				recs = smKeep(recs, kept)
-			}
-		}
-	}
-
-	// Process custom group functions specified as group attributes
-	// These are not in the hardcoded list above, so we check runtime and compile-time overrides
-	if group.Attributes != nil && (r.runtimeFunctions != nil && r.runtimeFunctions.Group != nil || r.compileFunctions != nil && r.compileFunctions.Group != nil) {
-		for attrName, attrValue := range group.Attributes {
-			// Skip attributes already handled by the hardcoded list above
-			alreadyHandled := false
-			for _, builtinAttr := range groupFunctionAttrs {
-				if attrName == builtinAttr {
-					alreadyHandled = true
-					break
-				}
-			}
-			if alreadyHandled {
-				continue
-			}
-			// Skip known non-function attributes
-			if nonFunctionGroupAttrs[attrName] {
-				continue
-			}
-			// Check if this attribute name matches a custom group function
-			// Uses getGroupFunc for proper precedence: runtime > compile-time > built-in
-			fn, ok := r.getGroupFunc(attrName)
-			if !ok {
-				continue
-			}
-			// Parse args from the attribute value
-			var args []string
-			if attrValue != "" {
-				args = strings.Split(attrValue, ",")
-				for i := range args {
-					args[i] = strings.TrimSpace(args[i])
-					args[i] = strings.Trim(args[i], `"'`)
-				}
-			}
-			// Prepare kwargs
-			kwargs := make(map[string]interface{})
-			for k, v := range vars {
-				kwargs[k] = v
-			}
-			if r.recordedVars != nil {
-				for k, v := range r.recordedVars {
-					kwargs[k] = v
-				}
-			}
-			// Apply function to each match
-			var filteredMatches []map[string]interface{}
-			var kept []int
-			for mi, matchData := range mergedMatches {
-				dataCopy := make(map[string]interface{})
-				for k, v := range matchData {
-					dataCopy[k] = v
-				}
-				newData, keep, err := fn(dataCopy, args, kwargs)
-				if err != nil {
-					return nil, fmt.Errorf("custom group function %s failed: %w", attrName, err)
-				}
-				if keep {
-					filteredMatches = append(filteredMatches, newData)
-					if obs != nil {
-					kept = append(kept, mi)
-				}
+						kept = append(kept, mi)
+					}
 				}
 			}
 			mergedMatches = filteredMatches

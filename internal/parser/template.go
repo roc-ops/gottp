@@ -51,6 +51,9 @@ type Group struct {
 	TailStart  int
 	Groups     []*Group // nested groups
 	Attributes map[string]string
+	// AttrOrder lists Attributes' names in template order: TTP runs a
+	// group's function attributes in that order.
+	AttrOrder []string
 }
 
 // Input represents an input tag
@@ -445,6 +448,7 @@ func (t *Template) parseGroup(elem xmlElement) (*Group, error) {
 	group := &Group{
 		Attributes: make(map[string]string),
 		Groups:     []*Group{},
+		AttrOrder:  elem.AttrOrder,
 	}
 
 	// Extract attributes
@@ -774,10 +778,12 @@ func parseChildTemplate(elem xmlElement) (*Template, error) {
 
 // xmlElement represents an XML element for parsing
 type xmlElement struct {
-	XMLName  xml.Name
-	Attrs    map[string]string
-	Content  string
-	Children []xmlElement
+	XMLName xml.Name
+	Attrs   map[string]string
+	// AttrOrder lists the attribute names in document order.
+	AttrOrder []string
+	Content   string
+	Children  []xmlElement
 	// ChildOffsets[i] is the length of Content when Children[i] started.
 	ChildOffsets []int
 }
@@ -792,6 +798,9 @@ func parseXMLElement(start xml.StartElement, decoder *xml.Decoder) xmlElement {
 
 	// Extract attributes
 	for _, attr := range start.Attr {
+		if _, dup := elem.Attrs[attr.Name.Local]; !dup {
+			elem.AttrOrder = append(elem.AttrOrder, attr.Name.Local)
+		}
 		elem.Attrs[attr.Name.Local] = attr.Value
 	}
 

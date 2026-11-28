@@ -128,8 +128,8 @@ vlan {{ id }}
 	})
 }
 
-// record= merges records; every merged record's matches point at the one
-// result entry.
+// record= only records a variable, as TTP's group record function does: it
+// never merges records, so each match keeps its own result entry.
 func TestSourceMapObserver_RecordAttribute(t *testing.T) {
 	template := `<group name="vrfs*" record="vrf">
 vrf {{ vrf }} rt {{ rt }}
@@ -139,6 +139,6 @@ vrf {{ vrf }} rt {{ rt }}
 	wantPaths(t, got, []string{
 		"vrfs*=vrfs[0]",
 		"vrfs*=vrfs[1]",
-		"vrfs*=vrfs[0]",
+		"vrfs*=vrfs[2]",
 	})
 }

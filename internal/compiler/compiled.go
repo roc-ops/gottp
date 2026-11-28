@@ -77,8 +77,12 @@ type CompiledGroup struct {
 	Patterns   []*pattern.CompiledPattern // compiled regex patterns for each line
 	Groups     []*CompiledGroup           // nested groups
 	Attributes map[string]string
-	IsNested   bool                   // true if this group is nested (should not be processed as top-level)
-	Defaults   map[string]interface{} // default values for variables (e.g., from unconditional set())
+	// AttrOrder lists Attributes' names in template order, the order TTP
+	// runs the group's function attributes in. Nil (a group built by hand,
+	// say) falls back to a fixed order.
+	AttrOrder []string
+	IsNested  bool                   // true if this group is nested (should not be processed as top-level)
+	Defaults  map[string]interface{} // default values for variables (e.g., from unconditional set())
 
 	// Streamability — set during compile by analyzeStreamability.
 	// Streamable is true iff this group passed the strict streamability check.
@@ -389,7 +393,7 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 			Attributes: macro.Attributes,
 		}
 		compiled.Macros = append(compiled.Macros, compiledMacro)
-		
+
 		// Validate macro source for Python-specific syntax that's not compatible with Starlark
 		macroWarnings := validator.ValidateMacroSource(macro.Content, macro.Language)
 		for _, warning := range macroWarnings {
@@ -460,6 +464,7 @@ func (c *Compiler) compileGroup(group *parser.Group, templateVars map[string]int
 		Chain:      group.Chain,
 		Macro:      group.Macro,
 		Attributes: group.Attributes,
+		AttrOrder:  group.AttrOrder,
 		IsNested:   isNested,                     // Mark as nested if it is
 		Defaults:   make(map[string]interface{}), // Initialize defaults map
 	}
