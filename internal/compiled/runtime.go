@@ -1274,17 +1274,25 @@ func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.Compi
 			continue
 		}
 
-		// Skip special variables that don't save values
-		// Note: _line_ should NOT be skipped - it captures the line content when used with joinmatches
-		if pattern.IsNonCapturingVar(varName) {
+		var value interface{}
+		if compiledPattern.WholeMatch {
+			// The line's regex was cut at _start_/_end_ and has no capture
+			// left: as TTP's check_matches does with an empty groupdict,
+			// every variable (the indicator too) gets the whole match,
+			// which in TTP starts with the line's "\n" anchor. A variable
+			// with ignore saves nothing in TTP.
+			if varName == pattern.VarIgnore || hasIgnoreFunction(variable) {
+				continue
+			}
+			value = "\n" + match[0]
+		} else if pattern.IsNonCapturingVar(varName) {
+			// Skip special variables that don't save values
+			// Note: _line_ should NOT be skipped - it captures the line content when used with joinmatches
 			varIndex++
 			continue
-		}
-
-		// For variables with set(), we need to process them even if they don't match (varIndex >= len(match))
-		// The set() function will set the value regardless of what was matched
-		var value interface{}
-		if varIndex < len(match) {
+		} else if varIndex < len(match) {
+			// For variables with set(), we need to process them even if they don't match (varIndex >= len(match))
+			// The set() function will set the value regardless of what was matched
 			value = match[varIndex]
 		} else if variable.HasSet {
 			// Variable with set() didn't match - use empty string as value
@@ -1342,6 +1350,16 @@ func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.Compi
 	}
 
 	return result, raise
+}
+
+// hasIgnoreFunction reports whether v has an ignore function.
+func hasIgnoreFunction(v *pattern.MatchVariable) bool {
+	for _, f := range v.Functions {
+		if pattern.FunctionName(f) == pattern.VarIgnore {
+			return true
+		}
+	}
+	return false
 }
 
 // matchTypeMethod is the fallback for a match function name that isn't a

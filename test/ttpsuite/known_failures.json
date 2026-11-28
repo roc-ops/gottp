@@ -4,9 +4,6 @@
   "gottp-repros/issue136_start_re_extension": {
    "reason": "design: {{ _start_ | re(...) }} matches the re(), where TTP cuts the line's regex at _start_ and ignores the re() (#136)"
   },
-  "gottp-repros/issue136_capture_after_end_gets_no_value": {
-   "reason": "design: a variable after {{ _end_ }} captures nothing (with a compile warning), where TTP saves the matched line text, newline first, in it and in _end_ (#136)"
-  },
   "gottp-repros/issue162_user_lazy_re_default_matches_blank": {
    "issue": 165,
    "reason": "default() replaces the matched empty value of a blank line with its default"

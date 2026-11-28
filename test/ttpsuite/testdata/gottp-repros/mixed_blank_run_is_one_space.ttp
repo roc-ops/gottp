@@ -1,0 +1,3 @@
+<group name="g">
+interface 	{{ name }} 	 mtu	 {{ mtu }}
+</group>

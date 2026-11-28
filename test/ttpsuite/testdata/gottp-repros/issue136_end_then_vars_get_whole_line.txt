@@ -1,0 +1,4 @@
+interface Gi1
+ exit  
+ exit
+interface Gi2

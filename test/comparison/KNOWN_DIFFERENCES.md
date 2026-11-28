@@ -159,12 +159,6 @@ The comparison test suite includes:
 - **Why:** 3 DH templates use `{{ _start_ | re(...) }}` and need the regex. Drop the `re()` to get TTP's behaviour.
 - **Test status:** `gottp-repros/issue136_start_re_extension` (listed as `design:` in `test/ttpsuite/known_failures.json`); `TestGenerateRegex_CutAtStartEnd` in `internal/pattern`.
 
-### Variables after `{{ _start_ }}` or `{{ _end_ }}` (deliberate, #136)
-- **gottp:** a variable after the indicator on the same line captures nothing, as the regex ends at the indicator. `GetWarnings()` names it when the template compiles.
-- **Python TTP 0.10.1:** doesn't capture it from the data either. But when the regex has no named group left (`exit {{ _end_ }} {{ w }}`), TTP's `check_matches` gives every variable of the line the whole match text, which starts with the newline: `{"_end_": "\nexit", "w": "\nexit"}`. A variable after the indicator also makes the line an ordinary line instead of an end line, in both engines.
-- **Why:** the values are an artifact of TTP's internal `\n` line anchors, not data; the compile warning tells the author to move the indicator.
-- **Test status:** `gottp-repros/issue136_capture_after_end_gets_no_value` (listed as `design:`); `TestCutVariableWarning` in `internal/compiler`.
-
 ### Unquoted words Python TTP can't evaluate (gottp extension)
 - **gottp:** an unquoted argument such as `set(auto-decision)`, `containsall="af-marker"` or `exclude(-VM-)` is its raw text, `"auto-decision"`. `GetWarnings()` says that Python TTP fails on it and gives the quoted call, `set("auto-decision")`, which works in both.
 - **Python TTP 0.10.1:** evaluates the argument as Python (`auto - decision`, with each unknown name as its own string) and exits: `unsupported operand type(s) for -: 'str' and 'str'`.

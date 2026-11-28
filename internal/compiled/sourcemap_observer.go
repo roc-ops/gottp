@@ -152,14 +152,17 @@ func (o *smObserver) addMatches(rec *smRecord, group *compiler.CompiledGroup, al
 			values:     m.result,
 			rec:        rec,
 		}
-		sm.vars = o.varRanges(group.Patterns[m.patternIdx], m.sm, line)
+		act := group.Profile().Pattern(m.patternIdx).Action
+		sm.vars = o.varRanges(group.Patterns[m.patternIdx], m.sm, line, act == compiler.ActionAdd || act == compiler.ActionJoin)
 		o.matches = append(o.matches, sm)
 	}
 }
 
 // varRanges returns each captured variable's columns on line, mapping capture
-// groups to variables the way extractMatchResult does.
-func (o *smObserver) varRanges(cp *pattern.CompiledPattern, info *smMatchInfo, line int) map[string]*VarRange {
+// groups to variables the way extractMatchResult does. keeps is whether the
+// line's action keeps its values (add or join): a WholeMatch line maps its
+// variables to the whole match only then.
+func (o *smObserver) varRanges(cp *pattern.CompiledPattern, info *smMatchInfo, line int, keeps bool) map[string]*VarRange {
 	ranges := make(map[string]*VarRange)
 	if info == nil {
 		return ranges
@@ -167,7 +170,16 @@ func (o *smObserver) varRanges(cp *pattern.CompiledPattern, info *smMatchInfo, l
 	lineStart := o.lineOffsets[line]
 	varIndex := 1
 	for _, varName := range cp.VariableOrder {
-		if _, ok := cp.Variables[varName]; !ok {
+		v, ok := cp.Variables[varName]
+		if !ok {
+			continue
+		}
+		if cp.WholeMatch {
+			// Each variable's value is the whole match (extractMatchTTP),
+			// except an ignore variable's (none) and a set() one's.
+			if keeps && varName != pattern.VarIgnore && !hasIgnoreFunction(v) && !v.HasSet && len(info.idx) >= 2 && info.idx[0] >= 0 {
+				ranges[varName] = &VarRange{StartCol: info.idx[0] + info.base - lineStart, EndCol: info.idx[1] + info.base - lineStart}
+			}
 			continue
 		}
 		if pattern.IsNonCapturingVar(varName) {

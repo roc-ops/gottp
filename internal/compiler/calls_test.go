@@ -89,21 +89,81 @@ y {{ w | ORPHRASE | _line_ | _exact_ }}
 }
 
 // A capture variable after {{ _start_ }} or {{ _end_ }} gets a compile
-// warning: the line's regex ends at the indicator, so it captures nothing
-// (#136).
+// warning: the line's regex ends at the indicator, so the variable isn't
+// captured from the data (#136). The warning says what it gets instead, as
+// in Python TTP, once per variable.
 func TestCutVariableWarning(t *testing.T) {
-	ct := compileText(t, `<group name="g">
-interface {{ _start_ }} {{ name }}
- v {{ v }}
-exit {{ _end_ }}
-</group>`)
-	var got []string
-	for _, w := range ct.Warnings {
-		if strings.Contains(w, "captures nothing") {
-			got = append(got, w)
+	cutWarnings := func(t *testing.T, text string) []string {
+		t.Helper()
+		ct := compileText(t, text)
+		var got []string
+		for _, w := range ct.Warnings {
+			if strings.Contains(w, "where the line's regex ends") {
+				got = append(got, w)
+			}
 		}
+		return got
 	}
-	if len(got) != 1 || !strings.Contains(got[0], `variable "name" comes after {{ _start_ }}`) {
-		t.Errorf("want one warning about name, got %q", got)
+	tests := []struct {
+		name, text string
+		want, not  []string
+	}{
+		{
+			name: "start",
+			text: "<group name=\"g\">\ninterface {{ _start_ }} {{ name }}\n v {{ v }}\nexit {{ _end_ }}\n</group>",
+			want: []string{`variable "name" comes after {{ _start_ }}`, "it gets no value from the line", "({{ name | _start_ }})"},
+			not:  []string{"default()", "whole matched line"},
+		},
+		{
+			name: "repeated name warns once",
+			text: "<group name=\"g\">\ninterface {{ _start_ }} {{ a }} {{ a }}\n v {{ v }}\n</group>",
+			want: []string{`variable "a" comes after {{ _start_ }}`},
+		},
+		{
+			name: "_line_",
+			text: "<group name=\"g\">\ninterface {{ _start_ }} {{ _line_ }}\n v {{ v }}\n</group>",
+			want: []string{`variable "_line_"`, "capture it in a named variable instead: {{ rest | ORPHRASE | _start_ }}"},
+			not:  []string{"{{ _line_ | _start_ }}"},
+		},
+		{
+			name: "default",
+			text: "<group name=\"g\">\ninterface {{ _start_ }} {{ x | default(\"d\") }}\n v {{ v }}\n</group>",
+			want: []string{`variable "x"`, "its default() value still applies"},
+		},
+		{
+			name: "end with no capture left",
+			text: "<group name=\"g\">\ninterface {{ n }}\n exit {{ _end_ }} {{ w | default(\"d\") }}\n</group>",
+			want: []string{`"w" and _end_ are set to the whole matched line with a newline first`, "its default() value still applies to a record without such a line", "it no longer ends the group"},
+		},
+		{
+			name: "end after a capture",
+			text: "<group name=\"g\">\ninterface {{ n }}\n exit {{ x }} {{ _end_ }} {{ w }}\n</group>",
+			want: []string{`variable "w" comes after {{ _end_ }}`, "it gets no value from the line", "it no longer ends the group"},
+			not:  []string{"whole matched line"},
+		},
+		{
+			name: "end function keeps the end line",
+			text: "<group name=\"g\">\ninterface {{ n }}\n exit {{ _end_ }} {{ w | _end_ }}\n</group>",
+			want: []string{`"w" and _end_ are set to the whole matched line`},
+			not:  []string{"no longer ends the group"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := cutWarnings(t, tt.text)
+			if len(got) != 1 {
+				t.Fatalf("want one warning, got %q", got)
+			}
+			for _, s := range tt.want {
+				if !strings.Contains(got[0], s) {
+					t.Errorf("warning %q lacks %q", got[0], s)
+				}
+			}
+			for _, s := range tt.not {
+				if strings.Contains(got[0], s) {
+					t.Errorf("warning %q has %q", got[0], s)
+				}
+			}
+		})
 	}
 }

@@ -1,0 +1,3 @@
+interface Gi1 mtu 1500
+interface	Gi2		mtu  9000
+interface 	Gi3 	 mtu	 1400

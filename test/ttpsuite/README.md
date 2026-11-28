@@ -88,7 +88,10 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue136_start_after_two_spaces` | passes; the whitespace before `{{ _start_ }}` is dropped (#136) |
 | `issue136_start_exact_space_keeps_space` | passes; with `_exact_space_` the space before `{{ _start_ }}` stays (#136) |
 | `issue136_start_re_extension` | `design:`; `{{ _start_ \| re(...) }}` matches the `re()`, TTP ignores it (#136) |
-| `issue136_capture_after_end_gets_no_value` | `design:`; a variable after `{{ _end_ }}` gets no value, TTP saves the matched line text in it (#136) |
+| `issue136_capture_after_end_gets_whole_line` | passes; on `exit {{ _end_ }} {{ w }}`, `w` and `_end_` get the whole matched line, newline first (#136) |
+| `issue136_end_then_vars_get_whole_line` | passes; every variable after `{{ _end_ }}` gets the whole matched line (indent and trailing spaces kept), its functions run on it, and `default()` fills a record without the line (#136) |
+| `issue136_mixed_blank_before_start` | passes; a space and a tab before `{{ _start_ }}` are cut as one run (#136) |
+| `mixed_blank_run_is_one_space` | passes; a run of mixed spaces and tabs in a template line is one `[ \t]+`, as in TTP |
 
 Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Since refactor C1 gottp assembles records with a port of `_results_class` (`internal/compiled/assembler.go`), and since C2 a group with children and all its descendants go through one assembler (`internal/compiled/tree.go`), so most of them pass. Those gottp still gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
 

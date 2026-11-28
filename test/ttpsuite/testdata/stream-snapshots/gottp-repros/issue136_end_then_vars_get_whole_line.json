@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[0,28],"record":{"_end_":"\n exit  ","name":"Gi1","w":"\n EXIT  ","y":"\n exit  "}},
+  {"group_path":"g","src_range":[28,42],"record":{"name":"Gi2","y":"d"}}
+ ]
+}

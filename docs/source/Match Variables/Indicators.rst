@@ -36,7 +36,7 @@ Special Indicators
    * ``interface {{ _start_ }}`` matches ``interface`` (with trailing spaces or not), but not ``interface Gi1``.
    * ``interface {{ name }} {{ _start_ }}`` matches ``interface Gi1`` but not ``interface Gi1 extra``.
    * ``exit {{ _end_ }} now`` matches ``exit``, not ``exit now``.
-   * In ``interface {{ _start_ }} {{ name }}``, ``name`` captures nothing. ``GetWarnings()`` names such a variable when the template compiles. Put the indicator last, or use it as a function: ``interface {{ name | _start_ }}``.
+   * In ``interface {{ _start_ }} {{ name }}``, ``name`` isn't captured from the data and gets no value. On an ``_end_`` line with no capture left, such as ``exit {{ _end_ }} {{ w }}``, every variable of the line, ``_end_`` too, gets the whole matched line with a newline first (``"\n exit"`` for `` exit``), as in Python TTP, and the line no longer ends the group. ``GetWarnings()`` names such a variable when the template compiles. Put the indicator last, or use it as a function: ``interface {{ name | _start_ }}``.
    * With ``_exact_space_`` the space before the indicator is kept: ``interface {{ _start_ | _exact_space_ }}`` matches ``interface `` but not ``interface``.
    * ``_start_`` or ``_end_`` used as a function (``{{ name | _start_ }}``) doesn't cut the line.
    * **gottp extension:** ``{{ _start_ | re("...") }}`` (or ``_end_``) is not cut: it matches its regex, so ``interface {{ _start_ | re("Gi\\S+") }}`` matches ``interface Gi1`` only. Python TTP ignores the ``re()`` and cuts the line there.
