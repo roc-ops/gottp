@@ -2,17 +2,23 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-```
-go test ./test/ttpsuite -v -run TestTTPSuite | grep 'suite:'
-```
+Current result (gottp `cbc344c`):
 
-Current result (gottp `718c77b`):
+```
+go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:'
+```
 
 ```
 TTP 0.10.1 suite: pass 22 / skipped-by-issue 174 / design 4 of 200
+gottp repros: pass 1 / skipped-by-issue 9 / design 0 of 10
+source-map parity: same 199 / diverge 11 of 210
 ```
 
-The Go test needs no Python, so it runs in plain `go test ./...` and in CI.
+The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are three:
+
+- `TestTTPSuite`: TTP's own 200 cases against TTP 0.10.1's results (below).
+- `TestGottpRepros`: gottp bug repros against TTP 0.10.1's results ([gottp repros](#gottp-repros)).
+- `TestSourceMapParity`: every case from both, parsed with source maps off and on, must give the same data ([Source-map parity](#source-map-parity)).
 
 ## How it works
 
@@ -20,11 +26,41 @@ The Go test needs no Python, so it runs in plain `go test ./...` and in CI.
 - `ttpsuite_test.go` runs each case as a subtest through gottp's Python-style API (`NewParser`, `AddTemplate`, `AddInput`, `Parse`, `Result`) with the working directory set to `testdata/pytest`, so the templates' `./assets/...` paths resolve. The result is compared **strictly**: there is no list-unwrapping normalization (unlike `test/comparison`), because that normalization hides #62.
 - `known_failures.json` lists every case that doesn't match yet. `issue` is the issue its first strict difference belongs to, `also` lists issues the case hits after that, and `reason` is one line. A reason starting with `design:` marks a deliberate difference.
 - The test fails when a case differs and isn't listed, when a listed case passes ("remove it from known_failures.json"), and when the table names a case that doesn't exist. So the table can't go stale: fixing an issue makes its cases fail until their entries are removed.
-- `TTPSUITE_REPORT=/tmp/report.json go test ./test/ttpsuite` writes every case's outcome, first difference and gottp result, for triage.
+- `TTPSUITE_REPORT=/tmp/report.json go test ./test/ttpsuite` writes every case's outcome, first difference and gottp result, for triage (`TTPSUITE_REPROS_REPORT` does the same for the repros).
+
+## gottp repros
+
+`testdata/gottp-repros/` holds minimal repros of gottp bugs: `NAME.ttp` (template), `NAME.txt` (the `Default_Input` data) and `NAME.expected.json` (Python TTP 0.10.1's result, written by `record.py expect`). The case name is `gottp-repros/NAME`; `NAME` starts with the issue number. `TestGottpRepros` runs them like the suite cases, through the Python-style API, and they share `known_failures.json`, so each one turns on when its issue is fixed. To add one, write the `.ttp` and `.txt` and run `record.py expect`.
+
+| Repro | Issue |
+|---|---|
+| `issue28_parent_start_line_without_variables` | #28 |
+| `issue29_joinmatches_on_start_line` | #29 |
+| `issue30_indented_line_matches_any_indentation` | #30 |
+| `issue31_ignore_vars_name` | #31 |
+| `issue32_one_line_fills_several_template_lines` | #32 |
+| `issue33_trailing_ignore_with_trailing_whitespace` | #33 |
+| `issue34_split_joinmatches` | #34 |
+| `issue35_strip_characters_argument` | #35 |
+| `issue36_unknown_function_falls_back_to_str_method` | #36 |
+| `sourcemap_void_group` | passes; covers `void` for source-map parity (#108) |
+
+## Source-map parity
+
+`CompiledTemplate.Parse` runs `Runtime.Parse` when source maps are off, and a separate copy of the orchestration (`Runtime.ParseWithSourceMap` and `parseGroupWithSourceMap`) when `ParseOptions{EnableSourceMap: true}`. The editor always turns source maps on. `TestSourceMapParity` parses every case (suite and repros) through `CompiledTemplate.ParseWithValidation` both ways and requires the same data, or the same error. The source map itself isn't compared, and it doesn't matter whether the data matches TTP.
+
+`sourcemap_divergences.json` lists the cases that differ, with the same rules as `known_failures.json`: an unlisted divergence, a listed case at parity and a stale entry all fail the test. `TTPSUITE_SOURCEMAP_REPORT=/tmp/sm.json` writes both results of every diverging case.
+
+| Issue | Cases | Title |
+|---|---|---|
+| #105 | 5 | Source map: a group without input= parses only Default_Input (other inputs give an empty result) |
+| #106 | 4 | Source map: group errors lose the "failed to parse group <name>" context |
+| #107 | 1 | Source map: the ignore("<vars name>") empty-record special case is missing, so the group is dropped |
+| #108 | 1 | Source map: void groups are not dropped from the results |
 
 ## Regenerating the data
 
-Never edit `testdata/cases/` by hand. `record.py` writes it from Python TTP, pinned in `../comparison/requirements.txt`:
+Never edit `testdata/cases/` or the `*.expected.json` files by hand. `record.py` writes them from Python TTP, pinned in `../comparison/requirements.txt`. It needs every package in `requirements.txt` (it exits if one is missing): without the optional formatter and validation packages TTP returns different results for some cases.
 
 ```
 python3 -m venv /tmp/ttpvenv && /tmp/ttpvenv/bin/pip install -r test/ttpsuite/requirements.txt

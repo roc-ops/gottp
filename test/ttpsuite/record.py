@@ -9,7 +9,9 @@ Two commands:
   record.py expect [--check]
       Re-run every case in testdata/cases/ through the installed Python TTP
       (cwd = testdata/pytest, so relative asset paths resolve) and rewrite each
-      case's "expected". With --check, write nothing and exit 1 if any
+      case's "expected". Also re-run every gottp bug repro in
+      testdata/gottp-repros/ (NAME.ttp + NAME.txt) and rewrite its
+      NAME.expected.json. With --check, write nothing and exit 1 if any
       expectation would change. Needs the TTP version pinned in
       ../comparison/requirements.txt.
 
@@ -41,6 +43,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 TESTDATA = os.path.join(HERE, "testdata")
 CASES_DIR = os.path.join(TESTDATA, "cases")
 PYTEST_DIR = os.path.join(TESTDATA, "pytest")
+REPROS_DIR = os.path.join(TESTDATA, "gottp-repros")
 REQUIREMENTS = os.path.join(HERE, "..", "comparison", "requirements.txt")
 
 INIT_KW = ["data", "template", "log_level", "log_file", "base_path", "vars",
@@ -61,12 +64,22 @@ def pinned_ttp_version():
     sys.exit(f"no ttp== pin in {REQUIREMENTS}")
 
 
+# Optional TTP dependencies from requirements.txt. Without them TTP still
+# runs but some cases return different results, so "expect" would rewrite
+# their expectations.
+OPTIONAL_DEPS = ["cerberus", "deepdiff", "jinja2", "N2G", "tabulate", "yangson", "yaml"]
+
+
 def require_pinned_ttp():
+    import importlib.util
     import ttp  # noqa: F401
     from importlib.metadata import version
     want, got = pinned_ttp_version(), version("ttp")
     if want != got:
         sys.exit(f"installed ttp {got}, but {REQUIREMENTS} pins {want}")
+    missing = [m for m in OPTIONAL_DEPS if importlib.util.find_spec(m) is None]
+    if missing:
+        sys.exit(f"missing {', '.join(missing)}: pip install -r {os.path.join(HERE, 'requirements.txt')}")
     return got
 
 
@@ -233,11 +246,52 @@ def cmd_expect(args):
                 dirty = True
         if dirty and not args.check:
             _write_cases(path, cases)
+    rtotal, rchanged = expect_repros(args.check)
+    total += rtotal
+    changed += rchanged
     print(f"ttp {ver}: {total} cases, {len(changed)} expectation(s) changed")
     for name in changed:
         print("  changed:", name)
     if args.check and changed:
         sys.exit(1)
+
+
+def repro_case(stem):
+    """Build the case for testdata/gottp-repros/STEM.ttp + STEM.txt, in the
+    same shape as testdata/cases/*.json (ttpsuite_test.go loadRepros)."""
+    with open(os.path.join(REPROS_DIR, stem + ".ttp"), encoding="utf-8") as f:
+        tmpl = f.read()
+    with open(os.path.join(REPROS_DIR, stem + ".txt"), encoding="utf-8") as f:
+        data = f.read()
+    return {"name": "gottp-repros/" + stem, "template": tmpl,
+            "inputs": [{"name": "Default_Input", "data": data}]}
+
+
+def expect_repros(check):
+    """Re-record NAME.expected.json for every NAME.ttp in testdata/gottp-repros.
+    Returns (number of repros, names whose expectation changed)."""
+    stems = sorted(fn[:-4] for fn in os.listdir(REPROS_DIR) if fn.endswith(".ttp"))
+    changed = []
+    for stem in stems:
+        case = repro_case(stem)
+        got = run_ttp(case)
+        path = os.path.join(REPROS_DIR, stem + ".expected.json")
+        old = None
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                old = json.load(f)
+        if old != got:
+            changed.append(case["name"])
+            if not check:
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(got, f, indent=1, ensure_ascii=False)
+                    f.write("\n")
+    for fn in sorted(os.listdir(REPROS_DIR)):
+        if fn.endswith(".expected.json") and fn[:-len(".expected.json")] not in stems:
+            changed.append("gottp-repros/" + fn + " (no .ttp)")
+            if not check:
+                os.remove(os.path.join(REPROS_DIR, fn))
+    return len(stems), changed
 
 
 def main():

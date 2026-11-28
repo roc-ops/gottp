@@ -1,0 +1,6 @@
+<group name="t">
+Vlan Name Ports Type Authorization {{ _start_ }}
+<group name="v">
+{{ vlan_id | DIGIT }} {{ vlan_name }} {{ p }} {{ type }} {{ authorization }}
+</group>
+</group>
