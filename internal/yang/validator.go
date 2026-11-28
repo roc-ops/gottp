@@ -3,6 +3,8 @@ package yang
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -25,6 +27,29 @@ func NewValidator(moduleSet *ModuleSet) *Validator {
 // data can be a map[string]interface{} or []map[string]interface{}
 // yangPath format: "module-name:path/to/node"
 func (v *Validator) Validate(data interface{}, yangPath, groupName string) *ValidationResult {
+	result := v.validate(data, yangPath, groupName)
+	result.Warnings = dedupeOnce(result.Warnings)
+	return result
+}
+
+// dedupeOnce drops repeats of warnings marked once (same field and message).
+func dedupeOnce(warnings []*ValidationError) []*ValidationError {
+	seen := map[[2]string]bool{}
+	out := warnings[:0]
+	for _, w := range warnings {
+		if w.once {
+			key := [2]string{w.Field, w.Message}
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+		}
+		out = append(out, w)
+	}
+	return out
+}
+
+func (v *Validator) validate(data interface{}, yangPath, groupName string) *ValidationResult {
 	result := &ValidationResult{
 		Valid:    true,
 		Errors:   []*ValidationError{},
@@ -50,6 +75,10 @@ func (v *Validator) Validate(data interface{}, yangPath, groupName string) *Vali
 	case map[string]interface{}:
 		dataToValidate = d
 	case []map[string]interface{}:
+		if e := levelError(d, schemaEntry, yangPath, groupName); e != nil {
+			result.Valid = false
+			result.Errors = append(result.Errors, e)
+		}
 		// For arrays, validate each item
 		for i, item := range d {
 			itemResult := v.validateSingleItem(item, schemaEntry, yangPath, groupName, i)
@@ -84,6 +113,11 @@ func (v *Validator) Validate(data interface{}, yangPath, groupName string) *Vali
 			})
 			return result
 		}
+	}
+
+	if e := levelError([]map[string]interface{}{dataToValidate.(map[string]interface{})}, schemaEntry, yangPath, groupName); e != nil {
+		result.Valid = false
+		result.Errors = append(result.Errors, e)
 	}
 
 	// Validate single item
@@ -148,7 +182,7 @@ func (v *Validator) validateFieldTypes(data map[string]interface{}, schemaEntry 
 	}
 
 	for name, value := range data {
-		childEntry, exists := schemaEntry.Dir[name]
+		childEntry, exists := lookupChild(schemaEntry, name)
 		if !exists {
 			// Field not in schema - this might be okay if schema allows additional fields
 			// For now, we'll just warn
@@ -168,10 +202,10 @@ func (v *Validator) validateFieldTypes(data map[string]interface{}, schemaEntry 
 				for i, elem := range slice {
 					if !v.validateValueType(elem, childEntry.Type, childEntry) {
 						result.Valid = false
-						actualType := fmt.Sprintf("%T", elem)
-						msg := fmt.Sprintf("Field '%s' leaf-list element [%d] has invalid type %s, expected %s", name, i, actualType, childEntry.Type.Name)
+						got, expected := describeMismatch(elem, childEntry.Type)
+						msg := fmt.Sprintf("Field '%s' leaf-list element [%d] has %s, expected %s", name, i, got, expected)
 						if index >= 0 {
-							msg = fmt.Sprintf("Field '%s' leaf-list element [%d] has invalid type %s in item %d, expected %s", name, i, actualType, index, childEntry.Type.Name)
+							msg = fmt.Sprintf("Field '%s' leaf-list element [%d] has %s in item %d, expected %s", name, i, got, index, expected)
 						}
 						result.Errors = append(result.Errors, &ValidationError{
 							GroupName: groupName,
@@ -183,11 +217,10 @@ func (v *Validator) validateFieldTypes(data map[string]interface{}, schemaEntry 
 				}
 			} else if !v.validateValueType(value, childEntry.Type, childEntry) {
 				result.Valid = false
-				// Provide more detailed error message with actual type
-				actualType := fmt.Sprintf("%T", value)
-				msg := fmt.Sprintf("Field '%s' has invalid type %s, expected %s", name, actualType, childEntry.Type.Name)
+				got, expected := describeMismatch(value, childEntry.Type)
+				msg := fmt.Sprintf("Field '%s' has %s, expected %s", name, got, expected)
 				if index >= 0 {
-					msg = fmt.Sprintf("Field '%s' has invalid type %s in item %d, expected %s", name, actualType, index, childEntry.Type.Name)
+					msg = fmt.Sprintf("Field '%s' has %s in item %d, expected %s", name, got, index, expected)
 				}
 				result.Errors = append(result.Errors, &ValidationError{
 					GroupName: groupName,
@@ -232,22 +265,30 @@ func (v *Validator) validateValueType(value interface{}, yangType *yang.YangType
 
 	switch yangType.Kind {
 	case yang.Ystring:
-		_, ok := value.(string)
+		s, ok := value.(string)
+		if ok && entry != nil && entry.Type != yangType {
+			// A union member: the value is of this member type only if it
+			// also meets the member's patterns. (A leaf's own patterns are
+			// checked, with a specific message, by validateConstraints.)
+			_, ok = v.checkPatterns(s, yangType)
+		}
 		return ok
 	case yang.Yint8, yang.Yint16, yang.Yint32, yang.Yint64:
-		switch value.(type) {
-		case int, int8, int16, int32, int64, float64:
+		switch val := value.(type) {
+		case int, int8, int16, int32, int64:
 			return true
+		case float64:
+			// RFC 7950 9.2: integer types admit whole numbers only. A
+			// whole float64 is what a JSON round trip makes of an int.
+			return isWhole(val)
 		}
 		return false
 	case yang.Yuint8, yang.Yuint16, yang.Yuint32, yang.Yuint64:
-		switch value.(type) {
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float64:
-			// Check if it's non-negative
-			if f, ok := value.(float64); ok {
-				return f >= 0
-			}
+		switch val := value.(type) {
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 			return true
+		case float64:
+			return val >= 0 && isWhole(val)
 		}
 		return false
 	case yang.Ybool:
@@ -267,10 +308,13 @@ func (v *Validator) validateValueType(value interface{}, yangType *yang.YangType
 			return err == nil
 		}
 		return false
-	case yang.Yenum, yang.Yidentityref:
-		// Enum values should be strings
-		_, ok := value.(string)
-		return ok
+	case yang.Yenum:
+		// RFC 7950 9.6: the value must be one of the assigned names.
+		s, ok := value.(string)
+		return ok && yangType.Enum != nil && yangType.Enum.IsDefined(s)
+	case yang.Yidentityref:
+		s, ok := value.(string)
+		return ok && identityrefAccepts(s, yangType.IdentityBase, entry)
 	case yang.Yleafref:
 		// Leafref can be various types depending on target
 		return true
@@ -300,7 +344,7 @@ func (v *Validator) validateConstraints(data map[string]interface{}, schemaEntry
 	}
 
 	for name, value := range data {
-		childEntry, exists := schemaEntry.Dir[name]
+		childEntry, exists := lookupChild(schemaEntry, name)
 		if !exists || childEntry.Type == nil {
 			continue
 		}
@@ -376,11 +420,55 @@ func (v *Validator) validateConstraints(data map[string]interface{}, schemaEntry
 			}
 		}
 
-		// Validate pattern constraints for string types
-		if len(childEntry.Type.Pattern) > 0 {
-			// Pattern validation would require regex matching
-			// For now, we'll skip this as it requires more complex implementation
-			// TODO: Implement pattern validation
+		// Validate pattern constraints for string types. Union members'
+		// patterns are checked by validateValueType.
+		if len(childEntry.Type.Pattern) > 0 && childEntry.Type.Kind == yang.Ystring {
+			check := func(s string, element int) {
+				failed, ok := v.checkPatterns(s, childEntry.Type)
+				if ok {
+					return
+				}
+				result.Valid = false
+				what := fmt.Sprintf("Field '%s'", name)
+				if element >= 0 {
+					what = fmt.Sprintf("Field '%s' leaf-list element [%d]", name, element)
+				}
+				verb := "does not match"
+				if failed.invert {
+					verb = "matches invert-match"
+				}
+				msg := fmt.Sprintf("%s value %q %s pattern '%s'", what, s, verb, failed.pattern)
+				if index >= 0 {
+					msg += fmt.Sprintf(" in item %d", index)
+				}
+				result.Errors = append(result.Errors, &ValidationError{
+					GroupName: groupName,
+					Path:      yangPath,
+					Field:     name,
+					Message:   msg,
+				})
+			}
+			if slice, ok := value.([]interface{}); ok {
+				for i, elem := range slice {
+					if s, ok := elem.(string); ok {
+						check(s, i)
+					}
+				}
+			} else if s, ok := value.(string); ok {
+				check(s, -1)
+			}
+		}
+
+		// A pattern RE2 can't express leaves the value unchecked: say so
+		// rather than pass silently. Reported once per Validate call.
+		for _, msg := range v.uncheckablePatterns(childEntry.Type) {
+			result.Warnings = append(result.Warnings, &ValidationError{
+				GroupName: groupName,
+				Path:      yangPath,
+				Field:     name,
+				Message:   fmt.Sprintf("Field '%s' %s; values are not checked against it", name, msg),
+				once:      true,
+			})
 		}
 	}
 }
@@ -465,3 +553,149 @@ func (v *Validator) validateLength(value string, lengths yang.YangRange) bool {
 	return false
 }
 
+// isWhole reports whether f is a finite number with no fractional part.
+func isWhole(f float64) bool {
+	return !math.IsInf(f, 0) && !math.IsNaN(f) && f == math.Trunc(f)
+}
+
+// lookupChild finds the data node called name under entry. choice and case
+// nodes are schema-only (RFC 7950 7.9): their children appear in the data
+// tree as children of the choice's parent, so the lookup descends through
+// them, including nested choices.
+func lookupChild(entry *yang.Entry, name string) (*yang.Entry, bool) {
+	if entry == nil {
+		return nil, false
+	}
+	if child, ok := entry.Dir[name]; ok && !child.IsChoice() && !child.IsCase() {
+		return child, true
+	}
+	for _, child := range entry.Dir {
+		if child.IsChoice() || child.IsCase() {
+			if found, ok := lookupChild(child, name); ok {
+				return found, true
+			}
+		}
+	}
+	return nil, false
+}
+
+// describeMismatch describes, for an error message, why value failed
+// yangType: what was found and what was expected.
+func describeMismatch(value interface{}, yangType *yang.YangType) (got, expected string) {
+	got, expected = fmt.Sprintf("invalid type %T", value), yangType.Name
+	s, isString := value.(string)
+	if !isString {
+		return got, expected
+	}
+	switch yangType.Kind {
+	case yang.Yenum:
+		if yangType.Enum != nil {
+			// List the names in value (declaration) order.
+			var names []string
+			for _, val := range yangType.Enum.Values() {
+				names = append(names, yangType.Enum.Name(val))
+			}
+			return fmt.Sprintf("invalid value %q", s), "one of " + strings.Join(names, ", ")
+		}
+	case yang.Yidentityref:
+		if base := yangType.IdentityBase; base != nil {
+			return fmt.Sprintf("invalid value %q", s), fmt.Sprintf("an identity derived from %s:%s", identityModule(base), base.Name)
+		}
+	case yang.Yunion:
+		return fmt.Sprintf("invalid value %q", s), "a value of one of the " + yangType.Name + " member types"
+	}
+	return got, expected
+}
+
+// identityrefAccepts reports whether value names an identity derived from
+// base (RFC 7950 9.10.2; the base itself is not a valid value). The JSON
+// encoding is RFC 7951 6.8: "module:identity", where the module prefix may
+// be left out only when the identity is defined in the leaf's own module.
+func identityrefAccepts(value string, base *yang.Identity, entry *yang.Entry) bool {
+	if base == nil {
+		return false
+	}
+	modName, name, qualified := strings.Cut(value, ":")
+	if !qualified {
+		name, modName = value, ""
+		if entry != nil {
+			if m, err := entry.InstantiatingModule(); err == nil {
+				modName = m
+			}
+		}
+	}
+	for _, id := range base.Values {
+		if id.Name != name {
+			continue
+		}
+		// An unknown leaf module (modName == "") accepts the bare name.
+		if modName == "" || identityModule(id) == modName {
+			return true
+		}
+	}
+	return false
+}
+
+// identityModule returns the name of the module that defines id; for an
+// identity in a submodule, that is the module the submodule belongs to.
+func identityModule(id *yang.Identity) string {
+	root := yang.RootNode(id)
+	if root == nil {
+		return ""
+	}
+	if root.Kind() == "submodule" && root.BelongsTo != nil {
+		return root.BelongsTo.Name
+	}
+	return root.Name
+}
+
+// levelError returns an error when items have fields but none of them is
+// defined under entry. The path is then at the wrong level (usually the
+// container rather than the list each match maps to, or a leaf), and
+// nothing would be checked. The error suggests the children of entry that
+// do define some of the fields.
+func levelError(items []map[string]interface{}, entry *yang.Entry, yangPath, groupName string) *ValidationError {
+	fieldSet := map[string]bool{}
+	for _, item := range items {
+		for name := range item {
+			if _, ok := lookupChild(entry, name); ok {
+				return nil
+			}
+			fieldSet[name] = true
+		}
+	}
+	if len(fieldSet) == 0 {
+		return nil
+	}
+	fields := make([]string, 0, len(fieldSet))
+	for name := range fieldSet {
+		fields = append(fields, name)
+	}
+	sort.Strings(fields)
+
+	var suggestions []string
+	var collect func(e *yang.Entry)
+	collect = func(e *yang.Entry) {
+		for _, child := range e.Dir {
+			if child.IsChoice() || child.IsCase() {
+				collect(child)
+				continue
+			}
+			for _, name := range fields {
+				if _, ok := lookupChild(child, name); ok {
+					suggestions = append(suggestions, strings.TrimRight(yangPath, "/")+"/"+child.Name)
+					break
+				}
+			}
+		}
+	}
+	collect(entry)
+	sort.Strings(suggestions)
+
+	msg := fmt.Sprintf("YANG path '%s' defines none of the fields %s; the path must name the node each match maps to (a list, not its container)",
+		yangPath, strings.Join(fields, ", "))
+	if len(suggestions) > 0 {
+		msg += fmt.Sprintf(": did you mean %s?", strings.Join(suggestions, " or "))
+	}
+	return &ValidationError{GroupName: groupName, Path: yangPath, Message: msg}
+}

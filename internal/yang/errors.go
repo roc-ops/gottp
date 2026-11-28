@@ -10,6 +10,8 @@ type ValidationError struct {
 	Field     string
 	Line      int
 	Column    int
+
+	once bool // a warning reported once per Validate call, not per item
 }
 
 // Error implements the error interface
@@ -36,4 +38,3 @@ func (r *ValidationResult) HasErrors() bool {
 func (r *ValidationResult) HasWarnings() bool {
 	return len(r.Warnings) > 0
 }
-

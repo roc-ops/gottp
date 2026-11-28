@@ -13,9 +13,10 @@ type ModuleSet struct {
 	mu             sync.RWMutex
 	modules        map[string]*yang.Module
 	schemas        map[string]*yang.Entry
-	mset           *yang.Modules     // Shared Modules instance for dependency resolution
-	addedModules   map[string]bool   // Track which modules we've added (for error messages)
-	prefixToModule map[string]string // Map prefix to module name (e.g., "cms" -> "example-cable-modem-state")
+	mset           *yang.Modules         // Shared Modules instance for dependency resolution
+	addedModules   map[string]bool       // Track which modules we've added (for error messages)
+	prefixToModule map[string]string     // Map prefix to module name (e.g., "cms" -> "example-cable-modem-state")
+	patternUses    map[string]patternUse // pattern string -> whether it is used with invert-match
 }
 
 // NewModuleSet creates a new empty ModuleSet
@@ -99,6 +100,10 @@ func (ms *ModuleSet) ProcessAllModules() error {
 		return fmt.Errorf("failed to process YANG modules: %s", strings.Join(errorMsgs, "; "))
 	}
 
+	ms.patternUses = make(map[string]patternUse)
+	collectPatternModifiers(ms.mset.Modules, ms.patternUses)
+	collectPatternModifiers(ms.mset.SubModules, ms.patternUses)
+
 	// Update stored modules and schemas after processing
 	for name, module := range ms.mset.Modules {
 		ms.modules[name] = module
@@ -115,6 +120,16 @@ func (ms *ModuleSet) ProcessAllModules() error {
 	}
 
 	return nil
+}
+
+// patternModifier reports whether pattern p carries "modifier invert-match"
+// in the loaded modules, and whether it is ambiguous because it is used both
+// with and without it.
+func (ms *ModuleSet) patternModifier(p string) (invert, ambiguous bool) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	use := ms.patternUses[p]
+	return use == patternInverted, use == patternPlain|patternInverted
 }
 
 // GetModule retrieves a module by name
@@ -161,6 +176,7 @@ func (ms *ModuleSet) Clear() {
 	ms.addedModules = make(map[string]bool)
 	ms.prefixToModule = make(map[string]string)
 	ms.mset = yang.NewModules() // Reset the shared Modules instance
+	ms.patternUses = nil
 }
 
 // FindSchemaByPath finds a schema entry by YANG path
