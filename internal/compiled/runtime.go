@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -800,8 +801,12 @@ func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map
 					kwargs[k] = v
 				}
 			}
-			// Pass r.recordedVars to record() function so it can store values globally
-			kwargs["_recorded_vars"] = r.recordedVars
+			// Pass r.recordedVars to the built-in record function so it can
+			// store values globally. Custom attribute functions don't get the
+			// live map, so user code can't change internal state through it.
+			if slices.Contains(builtinAttrGroupFunctions, attrName) {
+				kwargs["_recorded_vars"] = r.recordedVars
+			}
 
 			// Special handling for itemize - it needs to collect values and return a list
 			if attrName == "itemize" {
