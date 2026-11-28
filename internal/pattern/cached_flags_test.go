@@ -54,18 +54,6 @@ func TestCachedFlagsParity(t *testing.T) {
 					cp.HasOnlySpecialIndicators, expectedHasOnlySpecial)
 			}
 
-			expectedIgnoreUsesTemplateVar := false
-			for _, v := range cp.Variables {
-				if v.Name == "ignore" && v.IgnoreUsesTemplateVar {
-					expectedIgnoreUsesTemplateVar = true
-					break
-				}
-			}
-			if cp.IgnoreUsesTemplateVar != expectedIgnoreUsesTemplateVar {
-				t.Errorf("IgnoreUsesTemplateVar: got %v, want %v",
-					cp.IgnoreUsesTemplateVar, expectedIgnoreUsesTemplateVar)
-			}
-
 			expectedPatternHasJoinMatches := false
 			for _, v := range cp.Variables {
 				for _, f := range v.Functions {

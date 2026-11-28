@@ -1,3 +1,6 @@
 {
- "records": []
+ "records": [
+  {"group_path":"","src_range":[56,208],"record":{"ip_address":"192.2.101.70"}},
+  {"group_path":"","src_range":[208,309],"record":{"ip_address":"192.2.101.71"}}
+ ]
 }

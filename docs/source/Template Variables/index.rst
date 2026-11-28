@@ -28,6 +28,8 @@ Examples
    default_vrf = "default"
    </vars>
 
+Values are Python literals, evaluated as Python evaluates them. In a string, an escape Python doesn't know, such as ``\s`` or ``\d``, stays as written, ``\\`` becomes ``\``, and ``r"..."`` keeps every backslash. So ``"\s+\d+"``, ``"\\s+\\d+"`` and ``r"\s+\d+"`` are the same regex for ``re("NAME")`` and ``ignore("NAME")``.
+
 **YAML Format**
 
 .. code-block:: xml

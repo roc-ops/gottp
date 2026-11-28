@@ -199,7 +199,8 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 		Version:       "1.0.0", // TODO: use actual version
 		Vars:          make(map[string]interface{}),
 		VarsWithName:  []*CompiledVarsWithName{},
-		Warnings:      []string{},
+		// Parse warnings, e.g. text outside any <group> that is ignored.
+		Warnings: append([]string{}, tmpl.Warnings...),
 	}
 
 	// Parse and copy vars

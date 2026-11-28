@@ -622,8 +622,8 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 type postOpts struct {
 	// perRecord: the records are one record of a tree group (tree.go),
 	// processed as TTP's processgrp does when the record is saved. The
-	// list-level steps (YANG, the records made when nothing matched, the
-	// ignore quirk, dropping empty records) are left to the caller, and the
+	// list-level steps (YANG, the records made when nothing matched,
+	// dropping empty records) are left to the caller, and the
 	// result is always the []map[string]interface{} of kept records, or the
 	// itemized values.
 	perRecord bool
@@ -1063,38 +1063,6 @@ func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map
 			if obs != nil {
 				recs = append(recs, obs.newRecord(group))
 			}
-		}
-	}
-
-	// Python TTP quirk: when ignore() uses a template variable, return only one empty result
-	// Check if any pattern has ignore with template variable
-	hasIgnoreWithTemplateVar := false
-	for _, compiledPattern := range group.Patterns {
-		for _, variable := range compiledPattern.Variables {
-			if variable.Name == "ignore" && variable.IgnoreUsesTemplateVar {
-				hasIgnoreWithTemplateVar = true
-				break
-			}
-		}
-		if hasIgnoreWithTemplateVar {
-			break
-		}
-	}
-
-	// If ignore uses template variable and we have empty results, return only one empty result
-	if hasIgnoreWithTemplateVar {
-		emptyResults := 0
-		for _, match := range mergedMatches {
-			if len(match) == 0 {
-				emptyResults++
-			}
-		}
-		// If all results are empty, return only one empty result
-		if emptyResults == len(mergedMatches) && len(mergedMatches) > 0 {
-			if obs != nil {
-				obs.lastNodes = []*smRecord{obs.smCollapse(group, recs)}
-			}
-			return []map[string]interface{}{{}}, nil
 		}
 	}
 
@@ -1587,17 +1555,8 @@ func (r *Runtime) processFunctions(value interface{}, functions []string, vars m
 // extractMatchTTP extracts a match's values with Python TTP's
 // check_matches semantics: a condition that rejects any variable rejects the
 // whole match (nil), and a joinmatches variable keeps its value as is, so
-// the assembler's join can tell a list value from a single one. With
-// ignore("<template variable>") the result is empty (a Python TTP quirk).
+// the assembler's join can tell a list value from a single one.
 func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.CompiledPattern, vars map[string]interface{}) map[string]interface{} {
-	// Python TTP quirk: when ignore() uses a template variable, return empty result
-	// This causes the match to be added but with no fields (matches Python TTP behavior)
-	if compiledPattern.IgnoreUsesTemplateVar {
-		// Return empty result to match Python TTP's behavior
-		// The empty result will be added to matches (Python TTP returns [{}])
-		return make(map[string]interface{})
-	}
-
 	// Use the preserved variable order from the pattern
 	varNames := compiledPattern.VariableOrder
 	if len(varNames) == 0 {

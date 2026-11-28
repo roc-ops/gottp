@@ -156,6 +156,10 @@ func (l *Loader) parsePythonValue(value string) (interface{}, error) {
 		if err := json.Unmarshal([]byte(jsonStr), &result); err == nil {
 			return result, nil
 		}
+		// Not JSON once converted, e.g. a regex with \s in a string.
+		if v, ok := parsePythonLiteral(value); ok {
+			return v, nil
+		}
 		return nil, fmt.Errorf("failed to parse dictionary")
 	}
 	
@@ -166,6 +170,9 @@ func (l *Loader) parsePythonValue(value string) (interface{}, error) {
 		var result []interface{}
 		if err := json.Unmarshal([]byte(jsonStr), &result); err == nil {
 			return result, nil
+		}
+		if v, ok := parsePythonLiteral(value); ok {
+			return v, nil
 		}
 		return nil, fmt.Errorf("failed to parse list")
 	}
@@ -178,6 +185,14 @@ func (l *Loader) parsePythonValue(value string) (interface{}, error) {
 		return floatVal, nil
 	}
 	
+	// A string literal: Python TTP evaluates it, so escapes are decoded as
+	// Python does (\\ becomes \, while an unknown escape like \s stays).
+	if v, ok := parsePythonLiteral(value); ok {
+		if str, isStr := v.(string); isStr {
+			return str, nil
+		}
+	}
+
 	// Remove quotes if present
 	value = strings.Trim(value, `"'`)
 	return value, nil
