@@ -13,6 +13,14 @@ All notable changes to GoTTP will be documented in this file.
 ### Changed (breaking: matching)
 - **Indented template lines match the exact indent**: a template line's leading whitespace was turned into `[ \t]+`, so a line indented by two spaces also matched data indented by one space, four spaces or a tab. Python TTP rebuilds the indent verbatim, and gottp now does the same: two spaces match exactly two spaces, and a tab matches only a tab. Unindented lines are unchanged, and so is whitespace inside a line, which still matches any run of spaces and tabs. Templates that relied on the loose match need their indent to match the data. Templates saved with `SaveCompiledTemplate` keep the regex they were compiled with until they are compiled again. (#30)
 
+### Changed (stricter YANG validation)
+These fixes make `ParseWithValidation` report problems it used to pass, so output that was `Valid=true` can now be `Valid=false`. Parsed data is unchanged; only `ValidationResults` differ.
+- **Integer leaves reject fractional numbers**: `12.5` no longer validates as a `uint8` (RFC 7950 9.2). A whole `float64` such as `12.0` (what a JSON round trip makes of an int) is still accepted. (#50)
+- **`pattern` is enforced**: a string leaf must match all its patterns as a whole value, with XSD regex semantics (RFC 7950 9.4.5), and `modifier invert-match` is honoured. Patterns RE2 can't express (`\i`, `\c`, `\p{IsBlock}`, class subtraction) give a warning, once per group, instead of passing silently. (#55)
+- **Enumeration and identityref membership is checked**: an enum leaf takes only its declared names, and an identityref only an identity derived from its base, in the RFC 7951 `module:identity` form (the module may be left out for an identity in the leaf's own module). A `union` with an enum member no longer accepts any string. (#56)
+- **A `yang=` path at the wrong level is an error**: when none of a group's fields is defined under its path (for example the container instead of the list each match maps to), the result is `Valid=false` with one error that suggests the right path, instead of `Valid=true` with only warnings. (#57)
+- **Leaves under `choice`/`case` are validated**: they were reported as "not defined" warnings and never type-checked. (#59)
+
 ## [v0.1.13] - 2026-09-03
 
 ### Fixed
