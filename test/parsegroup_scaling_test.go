@@ -32,8 +32,8 @@ import (
 // warm allocator. Both sizes take the best of several runs for the same
 // reason.
 //
-// If this fails, the parent-range block has almost certainly gone back to
-// scanning allMatches once per parent match.
+// The parent-range block is gone (refactor C2, #60), but the guard stays: a
+// quadratic step in matching or assembly would fail it the same way.
 func TestParseGroupScalesLinearly(t *testing.T) {
 	if testing.Short() {
 		t.Skip("timing-sensitive; skipped in -short mode")
@@ -89,25 +89,23 @@ func TestParseGroupScalesLinearly(t *testing.T) {
 
 	if ratio > maxSlowdown {
 		t.Errorf("parseGroup scaling regressed: %dx more rows cost %.1fx more time (limit %.0fx). "+
-			"A quadratic rescan over allMatches has likely been reintroduced in the "+
-			"parent-range computation.", largeRows/smallRows, ratio, maxSlowdown)
+			"A quadratic step over the matches has likely been introduced in "+
+			"matching or record assembly.", largeRows/smallRows, ratio, maxSlowdown)
 	}
 }
 
-// TestParseGroupEndPatternRanges pins the parent-range selection that the
-// sort.Search rewrite depends on: for each parent match, the range must end at
-// the _end_ pattern belonging to that parent, not at some earlier or later
-// parent's _end_. Getting this wrong silently mis-slices the input handed to
-// nested groups, so it is asserted through nested-group content.
-//
-// The fourth block deliberately contains two `!` lines. The rewritten lookup is
-// a lower bound, i.e. the *first* _end_ at or after the parent's start; a
-// version that took the last one instead would swallow the trailing neighbor
-// and is only distinguishable when a parent's span holds more than one
-// candidate.
+// TestParseGroupEndPatternRanges pins how child records follow their
+// parent with an _end_ line, against Python TTP 0.10.1. gottp used to cut the
+// input into one range per parent record and parse the children on each; now
+// (refactor C2, #60) the whole tree is matched in one stream, as in TTP, and
+// each child record goes under the last parent record. After a parent's
+// _end_, child lines are skipped until the next parent starts, so 10.3.0.9
+// belongs to nobody. (The template once had `{{ _start_ }}` on the first
+// line, which makes it a startempty line in TTP: asn is dropped and every
+// neighbor lands in one record.)
 func TestParseGroupEndPatternRanges(t *testing.T) {
 	template := `<group name="bgp*">
-router bgp {{ asn }} {{ _start_ }}
+router bgp {{ asn }}
  <group name="neighbors*">
  neighbor {{ neighbor }} remote-as {{ remote_as }}
  </group>
@@ -147,15 +145,14 @@ router bgp 65030
 		t.Fatalf("expected 4 parent matches, got %d: %#v", len(parents), parents)
 	}
 
-	// Each parent must own exactly the neighbors inside its own _start_.._end_
-	// span. A range that ended too early or ran into the next parent would
-	// change these counts.
+	// Each parent must own exactly the neighbors between its start line and
+	// its _end_ (Python TTP 0.10.1's result).
 	wantASN := []string{"65001", "65010", "65020", "65030"}
 	wantNeighbors := [][]string{
 		{"10.0.0.2", "10.0.0.3"},
 		{"10.1.0.2"},
 		{"10.2.0.2", "10.2.0.3", "10.2.0.4"},
-		// Range must stop at the FIRST `!`, so 10.3.0.9 is out of span.
+		// The parent ended at the first `!`, so 10.3.0.9 is skipped.
 		{"10.3.0.2"},
 	}
 

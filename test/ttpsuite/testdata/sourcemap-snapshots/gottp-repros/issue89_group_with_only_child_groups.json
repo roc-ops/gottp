@@ -1,7 +1,7 @@
 {
  "inputs": {
   "Default_Input": [
-   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"c","PatternIndex":0,"Variables":{"a":{"StartCol":7,"EndCol":8}},"ResultPath":"p.c"}]},
    {"LineNumber":1,"Matched":false,"Matches":[]}
   ]
  }

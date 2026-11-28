@@ -8,7 +8,7 @@
    {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":37,"GroupName":"rx","PatternIndex":1,"Variables":{"rpps":{"StartCol":8,"EndCol":9}},"ResultPath":"security.rx"}]},
    {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":33,"GroupName":"tx","PatternIndex":0,"Variables":{},"ResultPath":"security.tx"}]},
    {"LineNumber":6,"Matched":false,"Matches":[]},
-   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":33,"GroupName":"rx","PatternIndex":1,"Variables":{"rpps":{"StartCol":8,"EndCol":9}},"ResultPath":"security.rx"},{"StartCol":0,"EndCol":33,"GroupName":"tx","PatternIndex":1,"Variables":{"tpps":{"StartCol":8,"EndCol":9}},"ResultPath":"security.tx"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":33,"GroupName":"tx","PatternIndex":1,"Variables":{"tpps":{"StartCol":8,"EndCol":9}},"ResultPath":"security.tx"}]},
    {"LineNumber":8,"Matched":false,"Matches":[]}
   ]
  }

@@ -2,15 +2,15 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":false,"Matches":[]},
-   {"LineNumber":2,"Matched":false,"Matches":[]},
-   {"LineNumber":3,"Matched":false,"Matches":[]},
-   {"LineNumber":4,"Matched":false,"Matches":[]},
-   {"LineNumber":5,"Matched":false,"Matches":[]},
-   {"LineNumber":6,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"{{ ASN }}","PatternIndex":0,"Variables":{"ASN":{"StartCol":11,"EndCol":16}},"ResultPath":"bgp_peers.65100"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":32,"GroupName":"{{ PeerIP }}","PatternIndex":0,"Variables":{"PeerIP":{"StartCol":10,"EndCol":17},"remote-as":{"StartCol":28,"EndCol":32}},"ResultPath":"bgp_peers.65100.1.1.1.1"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":51,"GroupName":"{{ PeerIP }}","PatternIndex":1,"Variables":{"PeerIP":{"StartCol":10,"EndCol":17},"description":{"StartCol":30,"EndCol":51}},"ResultPath":"bgp_peers.65100.1.1.1.1"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"{{ PeerIP }}","PatternIndex":2,"Variables":{"PeerIP":{"StartCol":10,"EndCol":17}},"ResultPath":"bgp_peers.65100.1.1.1.1"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":48,"GroupName":"{{ PeerIP }}","PatternIndex":3,"Variables":{"PeerIP":{"StartCol":10,"EndCol":17},"inherit_peer-session":{"StartCol":39,"EndCol":48}},"ResultPath":"bgp_peers.65100.1.1.1.1"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":35,"GroupName":"{{ PeerIP }}","PatternIndex":4,"Variables":{"PeerIP":{"StartCol":10,"EndCol":17},"password":{"StartCol":27,"EndCol":35}},"ResultPath":"bgp_peers.65100.1.1.1.1"}]},
    {"LineNumber":7,"Matched":false,"Matches":[]},
-   {"LineNumber":8,"Matched":false,"Matches":[]},
-   {"LineNumber":9,"Matched":false,"Matches":[]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":32,"GroupName":"{{ PeerIP }}","PatternIndex":0,"Variables":{"PeerIP":{"StartCol":10,"EndCol":17},"remote-as":{"StartCol":28,"EndCol":32}},"ResultPath":"bgp_peers.65100.1.1.1.2"}]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":48,"GroupName":"{{ PeerIP }}","PatternIndex":3,"Variables":{"PeerIP":{"StartCol":10,"EndCol":17},"inherit_peer-session":{"StartCol":39,"EndCol":48}},"ResultPath":"bgp_peers.65100.1.1.1.2"}]},
    {"LineNumber":10,"Matched":false,"Matches":[]},
    {"LineNumber":11,"Matched":false,"Matches":[]}
   ]

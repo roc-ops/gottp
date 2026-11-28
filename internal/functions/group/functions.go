@@ -3,6 +3,7 @@ package group
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -204,14 +205,32 @@ func expand(data map[string]interface{}, args []string, kwargs map[string]interf
 
 	ret := make(map[string]interface{})
 
+	// Python TTP walks the keys in insertion order, so a plain key such as
+	// "config" (say, from the record a merge_with_last line is merged into)
+	// comes before "config.mtu", which then goes into that map. Go maps
+	// have no order: take the keys without a dot first, then the rest,
+	// each sorted, so the result doesn't depend on map order.
+	keys := make([]string, 0, len(data))
+	for key := range data {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		di, dj := strings.Contains(keys[i], "."), strings.Contains(keys[j], ".")
+		if di != dj {
+			return !di
+		}
+		return keys[i] < keys[j]
+	})
+
 	// Expand match variable names to dictionary
-	for key, value := range data {
+	for _, key := range keys {
+		value := data[key]
 		ref := ret
-		keys := splitDotPath(key)
+		parts := splitDotPath(key)
 
 		// Navigate/create nested structure
-		for i, k := range keys {
-			if i == len(keys)-1 {
+		for i, k := range parts {
+			if i == len(parts)-1 {
 				// Last key - set the value
 				ref[k] = value
 				break

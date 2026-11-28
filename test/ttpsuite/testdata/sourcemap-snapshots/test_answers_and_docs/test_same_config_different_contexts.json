@@ -12,17 +12,17 @@
    {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"vrfs*.{{ vrf_name }}**","PatternIndex":1,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":"vrfs[0].management"}]},
    {"LineNumber":9,"Matched":false,"Matches":[]},
    {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":3,"GroupName":"another_contexts","PatternIndex":0,"Variables":{},"ResultPath":""}]},
-   {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"vrfs*.{{ vrf_name }}**","PatternIndex":1,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":"vrfs[0].management"},{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
-   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"vrfs*.{{ vrf_name }}**","PatternIndex":1,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":"vrfs[0].management"},{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
+   {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
+   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
    {"LineNumber":13,"Matched":true,"Matches":[{"StartCol":0,"EndCol":3,"GroupName":"another_contexts","PatternIndex":1,"Variables":{},"ResultPath":""}]},
-   {"LineNumber":14,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"vrfs*.{{ vrf_name }}**","PatternIndex":1,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":"vrfs[0].management"},{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
-   {"LineNumber":15,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"vrfs*.{{ vrf_name }}**","PatternIndex":1,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":"vrfs[0].management"},{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
+   {"LineNumber":14,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
+   {"LineNumber":15,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
    {"LineNumber":16,"Matched":true,"Matches":[{"StartCol":0,"EndCol":20,"GroupName":"vrfs*.{{ vrf_name }}**","PatternIndex":0,"Variables":{"vrf_name":{"StartCol":12,"EndCol":20}},"ResultPath":"vrfs[0].main_vrf"}]},
    {"LineNumber":17,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"vrfs*.{{ vrf_name }}**","PatternIndex":1,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":"vrfs[0].main_vrf"}]},
    {"LineNumber":18,"Matched":false,"Matches":[]},
    {"LineNumber":19,"Matched":true,"Matches":[{"StartCol":0,"EndCol":3,"GroupName":"another_contexts","PatternIndex":2,"Variables":{},"ResultPath":""}]},
-   {"LineNumber":20,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"vrfs*.{{ vrf_name }}**","PatternIndex":1,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":"vrfs[0].main_vrf"},{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
-   {"LineNumber":21,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"vrfs*.{{ vrf_name }}**","PatternIndex":1,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":"vrfs[0].main_vrf"},{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
+   {"LineNumber":20,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
+   {"LineNumber":21,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"another_contexts","PatternIndex":3,"Variables":{"name_servers":{"StartCol":17,"EndCol":24}},"ResultPath":""}]},
    {"LineNumber":22,"Matched":false,"Matches":[]}
   ]
  }
