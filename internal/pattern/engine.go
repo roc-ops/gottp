@@ -3,6 +3,7 @@ package pattern
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -143,6 +144,63 @@ func firstArg(f string) (string, bool) {
 	return c.Strs[0], true
 }
 
+// CutIndex returns the index in variables of the variable a line's regex is
+// cut at, or -1. Python TTP's regex_deleteVar ends the regex just before a
+// variable named _start_ or _end_ ("interface {{ _start_ }}" is
+// \ninterface[\t ]*(?=\n|\r\n)), so the line matches only its text up to
+// there, and variables after it capture nothing. A _start_ or _end_
+// variable with its own re() is not cut: matching the regex is a gottp
+// extension (TTP ignores the re()).
+func CutIndex(variables []*MatchVariable) int {
+	for i, v := range variables {
+		if v.Name != IndicatorStart && v.Name != IndicatorEnd {
+			continue
+		}
+		if !hasReFunction(v) {
+			return i
+		}
+	}
+	return -1
+}
+
+func hasReFunction(v *MatchVariable) bool {
+	for _, f := range v.Functions {
+		if FunctionName(f) == "re" {
+			return true
+		}
+	}
+	return false
+}
+
+// CutVariables returns the indicator (_start_ or _end_) cp's regex is cut at
+// (see CutIndex) and the names of the variables after it, in template order
+// and each once, that would capture a value if they weren't cut: not
+// indicators, ignore, _exact_ or set() variables (set() sets its value
+// without a capture).
+func CutVariables(cp *CompiledPattern) (indicator string, names []string) {
+	vars := cp.orderedVariables()
+	cut := CutIndex(vars)
+	if cut < 0 {
+		return "", nil
+	}
+	for _, v := range vars[cut+1:] {
+		if IsNonCapturingVar(v.Name) || slices.Contains(names, v.Name) {
+			continue
+		}
+		hasSet := false
+		for _, f := range v.Functions {
+			if FunctionName(f) == "set" {
+				hasSet = true
+				break
+			}
+		}
+		if !hasSet {
+			names = append(names, v.Name)
+		}
+	}
+	return vars[cut].Name, names
+}
+
 // CompiledPattern represents a compiled regex pattern with variable information
 type CompiledPattern struct {
 	Regex         *regexp.Regexp
@@ -161,6 +219,13 @@ type CompiledPattern struct {
 	HasAnchors               bool // regex contains ^ or $ -> match line-by-line
 	HasOnlySpecialIndicators bool // every variable is ignore/_start_/_end_/_line_/_exact_/_exact_space_
 	HasJoinMatches           bool // any variable has a joinmatches function
+	// WholeMatch is true when the regex is cut at _start_ or _end_ (see
+	// CutIndex) and no variable before the cut captures: TTP's regex then
+	// has no named group, and its check_matches gives every variable of
+	// the line the whole match text, "\n" first ("exit {{ _end_ }} {{ w }}"
+	// saves "\n exit" in _end_ and w). It is false for a line with no
+	// variable after the cut, whose values TTP drops.
+	WholeMatch bool
 }
 
 // PopulateFlags computes the compile-time cached booleans from the pattern's
@@ -203,6 +268,32 @@ func (cp *CompiledPattern) PopulateFlags() {
 	}
 	cp.HasOnlySpecialIndicators = hasOnlySpecial
 	cp.HasJoinMatches = patternHasJoinMatches
+
+	vars := cp.orderedVariables()
+	cp.WholeMatch = false
+	// Only a variable after the cut can make the line keep its values (an
+	// end or startempty line drops them), so a line that ends at the
+	// indicator skips the work.
+	if cut := CutIndex(vars); cut >= 0 && cut < len(vars)-1 {
+		cp.WholeMatch = true
+		for _, v := range vars[:cut] {
+			if !IsNonCapturingVar(v.Name) && !v.HasSet {
+				cp.WholeMatch = false
+				break
+			}
+		}
+	}
+}
+
+// orderedVariables returns cp's variables in template order.
+func (cp *CompiledPattern) orderedVariables() []*MatchVariable {
+	vars := make([]*MatchVariable, 0, len(cp.VariableOrder))
+	for _, name := range cp.VariableOrder {
+		if v := cp.Variables[name]; v != nil {
+			vars = append(vars, v)
+		}
+	}
+	return vars
 }
 
 // Engine handles pattern generation and compilation
@@ -567,14 +658,27 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 	// Build regex by replacing variables and escaping text
 	regexParts := []string{indent}
 	lastEnd := 0
+	cut := CutIndex(variables)
 
 	for i, match := range matches {
+		if i == cut {
+			// TTP's regex_deleteVar: keep the regex before the variable,
+			// less one trailing [ \t]+ (a space kept by _exact_space_
+			// stays), and end the line there.
+			if match[0] > lastEnd {
+				escaped := e.escapeText(line[lastEnd:match[0]], exactSpace, exact)
+				regexParts = append(regexParts, strings.TrimSuffix(escaped, `[ \t]+`))
+			}
+			lastEnd = len(line)
+			break
+		}
 		// Text before variable
 		if match[0] > lastEnd {
 			text := line[lastEnd:match[0]]
 			escaped := e.escapeText(text, exactSpace, exact)
-			// If this variable is _start_ or _end_, make trailing space optional
-			// Also make trailing space optional if variable has default() or set() function
+			// Make the space before the variable optional for a _start_ or
+			// _end_ variable with its own re() (any other is cut above) and
+			// for a variable with default() or set().
 			if i < len(variables) {
 				hasDefault := false
 				hasSet := false
@@ -649,22 +753,25 @@ func (e *Engine) escapeText(text string, exactSpace, exact bool) string {
 
 	// Handle spaces and tabs
 	if !exactSpace {
-		// Replace sequences of spaces/tabs with flexible whitespace pattern
-		// regexp.QuoteMeta doesn't escape spaces, so we need to match literal spaces
-		// Replace one or more consecutive spaces or tabs with [ \t]+
-		spaceRe := regexp.MustCompile(`( +|\t+)`)
-		escaped = spaceRe.ReplaceAllString(escaped, `[ \t]+`)
+		// Any run of spaces and tabs, mixed or not, becomes one [ \t]+, as
+		// TTP's re.sub(r"(\\ |\\\t)+", r"[ \\t]+", ...) does. QuoteMeta
+		// leaves spaces and tabs as they are.
+		escaped = blankRunRe.ReplaceAllString(escaped, `[ \t]+`)
 	}
 
 	// Handle digits
 	if !exact {
 		// Replace digits with \d+ pattern
-		digitRe := regexp.MustCompile(`\d+`)
-		escaped = digitRe.ReplaceAllString(escaped, `\d+`)
+		escaped = digitRunRe.ReplaceAllString(escaped, `\d+`)
 	}
 
 	return escaped
 }
+
+var (
+	blankRunRe = regexp.MustCompile(`[ \t]+`)
+	digitRunRe = regexp.MustCompile(`\d+`)
+)
 
 // CompilePattern compiles a regex pattern and returns a CompiledPattern
 func (e *Engine) CompilePattern(line string, exactSpace, exact bool) (*CompiledPattern, error) {

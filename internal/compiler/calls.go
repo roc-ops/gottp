@@ -171,6 +171,10 @@ func (c *callChecker) group(g *CompiledGroup) error {
 				return err
 			}
 		}
+		indicator, cut := pattern.CutVariables(cp)
+		for _, name := range cut {
+			c.warnings = append(c.warnings, cutWarning(scope, cp, indicator, name))
+		}
 	}
 	// Function attributes are read as name(value), as TTP's
 	// extract_function reads them.
@@ -417,4 +421,47 @@ func CheckCustomAttrCalls(t *CompiledTemplate, isCustom func(name string) bool) 
 var NonFunctionGroupAttrs = map[string]bool{
 	"name": true, "input": true, "method": true, "output": true, "default": true,
 	"chain": true, "functions": true, "macro": true,
+}
+
+// cutWarning is the warning for a variable that comes after the {{ _start_ }}
+// or {{ _end_ }} its line's regex is cut at (pattern.CutVariables). It says
+// what the variable gets, as in Python TTP: nothing on a _start_ line (the
+// line starts an empty record); on an _end_ line with no capture left, the
+// whole matched line, newline first (TTP's check_matches with an empty
+// groupdict); otherwise nothing.
+func cutWarning(scope string, cp *pattern.CompiledPattern, indicator, name string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s, line %q: variable %q comes after {{ %s }}, where the line's regex ends (as in Python TTP), so it isn't captured from the data", scope, strings.TrimSpace(cp.Original), name, indicator)
+	if indicator == pattern.IndicatorEnd && cp.WholeMatch {
+		fmt.Fprintf(&b, ". The line has no capture left, so, as in Python TTP, %q and _end_ are set to the whole matched line with a newline first (\"\\n exit\" for a line \" exit\")", name)
+	} else {
+		fmt.Fprintf(&b, ": it gets no value from the line")
+	}
+	v := cp.Variables[name]
+	if v != nil && hasFunction(v, "default") {
+		if indicator == pattern.IndicatorEnd && cp.WholeMatch {
+			b.WriteString("; its default() value still applies to a record without such a line")
+		} else {
+			b.WriteString("; its default() value still applies")
+		}
+	}
+	if indicator == pattern.IndicatorEnd && lineProfile(cp).Action != ActionEnd {
+		b.WriteString(". The variable also makes the line an ordinary line, so it no longer ends the group")
+	}
+	if name == pattern.IndicatorLine {
+		fmt.Fprintf(&b, ". To keep the rest of the line, capture it in a named variable instead: {{ rest | ORPHRASE | %s }}", indicator)
+	} else {
+		fmt.Fprintf(&b, ". Move {{ %s }} to the end of the line, or make it a function of the variable ({{ %s | %s }})", indicator, name, indicator)
+	}
+	return b.String()
+}
+
+// hasFunction reports whether v has a function named fn.
+func hasFunction(v *pattern.MatchVariable, fn string) bool {
+	for _, f := range v.Functions {
+		if pattern.FunctionName(f) == fn {
+			return true
+		}
+	}
+	return false
 }

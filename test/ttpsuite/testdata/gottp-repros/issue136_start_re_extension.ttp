@@ -1,0 +1,4 @@
+<group name="g">
+interface {{ _start_ | re("Gi\\S+") }}
+ v {{ v }}
+</group>

@@ -1,0 +1,8 @@
+interface Gi1
+ v x
+exit later
+ d y
+interface Gi2
+ v y
+exit
+ d w

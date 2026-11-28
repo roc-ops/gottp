@@ -1,0 +1,4 @@
+<group name="g">
+interface {{ name }}
+ exit {{ _end_ }} {{ w | upper }} {{ y | default("d") }}
+</group>

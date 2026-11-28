@@ -1,13 +1,8 @@
 {
  "_comment": "TTP 0.10.1 suite cases that don't match yet. issue = the issue the first strict difference belongs to; also = issues hit after it. A reason starting with 'design:' marks a deliberate difference. A case listed here that passes fails the test, so remove it when its issue is fixed.",
  "cases": {
-  "gottp-repros/issue136_start_only_line_matches_trailing_text": {
-   "issue": 136,
-   "reason": "a \"text {{ _start_ }}\" line also matches lines with more text after it"
-  },
-  "gottp-repros/issue136_startempty_tie_with_start_pattern": {
-   "issue": 136,
-   "reason": "a \"text {{ _start_ }}\" line also matches lines with more text after it, so it splits the record"
+  "gottp-repros/issue136_start_re_extension": {
+   "reason": "design: {{ _start_ | re(...) }} matches the re(), where TTP cuts the line's regex at _start_ and ignores the re() (#136)"
   },
   "gottp-repros/issue162_user_lazy_re_default_matches_blank": {
    "issue": 165,
@@ -67,10 +62,6 @@
   },
   "test_answers_and_docs/test_reddit_answer_2": {
    "reason": "design: python macro (the macro block uses \"import ipaddress\")"
-  },
-  "test_answers_and_docs/test_slack_answer_3": {
-   "issue": 100,
-   "reason": "sibling ospf/ospf3 groups: the ospf3 lines join the ospf record, nesting an extra ospf level; root cause not isolated"
   },
   "test_answers_and_docs/test_slack_answer_3_full": {
    "issue": 100,
