@@ -691,7 +691,7 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 		for lineIdx := first; lineIdx < len(in.lines) && in.offsets[lineIdx]+len(in.lines[lineIdx]) < hi; lineIdx++ {
 			// Trim \r and trailing spaces, but keep leading spaces: the
 			// regex comes from the template line, indentation included.
-			line := strings.TrimRight(in.lines[lineIdx], "\r \t")
+			line := strings.TrimRight(in.lines[lineIdx], "\r")
 			trimmedLine := strings.TrimSpace(line)
 			// Skip empty lines unless this pattern is a start or end
 			// indicator line, which may match a blank line.
@@ -999,7 +999,7 @@ func (r *Runtime) parseGroupStream(
 		}
 
 		// Trim \r and trailing spaces, as parseGroup does.
-		line := strings.TrimRight(rawLine, "\r \t")
+		line := strings.TrimRight(rawLine, "\r")
 		trimmedLine := strings.TrimSpace(line)
 
 		for patternIdx, compiledPattern := range group.Patterns {

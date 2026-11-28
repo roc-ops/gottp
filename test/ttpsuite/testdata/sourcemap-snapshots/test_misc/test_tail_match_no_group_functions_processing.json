@@ -19,7 +19,7 @@
    {"LineNumber":15,"Matched":true,"Matches":[{"StartCol":0,"EndCol":30,"GroupName":"ipv6*","PatternIndex":1,"Variables":{"ip":{"StartCol":14,"EndCol":27},"mask":{"StartCol":28,"EndCol":30}},"ResultPath":"interfaces[1].ipv6[0]"}]},
    {"LineNumber":16,"Matched":true,"Matches":[{"StartCol":0,"EndCol":39,"GroupName":"interfaces*","PatternIndex":14,"Variables":{"ipv4_acl_in":{"StartCol":19,"EndCol":31}},"ResultPath":"interfaces[1]"}]},
    {"LineNumber":17,"Matched":true,"Matches":[{"StartCol":0,"EndCol":39,"GroupName":"interfaces*","PatternIndex":16,"Variables":{"ipv6_acl_in":{"StartCol":19,"EndCol":31}},"ResultPath":"interfaces[1]"}]},
-   {"LineNumber":18,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"interfaces*","PatternIndex":28,"Variables":{},"ResultPath":"interfaces[1]"}]},
+   {"LineNumber":18,"Matched":true,"Matches":[{"StartCol":0,"EndCol":5,"GroupName":"interfaces*","PatternIndex":28,"Variables":{},"ResultPath":"interfaces[1]"}]},
    {"LineNumber":19,"Matched":false,"Matches":[]}
   ]
  }

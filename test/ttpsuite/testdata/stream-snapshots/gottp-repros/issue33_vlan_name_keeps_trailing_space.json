@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"v","src_range":[0,33],"record":{"id":"1","vlan_name":"DEFAULT-VLAN by port"}},
+  {"group_path":"v","src_range":[33,48],"record":{"id":"2","vlan_name":"X "}}
+ ]
+}

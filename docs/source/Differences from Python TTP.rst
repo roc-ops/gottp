@@ -208,6 +208,8 @@ Function calls are read as Python TTP reads them (see :doc:`Match Variables/Func
 * Where Python TTP stops with ``SystemExit`` or raises ``TypeError`` for a call it can't read (``macro(name='m')``, ``<output macro=""/>``), gottp returns a compile error.
 * Python TTP logs an unknown function name (with its ``guess`` suggestions) when it meets it; gottp adds a ``GetWarnings()`` entry when the template compiles.
 
+Data lines keep their trailing spaces and tabs, as in Python TTP, but gottp trims a trailing ``\r`` from each line. With CRLF input, Python TTP's ``{{ x | re(".*") }}`` at the end of a line captures the ``\r``; gottp's doesn't.
+
 Performance
 -----------
 

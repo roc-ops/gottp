@@ -1,0 +1,2 @@
+vlan 1 name DEFAULT-VLAN by port
+vlan 2 name X 

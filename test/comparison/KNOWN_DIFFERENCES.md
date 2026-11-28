@@ -92,6 +92,11 @@ The comparison test suite includes:
 - **Reason**: Go strings are UTF-8 by default, Python 2 had unicode handling
 - **Test Status**: Should pass (no-op returns original value)
 
+### Carriage returns in CRLF input (deliberate)
+- **Python TTP**: keeps the `\r` of a CRLF line in the text it matches, so a greedy capture at the end of a line (`{{ x | re(".*") }}`, `ORPHRASE`-like patterns) includes the `\r`.
+- **GoTTP**: trims `\r` from each data line before matching (trailing spaces and tabs are kept, as in TTP, since #33), so the same capture has no `\r`.
+- **Reason**: a stray `\r` in values is never wanted, and the result doesn't depend on the input's line endings.
+
 ## Ordering Differences
 
 ### Dictionary/Map Key Ordering

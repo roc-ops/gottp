@@ -425,7 +425,7 @@ func NewImplicitAnonymousGroup(text string) *Group {
 	// "*", so one match gives a dict and several give a list (#62).
 	return &Group{
 		Name:       "_anonymous_",
-		Pattern:    strings.TrimSpace(text),
+		Pattern:    strings.TrimRight(strings.TrimLeft(text, "\r\n"), " \t\r\n"),
 		TailStart:  -1,
 		Groups:     []*Group{},
 		Attributes: make(map[string]string),

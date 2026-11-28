@@ -102,7 +102,7 @@
    {"LineNumber":98,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"interfaces","PatternIndex":2,"Variables":{"interface":{"StartCol":23,"EndCol":46}},"ResultPath":"interfaces[14]"}]},
    {"LineNumber":99,"Matched":true,"Matches":[{"StartCol":0,"EndCol":36,"GroupName":"interfaces","PatternIndex":3,"Variables":{"description":{"StartCol":13,"EndCol":36}},"ResultPath":"interfaces[14]"}]},
    {"LineNumber":100,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"interfaces","PatternIndex":6,"Variables":{"disabled":{"StartCol":9,"EndCol":9}},"ResultPath":"interfaces[14]"}]},
-   {"LineNumber":101,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"interfaces","PatternIndex":10,"Variables":{},"ResultPath":"interfaces[14]"}]},
+   {"LineNumber":101,"Matched":true,"Matches":[{"StartCol":0,"EndCol":5,"GroupName":"interfaces","PatternIndex":10,"Variables":{},"ResultPath":"interfaces[14]"}]},
    {"LineNumber":102,"Matched":false,"Matches":[]}
   ]
  }

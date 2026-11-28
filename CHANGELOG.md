@@ -4,6 +4,15 @@ All notable changes to GoTTP will be documented in this file.
 
 ## [Unreleased]
 
+### Changed (breaking: captured values keep trailing whitespace, as in TTP, #33)
+Data lines are no longer stripped of trailing spaces and tabs before they are matched. Python TTP 0.10.1 keeps them (its line regex is `\n<line>[\t ]*(?=\n|\r\n)`), so gottp now does too:
+- **A greedy capture keeps the trailing spaces**: `{{ x | re(".*") }}` on `a 1  ` gives `"1  "`, and `re("[a-zA-Z0-9 ]+")` on `vlan 2 name X ` gives `"X "`. They were trimmed.
+- **A trailing `{{ ignore(".*") }}` matches a line with trailing whitespace** (`Core Freq : 1200MHz   DDR Freq : 600MHz  `); it didn't match at all.
+- **`_exact_space_` lines allow trailing whitespace**, as TTP appends `[\t ]*` whether or not `_exact_space_` is set: `a  {{ x | _exact_space_ }}` matches `a  1  `.
+- **A template with no tags keeps its first line's indent**: ` Core {{ c }}` matches ` Core 1` but not `Core 1`. The whole template was trimmed, so the first line matched at any indent. Leading blank lines are still dropped.
+- Source maps: a match's `EndCol` now includes the line's trailing whitespace, as Python's match span does.
+- `\r` is still trimmed from data lines, so with CRLF input `.*` doesn't capture the `\r` as it does in TTP (see `test/comparison/KNOWN_DIFFERENCES.md`).
+
 ### Added: Python type methods for match variables (refactor F2, #36)
 A match variable function that isn't a match function now runs the value's own Python 3.12 method or attribute of that name, as Python TTP 0.10.1's `getattr` fallback does (`ttp.py:2464`). The methods are Go ports in `internal/pymethod`: every `str` method except `encode`, the `int`/`bool` methods `bit_length`, `bit_count`, `conjugate`, `as_integer_ratio` and `is_integer` and attributes `real`, `imag`, `numerator` and `denominator`, the `float` methods `is_integer`, `conjugate`, `as_integer_ratio` and `hex` and attributes `real` and `imag`, `list.count`, `index` and `copy`, and `dict.get`, `keys`, `values`, `items` and `copy`. See "Python type methods" in the match variable functions docs.
 - **True or False filters the match**, any other result replaces the value: `{{ v | isalpha }}`, `{{ v | title }}`, `{{ v | zfill(9) }}`, `{{ v | to_int | bit_length }}`, `{{ v | split(",") | index("b") }}`. They were skipped.
