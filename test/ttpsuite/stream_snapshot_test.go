@@ -117,6 +117,8 @@ var streamParityExceptions = map[string]string{
 	"test_output_formatters/test_csv_formatter_simple":           "<output format=csv> turns Parse's result into text",
 	"test_output_formatters/test_csv_formatter_simple_empty_tag": "<output format=csv> turns Parse's result into text",
 	"test_output_formatters/test_table_formatter_multiple_input": "<output format=table> reshapes Parse's result",
+	"test_output_functions/test_cerberus_validate_per_input":     "a group named \"_\" (the null path) merges its record into the root of Parse's result",
+	"gottp-repros/issue167_static_double_star_merges":            "a \"**\" path merges the records into one in Parse's result (#167)",
 }
 
 var errNotStreamable = errors.New("not streamable")

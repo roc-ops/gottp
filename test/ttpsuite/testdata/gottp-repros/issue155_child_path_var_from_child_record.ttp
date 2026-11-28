@@ -1,0 +1,6 @@
+<group name="intf.{{ name }}">
+interface {{ name }}
+ <group name="sub">
+ sub {{ name }}
+ </group>
+</group>

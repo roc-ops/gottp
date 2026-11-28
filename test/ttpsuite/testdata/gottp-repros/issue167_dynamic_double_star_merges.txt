@@ -1,0 +1,6 @@
+vprn 1
+ a x
+vprn 2
+ a y
+vprn 1
+ b z

@@ -83,7 +83,7 @@ func TestSaveCurElements(t *testing.T) {
 		},
 		{
 			name:  "a _ segment merges into the record above it",
-			saves: []save{{pp("c"), v{"a": "1"}, saveStored}, {pp("c", "_"), v{"b": "2"}, saveStored}},
+			saves: []save{{pp("c"), v{"a": "1"}, saveStored}, {pp("c", "_"), v{"b": "2"}, saveMerged}},
 			want:  `{"c":{"a":"1","b":"2"}}`,
 		},
 		{
@@ -116,27 +116,52 @@ func TestSaveCurElementsKeepsRecordIdentity(t *testing.T) {
 	}
 }
 
-func TestTopSaver(t *testing.T) {
+// TestFormPath pins the port of TTP's form_path: segments are split before
+// substitution, so a value keeps its "." and "*" (#76); a variable takes the
+// record's value (popped and cached), then the cache's, then a recorded
+// var's, then a template variable's; and the path fails when one has none.
+func TestFormPath(t *testing.T) {
+	r := NewRuntime(&compiler.CompiledTemplate{}).beginParse()
+	r.recordedVars["rv"] = "R"
+	vars := map[string]interface{}{"tv": "T", "rv": "ignored"}
 	tests := []struct {
-		path  string
-		empty []bool
-		want  []topAction
+		name    string
+		segs    []string
+		rec     map[string]interface{}
+		want    []pathPart
+		wantRec map[string]interface{}
+		ok      bool
 	}{
-		{"g", []bool{false, false, false}, []topAction{topAppend, topAppend, topAppend}},
-		{"g", []bool{true, false, true, true}, []topAction{topAppend, topMerge, topAppend, topSkip}},
-		{"g", []bool{true, true, false}, []topAction{topAppend, topMerge, topMerge}},
-		{"g*", []bool{true, false, true}, []topAction{topSkip, topAppend, topSkip}},
-		{"a.{{ x }}", []bool{true, false}, []topAction{topSkip, topAppend}},
-		{"", []bool{true}, []topAction{topSkip}},
+		{"dot and star in value", []string{"saps", "{{ sap }}**"}, map[string]interface{}{"sap": "lag-4:1629.*", "d": "x"},
+			[]pathPart{{"saps", ""}, {"lag-4:1629.*", "**"}}, map[string]interface{}{"d": "x"}, true},
+		{"no spaces, two segments", []string{"a", "{{x}}", "{{y}}"}, map[string]interface{}{"x": "1", "y": 2},
+			[]pathPart{{"a", ""}, {"1", ""}, {"2", ""}}, map[string]interface{}{}, true},
+		{"cache, recorded var, template var", []string{"{{ x }}", "{{ rv }}", "{{ tv }}*"}, map[string]interface{}{},
+			[]pathPart{{"1", ""}, {"R", ""}, {"T", "*"}}, map[string]interface{}{}, true},
+		{"no value", []string{"a", "{{ missing }}"}, map[string]interface{}{}, nil, map[string]interface{}{}, false},
+		{"glued variables name one variable", []string{"{{x}}{{y}}"}, map[string]interface{}{"x": "1", "y": "2"},
+			nil, map[string]interface{}{"x": "1", "y": "2"}, false},
 	}
 	for _, tt := range tests {
-		s := newTopSaver(tt.path)
-		var got []topAction
-		for _, e := range tt.empty {
-			got = append(got, s.add(e))
+		got, ok := r.formPath(tt.segs, tt.rec, vars)
+		if ok != tt.ok || !reflect.DeepEqual(got, tt.want) && tt.ok {
+			t.Errorf("%s: got %v %v, want %v %v", tt.name, got, ok, tt.want, tt.ok)
 		}
-		if !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("%q %v: got %v, want %v", tt.path, tt.empty, got, tt.want)
+		if !reflect.DeepEqual(tt.rec, tt.wantRec) {
+			t.Errorf("%s: record after form_path %v, want %v", tt.name, tt.rec, tt.wantRec)
+		}
+	}
+}
+
+// TestEscapePathKey pins how a key with a "." or "*" appears in a ResultPath.
+func TestEscapePathKey(t *testing.T) {
+	for in, want := range map[string]string{
+		"Gi1":          "Gi1",
+		"lag-4:1629.*": `lag-4:1629\.\*`,
+		`a\b`:          `a\\b`,
+	} {
+		if got := escapePathKey(in); got != want {
+			t.Errorf("escapePathKey(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

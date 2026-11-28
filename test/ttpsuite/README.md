@@ -2,17 +2,17 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (baseline clusters 6 and 2: #68, #136, #121):
+Current result (baseline clusters 6, 2 and 3: #68, #136, #121, #76, #87, #155, #167):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 123 / skipped-by-issue 71 / design 6 of 200
-gottp repros: pass 180 / skipped-by-issue 2 / design 3 of 185
-source-map parity: same 388 / diverge 0 of 388
-stream snapshots: 195 streamable of 388 cases
+TTP 0.10.1 suite: pass 126 / skipped-by-issue 68 / design 6 of 200
+gottp repros: pass 192 / skipped-by-issue 2 / design 3 of 197
+source-map parity: same 400 / diverge 0 of 400
+stream snapshots: 196 streamable of 400 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -92,6 +92,18 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue136_end_then_vars_get_whole_line` | passes; every variable after `{{ _end_ }}` gets the whole matched line (indent and trailing spaces kept), its functions run on it, and `default()` fills a record without the line (#136) |
 | `issue136_mixed_blank_before_start` | passes; a space and a tab before `{{ _start_ }}` are cut as one run (#136) |
 | `mixed_blank_run_is_one_space` | passes; a run of mixed spaces and tabs in a template line is one `[ \t]+`, as in TTP |
+| `issue76_dynamic_path_value_with_dot` | passes; a path value with a `.` (`lag-4:1629.*`, `1/1/1.10`) stays one key (#76) |
+| `issue76_double_star_path_value_with_dot_star` | passes; the same under `{{ sap }}**`: a value ending in `*` is not a path formatter (#76) |
+| `issue87_path_vars_without_spaces` | passes; `a.{{x}}.{{y}}` substitutes both segments (#87) |
+| `issue155_itemize_dynamic_path_per_record` | passes; `itemize` on `intf.{{ name }}` puts each value under its own record's name (#155) |
+| `issue155_itemize_dynamic_path_with_child` | passes; the same for a group with a child group (#155) |
+| `issue155_deleted_path_var_drops_record` | passes; a record whose path variable `del=` removed is dropped (#155) |
+| `issue155_path_var_not_cached_from_other_group` | passes; a value another group matched (not as a path variable) doesn't name this group's path, so the record is dropped (#155) |
+| `issue155_two_groups_share_dynamic_path` | passes; two top groups saving at the same path form a list, as `save_curelements` does (#155) |
+| `issue155_child_path_var_from_child_record` | passes; a child's own value for the parent's path variable picks the parent path it is saved under (#155) |
+| `issue167_dynamic_double_star_merges` | passes; records saved at one `vprns.{{ id }}**` key merge (#167) |
+| `issue167_static_double_star_merges` | passes; records saved at a static `vprns**` merge, the first value of a key winning (#167) |
+| `issue167_double_star_with_child_merges` | passes; children of merged `**` records go under the merged record (#167) |
 
 Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Since refactor C1 gottp assembles records with a port of `_results_class` (`internal/compiled/assembler.go`), and since C2 a group with children and all its descendants go through one assembler (`internal/compiled/tree.go`), so most of them pass. Those gottp still gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
 
@@ -259,7 +271,7 @@ git diff test/ttpsuite/testdata/sourcemap-snapshots
 
 ## Stream snapshots
 
-`TestStreamSnapshots` runs `ParseStream` on every source-map parity case and, for each one the streaming gate accepts, compares the callbacks (record, `srcRange`, `groupPath`, in order) with `testdata/stream-snapshots/<case>.json`. A case the gate rejects has no snapshot, so a snapshot left for one fails, as does a missing snapshot. It also requires the streamed records to be the records `Parse` returns, ignoring order, except for the cases in `streamParityExceptions`, whose `Parse` result also holds outputs, `<vars name>` or lookup data that `ParseStream` never emits. After a deliberate change:
+`TestStreamSnapshots` runs `ParseStream` on every source-map parity case and, for each one the streaming gate accepts, compares the callbacks (record, `srcRange`, `groupPath`, in order) with `testdata/stream-snapshots/<case>.json`. A case the gate rejects has no snapshot, so a snapshot left for one fails, as does a missing snapshot. It also requires the streamed records to be the records `Parse` returns, ignoring order, except for the cases in `streamParityExceptions`, whose `Parse` result also holds outputs, `<vars name>` or lookup data that `ParseStream` never emits, or merges records (a `**` path, or the null path `_`) that `ParseStream` emits one by one. After a deliberate change:
 
 ```
 go test ./test/ttpsuite -run TestStreamSnapshots -update-stream-snapshots
@@ -305,16 +317,14 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 | #91 | 2 | 1 | A group with no matching lines does not emit its default values |
 | #113 | 2 | 1 | macro() inside a group chain= is not run |
 | #72 | 2 |  | Group to_int has no float fallback |
-| #76 | 2 |  | A dynamic-path value containing . is split into path segments |
 | #77 | 2 |  | Nested <template> children are merged into one result |
 | #96 | 2 |  | include= on <vars> and on a CSV <lookup> does not load the file |
-| #100 | 2 |  | Nested-section templates from TTP answers diverge; root cause not isolated |
 | #65 | 1 | 2 | The default() value isn't filled in when the line is absent |
 | #101 | 1 | 1 | <output> with its settings in the tag body is ignored |
 | #27 | 1 |  | Without a <template> wrapper, only the first top-level group's results are returned |
 | #66 | 1 |  | copy() is a stub |
 | #71 | 1 |  | let() on a matched line is overridden by a later set() |
-| #87 | 1 |  | Group path with several {{var}} segments written without spaces is not substituted |
+| #166 | 1 |  | Two default() variables separated only by a space: the first always captures empty and the second takes the rest |
 | #90 | 1 |  | A multi-line <vars> dict with a trailing comma is not parsed |
 | #92 | 1 |  | to_ip does not accept "address netmask" |
 | #95 | 1 |  | A template given as a file name is not loaded from TTP_TEMPLATES_DIR |
@@ -328,7 +338,7 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 23 cases use `<macro>`. gottp runs `<macro>` code as Starlark unless the tag says `language="python"` (`internal/parser/template.go`, `parseMacro`), and TTP's templates never set it. 6 of the 23 pass (`test_group_macro_returns_none`, `test_group_macro_returns_true`, `test_group_macro_returns_false`, `test_group_chain_attribute_string_var`, `test_group_chain_attribute_string_inline` and `test_issue_52_answer`).
 
 - **5 are skipped as `design: python macro`**: their macro code isn't valid Starlark (`import ipaddress`, f-strings, `bin()`, `_ttp_["match"]["to_ip"]` with the `ipaddress` object API).
-- The other 12 fail first on a gottp bug and are tracked by that issue: #80 (`validate_yangson`, 4), #97 (a group macro that returns `None` loses its changes, 3), and one each for #64, #67, #68, #76 and #112. `test_misc/test_tail_match_no_group_functions_processing` also contains Python-only macro code that would fail next (a generator expression inside `any()`).
+- The other 12 fail first on a gottp bug and are tracked by that issue: #80 (`validate_yangson`, 4), #97 (a group macro that returns `None` loses its changes, 3), and one each for #64, #67, #68, #112 and #166. `test_misc/test_tail_match_no_group_functions_processing` also contains Python-only macro code that would fail next (a generator expression inside `any()`).
 
 The `python` build tag doesn't help as it stands. `go build -tags python ./...` fails: cgo can't use CPython's type-check macros (`could not determine what C.PyBool_Check refers to` and five more in `internal/macro/python.go`), and `python_init.go` redefines `initPythonEngine`, which `starlark.go` already defines. Even when it builds, these templates would still run as Starlark, because they don't set `language="python"`. Whether TTP-style `<macro>` should run as Python is a policy decision for #60.
 

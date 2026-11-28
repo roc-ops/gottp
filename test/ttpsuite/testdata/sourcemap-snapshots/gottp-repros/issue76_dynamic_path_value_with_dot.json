@@ -1,0 +1,9 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"saps.{{ sap }}","PatternIndex":0,"Variables":{"sap":{"StartCol":4,"EndCol":16}},"ResultPath":"saps.lag-4:1629\\.\\*"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"saps.{{ sap }}","PatternIndex":0,"Variables":{"sap":{"StartCol":4,"EndCol":12}},"ResultPath":"saps.1/1/1\\.10"}]},
+   {"LineNumber":2,"Matched":false,"Matches":[]}
+  ]
+ }
+}

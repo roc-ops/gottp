@@ -508,8 +508,10 @@ type patternMatch struct {
 
 // parseGroup parses a top group: one without children with parseFlat, one
 // with children with parseTree (tree.go). Either way each record runs the
-// group's pipeline (pipeline.go) when it is saved; YANG validation then runs
-// once on the group's result.
+// group's pipeline (pipeline.go) and is then saved at its own path in the
+// input's results (r.treeResults), as TTP's processgrp and save_curelements
+// do. YANG validation then runs once on the group's records, which
+// parseGroup returns (nil when it saved none).
 func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, vars map[string]interface{}) (interface{}, error) {
 	var result interface{}
 	var jobs []yangJob
@@ -555,9 +557,6 @@ func (r *Runtime) parseFlat(group *compiler.CompiledGroup, inputData string, var
 	// obs records the source map; nil (and every hook skipped) when source
 	// maps are off.
 	obs := r.smObs
-	if obs != nil {
-		obs.lastNodes = nil
-	}
 	if len(group.Patterns) == 0 {
 		return nil, nil, nil
 	}
@@ -589,34 +588,32 @@ func (r *Runtime) parseFlat(group *compiler.CompiledGroup, inputData string, var
 
 	pl := r.pipelineFor(group, vars)
 	ic := &itemizeCtx{root: r.treeResults, dyn: r.pathResolver.dynPathCache}
+	fs := r.newFlatSaver(group, vars)
 	var records []map[string]interface{}
 	var items []interface{}
-	var used [][]int // source map: every assembled record's matches
-	var kept []int   // source map: the indices of the records kept
-	n := 0
 	asm := newAssembler(newAsmGroup(group), obs != nil, func(rec asmRecord) error {
-		r.pathResolver.UpdateCache(rec.result)
 		r.matchCollector.Clear()
-		idx := n
-		n++
+		var smr *smRecord
 		if obs != nil {
-			used = append(used, rec.used)
+			smr = obs.recordTree(group, allMatches, rec.used)
 		}
 		value, keep, itemized, err := r.runPipeline(pl, rec.result, vars, false, ic)
 		if err != nil {
 			return err
 		}
-		if !keep || !r.topPathFormable(pl, value, vars) {
+		if !keep {
+			if smr != nil {
+				smr.dropped = true
+			}
 			return nil
-		}
-		if obs != nil {
-			kept = append(kept, idx)
 		}
 		if itemized {
-			items = append(items, value)
+			if fs.saveItem(value, smr) {
+				items = append(items, value)
+			}
 			return nil
 		}
-		if m, ok := value.(map[string]interface{}); ok {
+		if m, ok := value.(map[string]interface{}); ok && fs.save(m, smr) {
 			records = append(records, m)
 		}
 		return nil
@@ -630,48 +627,75 @@ func (r *Runtime) parseFlat(group *compiler.CompiledGroup, inputData string, var
 		return nil, nil, err
 	}
 
-	var recs []*smRecord
-	if obs != nil {
-		recs = smKeep(obs.recordMatches(group, allMatches, used), kept)
-	}
 	if pl.itemizes {
 		// The group's result is the list of itemized values (TTP's itemize
 		// makes the record's path end in "*").
-		if obs != nil {
-			obs.lastNodes = []*smRecord{obs.smCollapse(group, recs)}
-		}
 		if len(items) == 0 {
 			return nil, nil, nil
 		}
 		return items, nil, nil
 	}
-	return r.finishFlat(group, pl, records, recs)
+	return r.finishFlat(group, pl, fs, records)
 }
 
-// topPathFormable is step 4 of the pipeline for a top group with a dynamic
-// path: a record whose path variables have no value in the record, the
-// dynamic-path cache, the recorded vars or the vars can't be saved, so TTP
-// drops it.
-func (r *Runtime) topPathFormable(pl *groupPipeline, value interface{}, vars map[string]interface{}) bool {
-	if len(pl.pathVars) == 0 {
-		return true
+// flatSaver saves the records of a top group without children, each at its
+// own path in the input's results as TTP's processgrp and save_curelements
+// save them: the group's path is formed from the record's values (form_path,
+// which drops a record whose path variable has no value), and the record is
+// then stored there, made into a list, or merged (a "**" path).
+type flatSaver struct {
+	r       *Runtime
+	vars    map[string]interface{}
+	results map[string]interface{}
+	obs     *smObserver
+	group   *compiler.CompiledGroup
+	segs    []string
+	// static is the formed path when it has no variables, formed once.
+	static []pathPart
+}
+
+func (r *Runtime) newFlatSaver(group *compiler.CompiledGroup, vars map[string]interface{}) *flatSaver {
+	fs := &flatSaver{r: r, vars: vars, results: r.treeResults, obs: r.smObs, group: group, segs: topPathSegments(group)}
+	if fs.results == nil {
+		fs.results = make(map[string]interface{})
 	}
-	m, _ := value.(map[string]interface{})
-	for _, name := range pl.pathVars {
-		if _, ok := m[name]; ok {
-			continue
+	if !strings.Contains(group.Name, "{{") {
+		fs.static, _ = r.formPath(fs.segs, nil, vars)
+	}
+	return fs
+}
+
+// save saves the record m (smr is its smRecord, nil when source maps are
+// off). It reports whether m's path could be formed: a record that is then
+// not stored (an empty record a list leaves out) still counts as kept.
+func (fs *flatSaver) save(m map[string]interface{}, smr *smRecord) bool {
+	parts := fs.static
+	if parts == nil {
+		var ok bool
+		if parts, ok = fs.r.formPath(fs.segs, m, fs.vars); !ok {
+			if smr != nil {
+				smr.dropped = true
+			}
+			return false
 		}
-		if _, ok := r.pathResolver.dynPathCache[name]; ok {
-			continue
-		}
-		if _, ok := r.recordedVars[name]; ok {
-			continue
-		}
-		if _, ok := vars[name]; ok {
-			continue
+	}
+	saveAt(fs.results, parts, m, smr, fs.obs)
+	return true
+}
+
+// saveItem saves an itemized value: TTP's itemize makes the path's last
+// segment end in a single "*", so the values form a list there. It reports
+// whether the value's path could be formed.
+func (fs *flatSaver) saveItem(value interface{}, smr *smRecord) bool {
+	parts, ok := fs.r.formPath(fs.segs, nil, fs.vars)
+	if !ok {
+		if smr != nil {
+			smr.dropped = true
 		}
 		return false
 	}
+	parts[len(parts)-1].formatter = "*"
+	saveAt(fs.results, parts, value, smr, fs.obs)
 	return true
 }
 
@@ -805,13 +829,25 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 	return dst
 }
 
-// finishFlat forms the result of a top group without children from its kept
-// records: the record a group that kept nothing gets (from default= or its
-// start line's default() values), the group's YANG validation, and the
-// result's shape. recs (source maps only) are the records' smRecords;
-// finishFlat leaves the ones behind its result in r.smObs.lastNodes.
-func (r *Runtime) finishFlat(group *compiler.CompiledGroup, pl *groupPipeline, records []map[string]interface{}, recs []*smRecord) (interface{}, []yangJob, error) {
+// finishFlat finishes a top group without children after its records were
+// saved: a group that kept no record gets one from default= or its start
+// line's default() values (saved like any other, unless the group is void),
+// and the group's YANG validation is set up. It returns the group's records.
+func (r *Runtime) finishFlat(group *compiler.CompiledGroup, pl *groupPipeline, fs *flatSaver, records []map[string]interface{}) (interface{}, []yangJob, error) {
 	obs := r.smObs
+	void := isVoidGroup(group)
+	saveDefault := func(m map[string]interface{}) {
+		if void {
+			return
+		}
+		var smr *smRecord
+		if obs != nil {
+			smr = obs.newRecord(group)
+		}
+		if fs.save(m, smr) {
+			records = append(records, m)
+		}
+	}
 
 	// A group that kept no record, with a default= string, gives a record
 	// of every variable set to it (Python TTP's default start).
@@ -820,10 +856,7 @@ func (r *Runtime) finishFlat(group *compiler.CompiledGroup, pl *groupPipeline, r
 		for _, name := range pl.defaultVars {
 			m[name] = pl.defaultString
 		}
-		records = append(records, m)
-		if obs != nil {
-			recs = append(recs, obs.newRecord(group))
-		}
+		saveDefault(m)
 	}
 
 	var jobs []yangJob
@@ -837,46 +870,13 @@ func (r *Runtime) finishFlat(group *compiler.CompiledGroup, pl *groupPipeline, r
 	// a record of those defaults (TTP's has_start_re_default).
 	if len(records) == 0 {
 		if defaultMatch := startLineDefaultsRecord(group); defaultMatch != nil {
-			records = append(records, defaultMatch)
-			if obs != nil {
-				recs = append(recs, obs.newRecord(group))
-			}
+			saveDefault(defaultMatch)
 		}
 	}
-
-	// Records go to the group's path one after another, as TTP's
-	// save_curelements puts them there: a first empty record is filled by
-	// the next one, an empty record after the first becomes a list item,
-	// and after that empty records are dropped (topSaver).
-	saver := newTopSaver(group.Name)
-	filtered := make([]map[string]interface{}, 0, len(records))
-	var kept []int
-	for mi, match := range records {
-		switch saver.add(len(match) == 0) {
-		case topAppend:
-			filtered = append(filtered, match)
-			if obs != nil {
-				kept = append(kept, mi)
-			}
-		case topMerge:
-			for k, v := range match {
-				filtered[0][k] = v
-			}
-			if obs != nil {
-				if rec := smAt(recs, mi); rec != nil {
-					rec.alias = smAt(recs, kept[0])
-				}
-			}
-		}
+	if len(records) == 0 {
+		return nil, jobs, nil
 	}
-	if obs != nil {
-		obs.lastNodes = smKeep(recs, kept)
-	}
-
-	if group.Method != "table" && len(filtered) == 1 {
-		return filtered[0], jobs, nil
-	}
-	return filtered, jobs, nil
+	return records, jobs, nil
 }
 
 // startLineDefaultsRecord returns the record Parse gives for a group that
@@ -957,7 +957,6 @@ func (r *Runtime) parseGroupStream(
 			// A raise that fails the parse was seen: emit nothing more.
 			return nil
 		}
-		r.pathResolver.UpdateCache(rec.result)
 		r.matchCollector.Clear()
 		// The same per-record steps Parse runs (pipeline.go). The
 		// streamability gate keeps out itemize, whose result is not a
@@ -978,7 +977,7 @@ func (r *Runtime) parseGroupStream(
 		kept = true
 		if len(filtered) == 0 {
 			// Parse keeps an empty record only where TTP's
-			// save_curelements does (topSaver); a stream has no use for one.
+			// save_curelements does; a stream has no use for one.
 			return nil
 		}
 		return fn(filtered, rec.srcRange, group.NormalizedPath)

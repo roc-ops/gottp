@@ -28,18 +28,16 @@ import (
 //     (assembler.go), as TTP feeds one _results_class.
 //   - Each finished record runs its group's pipeline (pipeline.go) when it
 //     is saved, as TTP's processgrp runs: a parent before its children. It
-//     is then saved with a port of save_curelements: the top group's
-//     records form the group's
-//     result, and a descendant's record goes to its PATH below the top
-//     group's, under the last record there (dict_by_path follows the last
-//     item of every list on the way). A record of a group whose PATH is the
-//     top group's (an anonymous child) is one more top-level record. A group
-//     whose PATH is outside the top group's (an absolute name such as
-//     "/vlans", or "/", which is "_anonymous_*") saves its records from the
-//     input's results, as save_curelements saves into TTP's self.results.
+//     is then saved with a port of save_curelements at its own path in the
+//     input's results: its group's whole path (the top group's path, then
+//     the child's), formed from the record's values with form_path. On the
+//     way dict_by_path follows the last item of every list, so a child's
+//     record goes under the last record at its parent's path. A group whose
+//     PATH is outside the top group's (an absolute name such as "/vlans",
+//     or "/", which is "_anonymous_*") saves there the same way.
 //
-// The top group's result then goes through the orchestrator like any other
-// group's (storeGroupResults), which resolves its dynamic path.
+// parseTree returns the top group's records for YANG validation; they are
+// already in the results.
 
 // treeGroup is one group of a top group's tree.
 type treeGroup struct {
@@ -74,10 +72,8 @@ func buildTree(top *compiler.CompiledGroup) (*treeGroup, []*treeGroup) {
 		tg := &treeGroup{cg: cg, parent: parent, yang: cg.Attributes["yang"], void: isVoidGroup(cg)}
 		anonymous := cg.Name == ""
 		switch {
-		case parent == nil && anonymous:
-			tg.path = []string{"_anonymous_*"}
 		case parent == nil:
-			tg.path = strings.Split(strings.TrimPrefix(cg.Name, "/"), ".")
+			tg.path = topPathSegments(cg)
 		case anonymous:
 			tg.path = parent.path
 		case strings.HasPrefix(cg.Name, "/"):
@@ -149,6 +145,16 @@ func buildTree(top *compiler.CompiledGroup) (*treeGroup, []*treeGroup) {
 	}
 	root := build(top, nil)
 	return root, groups
+}
+
+// topPathSegments is a top group's path as TTP's extract_name splits it: the
+// name without a leading "/", split on "."; an anonymous group (and "/")
+// saves at "_anonymous_*".
+func topPathSegments(g *compiler.CompiledGroup) []string {
+	if g.Name == "" || g.Name == "/" {
+		return []string{"_anonymous_*"}
+	}
+	return strings.Split(strings.TrimPrefix(g.Name, "/"), ".")
 }
 
 func containsSegment(path []string, seg string) bool {
@@ -263,29 +269,22 @@ type treeRun struct {
 	in     *inputLines
 	vars   map[string]interface{}
 	obs    *smObserver
-	// results is the input's results map, where abs groups save their
-	// records (TTP's self.results, shared by the template's top groups).
+	// results is the input's results map, where every record is saved at
+	// its own path (TTP's self.results, shared by the template's top
+	// groups).
 	results map[string]interface{}
 
 	matches []patternMatch
 	nextDef int // position of the next default start, past the input
 
-	// The top group's result, as TTP builds the value at its path: top[i]
-	// is its i-th record, topRecs[i] that record's smRecord. topList is
-	// true once the value is a list (a second record, or a path ending in *).
-	top0    []map[string]interface{}
-	topRecs []*smRecord
-	topList bool
-	topStar bool
-	// itemized holds the top group's itemized values (itemize on the top
-	// group makes its result the list of values).
+	// top0 holds the records saved at the top group's path, for YANG
+	// validation; itemized holds the top group's itemized values.
+	top0       []map[string]interface{}
 	itemized   []interface{}
 	isItemized bool
 
-	count   map[*treeGroup]int       // records saved per group
-	dyn     map[string]interface{}   // TTP's dyn_path_cache
-	smByMap map[uintptr]*smRecord    // the smRecord of each saved record map
-	lastSM  map[*treeGroup]*smRecord // the smRecord of each group's last record
+	count  map[*treeGroup]int       // records saved per group
+	lastSM map[*treeGroup]*smRecord // the smRecord of each group's last record
 
 	// ic is where itemize with a path saves (the input's results).
 	ic itemizeCtx
@@ -313,20 +312,12 @@ func (r *Runtime) parseTree(top *compiler.CompiledGroup, inputData string, vars 
 		obs:     r.smObs,
 		nextDef: len(inputData) + 10000000,
 		count:   make(map[*treeGroup]int),
-		dyn:     make(map[string]interface{}),
 		results: r.treeResults,
 	}
 	if t.results == nil {
 		t.results = make(map[string]interface{})
 	}
-	t.ic = itemizeCtx{root: t.results, dyn: t.dyn}
-	if t.obs != nil {
-		t.obs.lastNodes = nil
-		t.smByMap = make(map[uintptr]*smRecord)
-	}
-	if last := root.path[len(root.path)-1]; strings.HasSuffix(last, "*") && !strings.HasSuffix(last, "**") {
-		t.topStar = true
-	}
+	t.ic = itemizeCtx{root: t.results, dyn: r.pathResolver.dynPathCache}
 
 	// TTP's DATATEXT is "\n" + data + "\n\n", and run_re's top region is
 	// DATATEXT[0:-1]. Regions are kept in DATATEXT offsets (input offset
@@ -464,7 +455,6 @@ func (t *treeRun) runRe(tg *treeGroup, start, end int) {
 func (t *treeRun) save(rec asmRecord) error {
 	r := t.r
 	tg := t.groups[rec.group.id]
-	r.pathResolver.UpdateCache(rec.result)
 	r.matchCollector.Clear()
 
 	var smr *smRecord
@@ -479,7 +469,7 @@ func (t *treeRun) save(rec asmRecord) error {
 	// back into it.
 	var target map[string]interface{}
 	if rec.mergeWithLast {
-		target = t.lastElement(tg)
+		target = t.lastElement(tg, result)
 		if target != nil {
 			rebuilt := make(map[string]interface{}, len(target)+len(result))
 			for k, v := range target {
@@ -497,7 +487,7 @@ func (t *treeRun) save(rec asmRecord) error {
 	if err != nil {
 		return err
 	}
-	if !keep || (tg == t.top && !r.topPathFormable(pl, value, t.vars)) {
+	if !keep {
 		if smr != nil {
 			smr.dropped = true
 		}
@@ -513,33 +503,20 @@ func (t *treeRun) save(rec asmRecord) error {
 	return nil
 }
 
-// saveRecord saves one processed record of tg. A merge_with_last record
-// (target set) is merged into target.
+// topLevel reports whether tg's records go to the top group's path: the top
+// group's own, and those of an anonymous child (TTP gives it its parent's
+// path).
+func (t *treeRun) topLevel(tg *treeGroup) bool {
+	return len(tg.rel) == 0 && !tg.abs
+}
+
+// saveRecord saves one processed record of tg at its own path in the input's
+// results, as TTP's save_curelements does: the path is formed from the
+// record's values (form_path, which drops the record when a path variable
+// has no value), and dict_by_path follows the last item of every list on the
+// way, so a child record goes under the last record at its parent's path. A
+// merge_with_last record (target set) is merged into target.
 func (t *treeRun) saveRecord(tg *treeGroup, m map[string]interface{}, smr *smRecord, target map[string]interface{}) {
-	if target != nil {
-		if len(tg.rel) > 0 {
-			t.formPath(tg, m) // TTP's form_path pops the path variables
-		}
-		mergeRecursively(target, m)
-		if smr != nil {
-			if owner := t.smByMap[mapID(target)]; owner != nil {
-				smr.alias = owner
-			} else {
-				// A map no record was saved as (one dict_by_path made):
-				// the source map finds it in the results.
-				smr.final = target
-				if len(t.topRecs) > 0 && !tg.abs {
-					smr.parent = t.topRecs[len(t.topRecs)-1]
-				}
-			}
-		}
-		return
-	}
-	if len(tg.rel) == 0 {
-		t.saveTop(tg, m, smr)
-		return
-	}
-	root := t.rootFor(tg)
 	parts, ok := t.formPath(tg, m)
 	if !ok {
 		if smr != nil {
@@ -547,70 +524,25 @@ func (t *treeRun) saveRecord(tg *treeGroup, m map[string]interface{}, smr *smRec
 		}
 		return
 	}
-	saved := saveCurElements(root, parts, m)
-	t.noteSaved(tg, m)
-	if smr != nil {
-		if saved == saveSkipped {
-			smr.dropped = true
-			return
-		}
-		if !tg.abs {
-			smr.parent = t.topRecs[len(t.topRecs)-1]
-		}
-		if saved == saveStored {
-			smr.final = m
-			t.smByMap[mapID(m)] = smr
-		}
-		paths := locateStored(root, segmentKeys(parts), 1)
-		if len(paths) > 0 {
-			smr.rel = paths[0]
-		}
-	}
-}
-
-// saveTop saves a record at the top group's path. As in save_curelements,
-// the first record is the value; a second makes it a list, even when it is
-// empty; after that empty records are not added. A first empty record is
-// filled by the next one. With a path ending in *, the value is a list from
-// the start.
-func (t *treeRun) saveTop(tg *treeGroup, m map[string]interface{}, smr *smRecord) {
-	n := len(t.top0)
-	switch {
-	case t.topStar || t.topList:
-		if len(m) == 0 {
-			if smr != nil {
-				smr.dropped = true
-			}
-			return
-		}
-	case n == 1 && len(t.top0[0]) == 0:
-		for k, v := range m {
-			t.top0[0][k] = v
-		}
+	if target != nil {
+		mergeRecursively(target, m)
 		if smr != nil {
-			smr.alias = t.topRecs[0]
-		}
-		t.noteSaved(tg, t.top0[0])
-		return
-	case n == 1:
-		t.topList = true
-	}
-	t.top0 = append(t.top0, m)
-	if smr == nil && t.obs != nil {
-		smr = t.obs.newRecord(t.top.cg)
-	}
-	t.topRecs = append(t.topRecs, smr)
-	if smr != nil {
-		t.smByMap[mapID(m)] = smr
-	}
-	// The values of the top group's path variables name its children's
-	// paths (TTP pops them into dyn_path_cache when it saves the record).
-	if tg == t.top {
-		for _, v := range t.r.pathResolver.ExtractVariablesFromPath(t.top.cg.Name) {
-			if val, ok := m[v]; ok {
-				t.dyn[v] = val
+			if owner := t.obs.owners[mapID(target)]; owner != nil {
+				smr.alias = owner
+			} else {
+				// A map no record was saved as (one dict_by_path made):
+				// the source map finds it in the results.
+				smr.final = target
+				smr.rel = locatePath(t.results, segmentKeys(parts))
 			}
 		}
+		return
+	}
+	if !saveAt(t.results, parts, m, smr, t.obs) {
+		return
+	}
+	if t.topLevel(tg) {
+		t.top0 = append(t.top0, m)
 	}
 	t.noteSaved(tg, m)
 }
@@ -618,30 +550,20 @@ func (t *treeRun) saveTop(tg *treeGroup, m map[string]interface{}, smr *smRecord
 // saveItem saves an itemized value: itemize changes the record's path to end
 // in "*", so the values form a list at the group's path.
 func (t *treeRun) saveItem(tg *treeGroup, item interface{}, smr *smRecord) {
-	if tg == t.top {
-		t.isItemized = true
-		t.itemized = append(t.itemized, item)
-		return
-	}
-	if len(tg.rel) == 0 {
+	parts, ok := t.formPath(tg, nil)
+	if !ok {
 		if smr != nil {
 			smr.dropped = true
 		}
 		return
 	}
-	root := t.rootFor(tg)
-	parts, ok := t.formPath(tg, nil)
-	if !ok {
+	parts[len(parts)-1].formatter = "*"
+	if !saveAt(t.results, parts, item, smr, t.obs) {
 		return
 	}
-	last := &parts[len(parts)-1]
-	last.formatter = "*"
-	saveCurElements(root, parts, item)
-	if smr != nil {
-		if !tg.abs {
-			smr.parent = t.topRecs[len(t.topRecs)-1]
-		}
-		smr.rel = strings.Join(segmentKeys(parts), ".")
+	if tg == t.top {
+		t.isItemized = true
+		t.itemized = append(t.itemized, item)
 	}
 }
 
@@ -668,49 +590,21 @@ func (t *treeRun) noteSaved(tg *treeGroup, m map[string]interface{}) {
 	}
 }
 
-// rootFor is the map tg's path starts from: the input's results for an abs
-// group, else the top group's last record.
-func (t *treeRun) rootFor(tg *treeGroup) map[string]interface{} {
-	if tg.abs {
-		return t.results
-	}
-	return t.topElement()
-}
-
-// topElement is the last item at the top group's path, created (as
-// dict_by_path creates it) when the group has saved nothing yet.
-func (t *treeRun) topElement() map[string]interface{} {
-	if len(t.top0) == 0 {
-		m := make(map[string]interface{})
-		t.top0 = append(t.top0, m)
-		var smr *smRecord
-		if t.obs != nil {
-			smr = t.obs.newRecord(t.top.cg)
-			t.smByMap[mapID(m)] = smr
-		}
-		t.topRecs = append(t.topRecs, smr)
-	}
-	return t.top0[len(t.top0)-1]
-}
-
 // lastElement is the record a merge_with_last record of tg merges into: the
-// last item at tg's path, or nil.
-func (t *treeRun) lastElement(tg *treeGroup) map[string]interface{} {
-	var cur interface{}
-	switch {
-	case tg.abs:
-		cur = t.results
-	case len(t.top0) == 0:
-		return nil
-	case len(tg.rel) == 0:
-		return t.top0[len(t.top0)-1]
-	default:
-		cur = t.top0[len(t.top0)-1]
-	}
-	parts, ok := t.formPath(tg, nil)
+// last item at tg's path in the input's results, or nil. The path is formed
+// as TTP's reconstruct_last_element forms it, from rec first.
+func (t *treeRun) lastElement(tg *treeGroup, rec map[string]interface{}) map[string]interface{} {
+	parts, ok := t.formPath(tg, rec)
 	if !ok {
 		return nil
 	}
+	return lastMapAt(t.results, parts)
+}
+
+// lastMapAt is the last item at parts below root, as a map, or nil when
+// there is none. It creates nothing.
+func lastMapAt(root map[string]interface{}, parts []pathPart) map[string]interface{} {
+	var cur interface{} = root
 	for _, p := range parts {
 		if p.key == "_" {
 			continue
@@ -747,51 +641,114 @@ type pathPart struct {
 	formatter string
 }
 
-// formPath ports form_path for tg's path below the top group: each
-// {{ variable }} takes the record's value (removed from the record and kept
-// in the dynamic-path cache), else the cache's, else a template variable's.
-// It fails (TTP drops the record) when a variable has none.
+// formPath forms tg's whole path for record m (see Runtime.formPath).
 func (t *treeRun) formPath(tg *treeGroup, m map[string]interface{}) ([]pathPart, bool) {
-	parts := make([]pathPart, 0, len(tg.rel))
-	for _, seg := range tg.rel {
-		trimmed := strings.TrimRight(seg, "*")
-		formatter := strings.Repeat("*", len(seg)-len(trimmed))
-		if strings.Contains(trimmed, "{{") {
+	return t.r.formPath(tg.path, m, t.vars)
+}
+
+// formPath ports TTP's form_path for a path's segments (split on "." with
+// their formatters, unresolved). A segment's formatter is its trailing "*"s,
+// counted before its {{ variables }} are substituted, and the path is split
+// before they are, so a value with a "." or a trailing "*" stays one key
+// (#76). Each variable takes the record m's value (removed from m and kept
+// in the input's dynamic-path cache), else the cache's, else a recorded
+// var's or a template variable's. It fails (TTP drops the record) when a
+// variable has no value, which is also the case when a group function or
+// macro removed it from the record.
+func (r *Runtime) formPath(segs []string, m map[string]interface{}, vars map[string]interface{}) ([]pathPart, bool) {
+	parts := make([]pathPart, 0, len(segs))
+	for _, seg := range segs {
+		key := strings.TrimRight(seg, "*")
+		formatter := seg[len(key):]
+		if strings.Contains(key, "{{") {
 			var ok bool
-			trimmed, ok = t.resolveSegment(trimmed, m)
+			key, ok = r.resolveSegment(key, m, vars)
 			if !ok {
 				return nil, false
 			}
 		}
-		parts = append(parts, pathPart{key: trimmed, formatter: formatter})
+		parts = append(parts, pathPart{key: key, formatter: formatter})
 	}
 	return parts, true
 }
 
-func (t *treeRun) resolveSegment(seg string, m map[string]interface{}) (string, bool) {
+// resolveSegment substitutes the {{ variables }} of one path segment (see
+// formPath). Like TTP, it finds them with {{\s*(\S+)\s*}} in the segment,
+// so "{{x}}{{y}}" names one variable "x}}{{y" that has no value.
+func (r *Runtime) resolveSegment(seg string, m map[string]interface{}, vars map[string]interface{}) (string, bool) {
+	dyn := r.pathResolver.dynPathCache
 	for _, sub := range dynPathVarRe.FindAllStringSubmatch(seg, -1) {
 		name := sub[1]
 		var value interface{}
-		if v, ok := m[name]; ok && m != nil {
+		if v, ok := m[name]; ok {
 			value = v
-			t.dyn[name] = v
+			dyn[name] = v
 			delete(m, name)
-		} else if v, ok := t.dyn[name]; ok {
+		} else if v, ok := dyn[name]; ok {
 			value = v
-		} else if v, ok := t.r.recordedVars[name]; ok {
+		} else if v, ok := r.recordedVars[name]; ok {
 			value = v
-		} else if v, ok := t.vars[name]; ok {
+		} else if v, ok := vars[name]; ok {
 			value = v
 		} else {
 			return "", false
 		}
-		seg = strings.ReplaceAll(seg, sub[0], fmt.Sprintf("%v", value))
+		seg = strings.ReplaceAll(seg, sub[0], call.Str(value))
 	}
 	return seg, true
 }
 
-// result is the top group's result, as parseGroup returns it: one record as
-// a map, several as a list, or the itemized values. It also validates the
+// saveAt saves data (a record, or an itemized value) at parts below root
+// with saveCurElements and tells smr (nil when source maps are off) where it
+// went: a record stored as itself is found by identity, one merged into a
+// record's map takes that record's path, and anything else gets the path it
+// was stored at. It reports whether data was stored (an empty record or
+// value is not added to a list).
+func saveAt(root map[string]interface{}, parts []pathPart, data interface{}, smr *smRecord, obs *smObserver) bool {
+	// An empty record already at the path is filled by data (TTP updates
+	// it; saveCurElements stores data in its place), so its matches belong
+	// to data's record.
+	var empty map[string]interface{}
+	if smr != nil {
+		if el := lastMapAt(root, parts); el != nil && len(el) == 0 {
+			empty = el
+		}
+	}
+	saved := saveCurElements(root, parts, data)
+	if saved == saveSkipped {
+		if smr != nil {
+			smr.dropped = true
+		}
+		return false
+	}
+	if smr == nil {
+		return true
+	}
+	if m, ok := data.(map[string]interface{}); ok {
+		if saved == saveStored {
+			smr.final = m
+			obs.owners[mapID(m)] = smr
+			if empty != nil && mapID(empty) != mapID(m) {
+				if prev := obs.owners[mapID(empty)]; prev != nil && prev != smr {
+					prev.alias = smr
+				}
+			}
+			return true
+		}
+		if el := lastMapAt(root, parts); el != nil {
+			if owner := obs.owners[mapID(el)]; owner != nil && owner != smr {
+				smr.alias = owner
+				return true
+			}
+		}
+	}
+	smr.rel = locatePath(root, segmentKeys(parts))
+	return true
+}
+
+// result is the top group's result, as parseGroup returns it: its records
+// (each already saved at its own path in the input's results), or the
+// itemized values, or nil when it saved nothing. It also validates the
 // tree's YANG paths.
 func (t *treeRun) result() (interface{}, []yangJob, error) {
 	r := t.r
@@ -810,71 +767,12 @@ func (t *treeRun) result() (interface{}, []yangJob, error) {
 		}
 	}
 	if t.isItemized {
-		if t.obs != nil {
-			t.obs.lastNodes = []*smRecord{t.obs.smCollapse(t.top.cg, t.topRecs)}
-		}
 		return t.itemized, jobs, nil
 	}
-	if t.obs != nil {
-		t.obs.lastNodes = t.topRecs
-	}
-	switch {
-	case len(t.top0) == 0:
+	if len(t.top0) == 0 {
 		return nil, jobs, nil
-	case len(t.top0) == 1 && !t.topStar:
-		return t.top0[0], jobs, nil
-	default:
-		return t.top0, jobs, nil
 	}
-}
-
-// topSaver ports save_curelements for the records a group saves one after
-// another at its own path. The first record becomes the value (a first
-// empty record is filled by the records that follow it), a second turns the
-// value into a list even when it is empty, and after that empty records are
-// not added. With a path ending in "*" the value is a list from the start.
-// Dynamic and "**" paths are not followed: their records may go to
-// different keys (or be merged), so empty records are just dropped.
-type topSaver struct {
-	star       bool // list from the start; empty records are dropped
-	n          int
-	list       bool
-	firstEmpty bool
-}
-
-type topAction uint8
-
-const (
-	topAppend topAction = iota // add the record
-	topMerge                   // merge it into the first (empty) record
-	topSkip                    // drop it
-)
-
-func newTopSaver(path string) *topSaver {
-	last := path
-	if i := strings.LastIndex(path, "."); i >= 0 {
-		last = path[i+1:]
-	}
-	star := strings.HasSuffix(last, "*") || path == "" || strings.Contains(path, "{{")
-	return &topSaver{star: star}
-}
-
-func (s *topSaver) add(empty bool) topAction {
-	switch {
-	case s.star || s.list:
-		if empty {
-			return topSkip
-		}
-	case s.n == 1 && s.firstEmpty:
-		s.firstEmpty = empty
-		return topMerge
-	case s.n == 1:
-		s.list = true
-	case empty:
-		s.firstEmpty = true
-	}
-	s.n++
-	return topAppend
+	return t.top0, jobs, nil
 }
 
 // saveResult says what saveCurElements did with a record.
@@ -911,6 +809,10 @@ func saveCurElements(root map[string]interface{}, parts []pathPart, data interfa
 			}
 		case len(el) != 0:
 			valueToList(root, parts, data)
+			if parts[len(parts)-1].key == "_" {
+				// A null path merges data into el instead.
+				return saveMerged
+			}
 			return saveStored
 		case isMap:
 			// TTP updates the empty element; storing the record itself

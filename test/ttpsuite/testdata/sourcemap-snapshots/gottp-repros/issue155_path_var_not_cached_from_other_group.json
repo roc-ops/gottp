@@ -1,0 +1,9 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":7,"GroupName":"first","PatternIndex":0,"Variables":{"site":{"StartCol":5,"EndCol":7}},"ResultPath":"first"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":7,"GroupName":"s.{{ site }}","PatternIndex":0,"Variables":{"host":{"StartCol":5,"EndCol":7}},"ResultPath":""}]},
+   {"LineNumber":2,"Matched":false,"Matches":[]}
+  ]
+ }
+}

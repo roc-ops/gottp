@@ -1,0 +1,5 @@
+<group name="vprns**">
+vprn {{ id }}
+ a {{ a }}
+ b {{ b }}
+</group>

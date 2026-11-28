@@ -1,0 +1,7 @@
+{
+ "records": [
+  {"group_path":"vprns*","src_range":[0,12],"record":{"a":"x","id":"1"}},
+  {"group_path":"vprns*","src_range":[12,24],"record":{"a":"y","id":"2"}},
+  {"group_path":"vprns*","src_range":[24,36],"record":{"b":"z","id":"1"}}
+ ]
+}

@@ -219,7 +219,7 @@ type MatchMapping struct {
 	GroupName    string                 // group name that matched
 	PatternIndex int                    // pattern index within group
 	Variables    map[string]*VarRange   // variable name -> character range
-	ResultPath   string                 // path in result structure (e.g., "interfaces[0]")
+	ResultPath   string                 // path in result structure (e.g., "interfaces[0]"); a ".", "*" or "\" inside a key is escaped with "\"
 }
 
 // VarRange represents the character range for a variable within a match

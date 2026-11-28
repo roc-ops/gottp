@@ -1,0 +1,11 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"intf.{{ name }}","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":13}},"ResultPath":""}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":14,"GroupName":"intf.{{ name }}","PatternIndex":1,"Variables":{"desc":{"StartCol":13,"EndCol":14}},"ResultPath":""}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"intf.{{ name }}","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":13}},"ResultPath":""}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":14,"GroupName":"intf.{{ name }}","PatternIndex":1,"Variables":{"desc":{"StartCol":13,"EndCol":14}},"ResultPath":""}]},
+   {"LineNumber":4,"Matched":false,"Matches":[]}
+  ]
+ }
+}

@@ -95,13 +95,18 @@ func walk(v interface{}, out *[]map[string]interface{}) {
 
 // isLeafRecord returns true when m contains no structural nesting:
 // no value is a map[string]interface{} and no value is a
-// []interface{} whose elements include maps.
+// []interface{} whose elements include maps. An empty list counts as
+// structure too: it is a group path ending in "*" that kept no record
+// (Parse gives {"e": []} for <group name="e*"> then, as TTP does).
 func isLeafRecord(m map[string]interface{}) bool {
 	for _, val := range m {
 		switch vt := val.(type) {
 		case map[string]interface{}:
 			return false
 		case []interface{}:
+			if len(vt) == 0 {
+				return false
+			}
 			for _, elem := range vt {
 				if _, ok := elem.(map[string]interface{}); ok {
 					return false

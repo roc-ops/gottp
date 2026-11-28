@@ -1,0 +1,5 @@
+interface Gi1
+ description a
+ ip 1
+interface Gi2
+ description b

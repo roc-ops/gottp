@@ -1,0 +1,4 @@
+<group name="intf.{{ name }}" del="name">
+interface {{ name }}
+ description {{ desc }}
+</group>

@@ -2,9 +2,9 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":34,"GroupName":"interfaces.{{ sap }}**","PatternIndex":0,"Variables":{"interface":{"StartCol":11,"EndCol":26}},"ResultPath":"interfaces.lag-4:1629.*"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":27,"GroupName":"interfaces.{{ sap }}**","PatternIndex":1,"Variables":{"sap":{"StartCol":8,"EndCol":20}},"ResultPath":"interfaces.lag-4:1629.*"}]},
-   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"interfaces.{{ sap }}**","PatternIndex":2,"Variables":{},"ResultPath":"interfaces.lag-4:1629.*"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":34,"GroupName":"interfaces.{{ sap }}**","PatternIndex":0,"Variables":{"interface":{"StartCol":11,"EndCol":26}},"ResultPath":"interfaces.lag-4:1629\\.\\*"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":27,"GroupName":"interfaces.{{ sap }}**","PatternIndex":1,"Variables":{"sap":{"StartCol":8,"EndCol":20}},"ResultPath":"interfaces.lag-4:1629\\.\\*"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"interfaces.{{ sap }}**","PatternIndex":2,"Variables":{},"ResultPath":"interfaces.lag-4:1629\\.\\*"}]},
    {"LineNumber":4,"Matched":false,"Matches":[]}
   ]
  }

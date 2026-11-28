@@ -2,10 +2,10 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"{{ interface }}","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":26}},"ResultPath":"FastEthernet2.13"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":35,"GroupName":"{{ interface }}","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":35}},"ResultPath":"FastEthernet2.13"}]},
-   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":36,"GroupName":"{{ interface }}","PatternIndex":2,"Variables":{"subnet":{"StartCol":12,"EndCol":36}},"ResultPath":"FastEthernet2.13"}]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"{{ interface }}","PatternIndex":3,"Variables":{"vrf":{"StartCol":16,"EndCol":23}},"ResultPath":"FastEthernet2.13"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"{{ interface }}","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":26}},"ResultPath":"FastEthernet2\\.13"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":35,"GroupName":"{{ interface }}","PatternIndex":1,"Variables":{"description":{"StartCol":13,"EndCol":35}},"ResultPath":"FastEthernet2\\.13"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":36,"GroupName":"{{ interface }}","PatternIndex":2,"Variables":{"subnet":{"StartCol":12,"EndCol":36}},"ResultPath":"FastEthernet2\\.13"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"{{ interface }}","PatternIndex":3,"Variables":{"vrf":{"StartCol":16,"EndCol":23}},"ResultPath":"FastEthernet2\\.13"}]},
    {"LineNumber":5,"Matched":false,"Matches":[]},
    {"LineNumber":6,"Matched":false,"Matches":[]}
   ]
