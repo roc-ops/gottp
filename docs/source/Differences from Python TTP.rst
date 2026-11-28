@@ -202,7 +202,8 @@ GoTTP templates use the exact same syntax as Python TTP. Templates written for P
 
 Function calls are read as Python TTP reads them (see :doc:`Match Variables/Functions`, "Function call syntax"). The differences:
 
-* Python TTP evaluates arguments with ``eval``; gottp reads Python literals and bare names only. An expression such as ``1 + 2`` or a name of a Python built-in (``str``, ``int``) isn't evaluated: the first is a compile error, the second is the text ``"str"``.
+* Python TTP evaluates arguments with ``eval``; gottp reads Python literals and bare names only. An expression such as ``1 + 2`` or a name of a Python built-in (``str``, ``int``) isn't evaluated: the first is passed as its text ``"1+2"`` with a compile warning, the second is the text ``"str"``.
+* An unquoted word Python TTP can't evaluate, such as ``set(auto-decision)`` (``auto - decision`` in Python, so TTP exits), is the text ``"auto-decision"`` in gottp, with a compile warning that suggests ``set("auto-decision")``.
 * A tuple argument is a list, and a dict argument's keys are not kept in the order written.
 * Where Python TTP stops with ``SystemExit`` or raises ``TypeError`` for a call it can't read (``macro(name='m')``, ``<output macro=""/>``), gottp returns a compile error.
 * Python TTP logs an unknown function name (with its ``guess`` suggestions) when it meets it; gottp adds a ``GetWarnings()`` entry when the template compiles.

@@ -1,0 +1,3 @@
+<group name="g" equal="x, foo">
+v {{ x }}
+</group>

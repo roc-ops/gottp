@@ -55,6 +55,9 @@ type groupStep struct {
 	args    []string
 	builtin bool // a built-in group function: gets _recorded_vars and _defaults
 	custom  bool // a custom attribute function (for its error message)
+	// pyArgs are the positional arguments as Python values, for equal,
+	// which compares by type and value (kwargs["_args"]).
+	pyArgs []interface{}
 
 	// itemize
 	key  string
@@ -225,6 +228,7 @@ func (r *Runtime) buildPipeline(g *compiler.CompiledGroup, vars map[string]inter
 				args:    groupArgs(c),
 				builtin: slices.Contains(builtinAttrGroupFunctions, name),
 				custom:  !builtin,
+				pyArgs:  groupPyArgs(c),
 			})
 		}
 	}
@@ -355,6 +359,15 @@ func groupArgs(c *call.Call) []string {
 	return args
 }
 
+// groupPyArgs returns the Python values of the arguments of an equal()
+// call, which compares by type and value; nil for any other function.
+func groupPyArgs(c *call.Call) []interface{} {
+	if c.Name != "equal" {
+		return nil
+	}
+	return c.Args
+}
+
 // sformatArgs puts sformat's arguments in the order of its signature,
 // sformat(string, add_field): positional arguments fill the slots in order,
 // and string=/add_field= keyword arguments go to their own slot.
@@ -431,6 +444,7 @@ func (pl *groupPipeline) addChain(r *Runtime, chain string, vars map[string]inte
 					fn:      fn,
 					args:    groupArgs(c),
 					builtin: slices.Contains(builtinAttrGroupFunctions, c.Name),
+					pyArgs:  groupPyArgs(c),
 				})
 			}
 		}
@@ -554,7 +568,11 @@ func (r *Runtime) runPipeline(pl *groupPipeline, rec map[string]interface{}, var
 		case stepVoid:
 			ok = false
 		case stepFunc:
-			out, ok, err = step.fn(data, step.args, r.groupKwargs(vars, step.builtin, defaults))
+			kwargs := r.groupKwargs(vars, step.builtin, defaults)
+			if step.pyArgs != nil && step.builtin {
+				kwargs["_args"] = step.pyArgs
+			}
+			out, ok, err = step.fn(data, step.args, kwargs)
 			if err != nil {
 				if step.custom {
 					return nil, false, false, fmt.Errorf("custom group function %s failed: %w", step.name, err)

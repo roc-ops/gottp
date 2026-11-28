@@ -44,6 +44,10 @@ type Call struct {
 	// KwargStrs maps each keyword argument to its value as a string; nil
 	// when the call has none.
 	KwargStrs map[string]interface{}
+	// Notes describe the arguments that aren't Python literals, which are
+	// passed as their raw text (see Parse).
+	Notes []string
+
 	// strArg[i] is true when Args[i] is a string, which a template
 	// variable of that name replaces (ResolvedStrs).
 	strArg []bool
@@ -159,11 +163,12 @@ func Name(text string) string {
 	return name
 }
 
-// Parse parses one call (a part of a chain, see Split). It fails where
-// Python TTP fails to read the call: text that doesn't fit TTP's call
-// syntax, and arguments that aren't valid Python call arguments (an
-// unterminated quote, unbalanced brackets, an expression that isn't a
-// literal).
+// Parse parses one call (a part of a chain, see Split). It fails on text
+// that doesn't fit TTP's call syntax and on broken argument syntax (an
+// unterminated quote, unbalanced brackets; see parseArgs). An argument
+// that is a Python expression rather than a literal, or a bare word such
+// as auto-decision that Python TTP fails to evaluate, is passed as its raw
+// text and described in Notes.
 func Parse(text string) (*Call, error) {
 	text = strings.TrimSpace(text)
 	name, options, hasOptions, ok := splitCall(text)
@@ -172,11 +177,11 @@ func Parse(text string) (*Call, error) {
 	}
 	c := &Call{Name: name, Text: text}
 	if hasOptions && options != "" {
-		args, kwargs, err := parseArgs(options)
+		args, kwargs, notes, err := parseArgs(text, len(text)-1-len(options), options)
 		if err != nil {
 			return nil, fmt.Errorf("cannot read the arguments of %q: %v", text, err)
 		}
-		c.Args, c.Kwargs = args, kwargs
+		c.Args, c.Kwargs, c.Notes = args, kwargs, notes
 	}
 	if len(c.Args) > 0 {
 		c.Strs = make([]string, len(c.Args))
@@ -241,75 +246,171 @@ func isSpace(c byte) bool {
 	return false
 }
 
-func isIdentStart(c byte) bool {
-	return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-}
-
-func isIdentChar(c byte) bool {
-	return isIdentStart(c) || (c >= '0' && c <= '9')
-}
-
 // parseArgs evaluates options as Python call arguments, as TTP does with
-// eval("_get_args_kwargs(" + options + ")").
-func parseArgs(s string) ([]interface{}, []Kwarg, error) {
+// eval("_get_args_kwargs(" + options + ")"). Each argument is a Python
+// literal, with bare names read as TTP's _UndefSubst reads them. An
+// argument that isn't a literal is passed as its raw text, with a note
+// (Notes): Python TTP evaluates it as an expression, or fails on it. Only
+// call syntax that no Python call has is an error: an unterminated string,
+// unbalanced brackets, an empty argument, a positional argument after a
+// keyword argument, a repeated keyword argument and literals nested too
+// deeply. text is the whole call and off is the offset of options in it,
+// for the notes.
+func parseArgs(text string, off int, s string) ([]interface{}, []Kwarg, []string, error) {
+	segs, err := splitArgs(s)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	var args []interface{}
 	var kwargs []Kwarg
-	i := skipSpace(s, 0)
-	if i == len(s) {
-		return nil, nil, nil
-	}
-	// Every pass reads one argument and its comma, so the loop runs at
-	// most len(s) times; the bound guards against a pass that reads nothing.
-	for pass := 0; i < len(s); pass++ {
-		if pass > len(s) {
-			return nil, nil, fmt.Errorf("argument list doesn't advance at offset %d", i)
-		}
-		if s[i] == '*' {
-			return nil, nil, fmt.Errorf("*args and **kwargs are not supported")
-		}
+	var notes []string
+	for _, seg := range segs {
+		i := seg.start
 		key := ""
-		if isIdentStart(s[i]) {
-			j := i
-			for j < len(s) && isIdentChar(s[j]) {
-				j++
-			}
+		if variable.IdentStartAt(s, i) {
+			j := variable.IdentEnd(s, i)
 			k := skipSpace(s, j)
-			if k < len(s) && s[k] == '=' && (k+1 >= len(s) || s[k+1] != '=') {
+			if k < seg.end && s[k] == '=' && (k+1 >= seg.end || s[k+1] != '=') {
 				key = s[i:j]
 				i = skipSpace(s, k+1)
+				if i >= seg.end {
+					return nil, nil, nil, fmt.Errorf("keyword argument %s has no value", key)
+				}
 			}
 		}
-		start := i
-		v, next, err := variable.PythonValueAt(s, i, true)
-		if err != nil {
-			return nil, nil, fmt.Errorf("%v at offset %d", err, start)
+		raw := s[i:seg.end]
+		v, next, err := variable.PythonValueAt(raw, 0, true)
+		switch {
+		case err == nil && skipSpace(raw, next) == len(raw):
+		case err != nil && strings.Contains(err.Error(), "nested more than"):
+			return nil, nil, nil, fmt.Errorf("%v at offset %d", err, i)
+		default:
+			v = raw
+			notes = append(notes, rawArgNote(text, off+i, off+seg.end, raw))
 		}
-		if next <= start {
-			return nil, nil, fmt.Errorf("unexpected %q at offset %d", s[start], start)
-		}
-		i = skipSpace(s, next)
 		if key != "" {
 			for _, kw := range kwargs {
 				if kw.Key == key {
-					return nil, nil, fmt.Errorf("keyword argument repeated: %s", key)
+					return nil, nil, nil, fmt.Errorf("keyword argument repeated: %s", key)
 				}
 			}
 			kwargs = append(kwargs, Kwarg{Key: key, Value: v})
 		} else {
 			if len(kwargs) > 0 {
-				return nil, nil, fmt.Errorf("positional argument follows keyword argument")
+				return nil, nil, nil, fmt.Errorf("positional argument follows keyword argument")
 			}
 			args = append(args, v)
 		}
-		if i == len(s) {
-			break
-		}
-		if s[i] != ',' {
-			return nil, nil, fmt.Errorf("expected ',' at offset %d, found %q", i, s[i])
-		}
-		i = skipSpace(s, i+1)
 	}
-	return args, kwargs, nil
+	return args, kwargs, notes, nil
+}
+
+// argSpan is one argument of a call's options: s[start:end], trimmed.
+type argSpan struct{ start, end int }
+
+// splitArgs splits options at the commas outside strings and brackets and
+// returns the trimmed arguments. A trailing comma is allowed, as in
+// Python. It fails on an unterminated string, unbalanced brackets and an
+// empty argument.
+func splitArgs(s string) ([]argSpan, error) {
+	var spans []argSpan
+	var stack []byte
+	segStart := 0
+	add := func(end int, last bool) error {
+		a, b := skipSpace(s, segStart), end
+		for b > a && isSpace(s[b-1]) {
+			b--
+		}
+		if a == b {
+			if last && (len(spans) > 0 || skipSpace(s, 0) == len(s)) {
+				return nil // trailing comma, or no arguments
+			}
+			return fmt.Errorf("empty argument at offset %d", a)
+		}
+		spans = append(spans, argSpan{a, b})
+		return nil
+	}
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; c {
+		case '"', '\'':
+			q := s[i : i+1]
+			if strings.HasPrefix(s[i:], strings.Repeat(q, 3)) {
+				q = strings.Repeat(q, 3)
+			}
+			j := i + len(q)
+			for ; j < len(s); j++ {
+				if s[j] == '\\' {
+					j++
+					continue
+				}
+				if strings.HasPrefix(s[j:], q) {
+					break
+				}
+			}
+			if j >= len(s) {
+				return nil, fmt.Errorf("unterminated string starting at offset %d", i)
+			}
+			i = j + len(q) - 1
+		case '(', '[', '{':
+			stack = append(stack, c)
+		case ')', ']', '}':
+			open := map[byte]byte{')': '(', ']': '[', '}': '{'}[c]
+			if len(stack) == 0 || stack[len(stack)-1] != open {
+				return nil, fmt.Errorf("unbalanced %q at offset %d", c, i)
+			}
+			stack = stack[:len(stack)-1]
+		case ',':
+			if len(stack) == 0 {
+				if err := add(i, false); err != nil {
+					return nil, err
+				}
+				segStart = i + 1
+			}
+		}
+	}
+	if len(stack) > 0 {
+		return nil, fmt.Errorf("unclosed %q", stack[len(stack)-1])
+	}
+	if err := add(len(s), true); err != nil {
+		return nil, err
+	}
+	return spans, nil
+}
+
+// rawArgNote describes an argument that isn't a Python literal, which
+// gottp passes as its raw text. text[start:end] is the argument in the
+// call.
+func rawArgNote(text string, start, end int, raw string) string {
+	if isBareWord(raw) {
+		quoted := `"` + strings.ReplaceAll(raw, `\`, `\\`) + `"`
+		return fmt.Sprintf(`argument %s of %s is not a Python literal: Python TTP evaluates it as a Python expression and fails; gottp uses its text %q. Quote it, e.g. %s, so that Python TTP reads it too`,
+			raw, text, raw, text[:start]+quoted+text[end:])
+	}
+	return fmt.Sprintf(`argument %s of %s is a Python expression, not a literal: Python TTP evaluates it; gottp passes its text %q unevaluated`,
+		raw, text, raw)
+}
+
+// isBareWord reports an unquoted word such as auto-decision or 10.0.0.1,
+// which Python TTP evaluates as an expression of names and numbers
+// (auto - decision) and fails on. Text with quotes, brackets or spaces, or
+// with only "+" and "*" between its names and numbers (which Python can
+// evaluate), isn't one.
+func isBareWord(raw string) bool {
+	name, other := false, false
+	prevIdent := false
+	for _, r := range raw {
+		switch {
+		case strings.ContainsRune(`"'()[]{}`, r):
+			return false
+		case variable.IsIdentStartRune(r) && !prevIdent:
+			name = true
+		case variable.IsIdentRune(r), r == '+', r == '*':
+		default:
+			other = true
+		}
+		prevIdent = variable.IsIdentRune(r)
+	}
+	return other && (name || strings.Count(raw, ".") > 1)
 }
 
 func skipSpace(s string, i int) int {
@@ -514,6 +615,13 @@ func UnknownWarning(scope, kind, name string, candidates []string) string {
 		msg += "; the most similar: " + strings.Join(similar, ", ")
 	}
 	return msg
+}
+
+// UnsupportedWarning is the compile warning for a Python TTP function that
+// gottp doesn't implement, such as the group function lookup. It has no
+// suggestions: the name isn't a typo.
+func UnsupportedWarning(scope, kind, name string) string {
+	return fmt.Sprintf("%s: %s function %q is a Python TTP function that is not supported by gottp; it is skipped", scope, kind, name)
 }
 
 // Lookup finds a function by name in gottp's one lookup order: the

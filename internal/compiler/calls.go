@@ -37,8 +37,8 @@ const (
 	ScopeOutput Scope = "output"
 )
 
-// UnknownCall is a function name that isn't known in its scope, and the
-// warning given for it.
+// UnknownCall is a function name that isn't known in its scope (or is a
+// Python TTP function gottp doesn't support), and the warning given for it.
 type UnknownCall struct {
 	Scope   Scope
 	Name    string
@@ -58,16 +58,24 @@ func (t *CompiledTemplate) UnknownCalls() []UnknownCall {
 type knownNames struct {
 	known      map[string]bool
 	candidates []string
+	// unsupported are Python TTP's functions of the scope that gottp
+	// doesn't implement (ttpFunctionNames).
+	unsupported map[string]bool
 }
 
 var scopeNames = sync.OnceValue(func() map[Scope]knownNames {
-	build := func(registry []string, extra ...string) knownNames {
-		k := knownNames{known: make(map[string]bool), candidates: registry}
+	build := func(s Scope, registry []string, extra ...string) knownNames {
+		k := knownNames{known: make(map[string]bool), candidates: registry, unsupported: make(map[string]bool)}
 		for _, n := range registry {
 			k.known[n] = true
 		}
 		for _, n := range extra {
 			k.known[n] = true
+		}
+		for _, n := range ttpFunctionNames[s] {
+			if !k.known[n] {
+				k.unsupported[n] = true
+			}
 		}
 		return k
 	}
@@ -79,10 +87,10 @@ var scopeNames = sync.OnceValue(func() map[Scope]knownNames {
 	}
 	matchExtra = append(matchExtra, pattern.NewEngine().PatternNames()...)
 	return map[Scope]knownNames{
-		ScopeMatch:  build(match.NewRegistry().Names(), matchExtra...),
-		ScopeGroup:  build(group.NewRegistry().Names(), "macro", "void", "itemize"),
-		ScopeInput:  build(input.NewRegistry().Names(), "macro"),
-		ScopeOutput: build(output.NewRegistry().Names(), "macro"),
+		ScopeMatch:  build(ScopeMatch, match.NewRegistry().Names(), matchExtra...),
+		ScopeGroup:  build(ScopeGroup, group.NewRegistry().Names(), "macro", "void", "itemize"),
+		ScopeInput:  build(ScopeInput, input.NewRegistry().Names(), "macro"),
+		ScopeOutput: build(ScopeOutput, output.NewRegistry().Names(), "macro"),
 	}
 })
 
@@ -170,15 +178,18 @@ func (c *callChecker) group(g *CompiledGroup) error {
 		if !slices.Contains(BuiltinAttrGroupFunctions, name) || (value == "" && name != "expand") {
 			continue
 		}
-		if _, err := call.Parse(name + "(" + value + ")"); err != nil {
+		cl, err := call.Parse(name + "(" + value + ")")
+		if err != nil {
 			return fmt.Errorf("%s: attribute %s=%q: %v", scope, name, value, err)
 		}
+		c.notes(fmt.Sprintf("%s, attribute %s", scope, name), cl)
 	}
 	if value, ok := g.Attributes["macro"]; ok && value != "" {
 		mc, err := call.Parse("macro(" + value + ")")
 		if err != nil {
 			return fmt.Errorf("%s: attribute macro=%q: %v", scope, value, err)
 		}
+		c.notes(scope+", attribute macro", mc)
 		if err := checkMacroKwargs(scope, mc); err != nil {
 			return err
 		}
@@ -241,6 +252,7 @@ func (c *callChecker) variable(groupScope string, v *pattern.MatchVariable) erro
 		if err != nil {
 			return callError(scope, err, broken)
 		}
+		c.notes(scope, cl)
 		if cl.Name == "macro" {
 			if err := checkMacroKwargs(scope, cl); err != nil {
 				return err
@@ -269,10 +281,18 @@ func (c *callChecker) chain(scope string, s Scope, kind, chain string) ([]*call.
 		if err != nil {
 			return nil, callError(scope, err, broken)
 		}
+		c.notes(scope, cl)
 		c.checkName(scope, s, kind, cl.Name)
 		calls = append(calls, cl)
 	}
 	return calls, nil
+}
+
+// notes warns about the arguments of cl that aren't Python literals.
+func (c *callChecker) notes(scope string, cl *call.Call) {
+	for _, n := range cl.Notes {
+		c.warnings = append(c.warnings, scope+": "+n)
+	}
 }
 
 func (c *callChecker) checkName(scope string, s Scope, kind, name string) {
@@ -280,7 +300,12 @@ func (c *callChecker) checkName(scope string, s Scope, kind, name string) {
 	if names.known[name] {
 		return
 	}
-	w := call.UnknownWarning(scope, kind, name, names.candidates)
+	var w string
+	if names.unsupported[name] {
+		w = call.UnsupportedWarning(scope, kind, name)
+	} else {
+		w = call.UnknownWarning(scope, kind, name, names.candidates)
+	}
 	c.unknown = append(c.unknown, UnknownCall{Scope: s, Name: name, Warning: w})
 	c.warnings = append(c.warnings, w)
 }
@@ -346,7 +371,8 @@ func loadCalls(p *atomic.Pointer[[]*call.Call], chain string) []*call.Call {
 // custom group functions isCustom reports (CompileOptions.Functions), as
 // the group pipeline will read them (name(value)), and returns the first
 // that can't be read. The compiler can't check these itself: it doesn't
-// know the custom functions.
+// know the custom functions. Its warnings (arguments that aren't Python
+// literals) are appended to t.Warnings.
 func CheckCustomAttrCalls(t *CompiledTemplate, isCustom func(name string) bool) error {
 	var check func(g *CompiledGroup) error
 	check = func(g *CompiledGroup) error {
@@ -354,8 +380,12 @@ func CheckCustomAttrCalls(t *CompiledTemplate, isCustom func(name string) bool) 
 			if slices.Contains(BuiltinAttrGroupFunctions, name) || NonFunctionGroupAttrs[name] || !isCustom(name) {
 				continue
 			}
-			if _, err := call.Parse(name + "(" + value + ")"); err != nil {
+			cl, err := call.Parse(name + "(" + value + ")")
+			if err != nil {
 				return fmt.Errorf("group %q: attribute %s=%q: %v", g.Name, name, value, err)
+			}
+			for _, n := range cl.Notes {
+				t.Warnings = append(t.Warnings, fmt.Sprintf("group %q, attribute %s: %s", g.Name, name, n))
 			}
 		}
 		for _, child := range g.Groups {

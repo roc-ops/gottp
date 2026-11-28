@@ -141,6 +141,18 @@ The comparison test suite includes:
 - **gottp:** `<extend template="a.txt"/>` followed by `<extend template="b.txt"/>`, where both files are plain text, gives the implicit group with both files' text.
 - **Python TTP 0.10.1:** gives `{}`. Its `handle_extend` removes children while iterating over them, so it skips the second extend, which leaves a tag in the template, so no implicit group is made. gottp keeps the sensible result.
 
+### Unquoted words Python TTP can't evaluate (gottp extension)
+- **gottp:** an unquoted argument such as `set(auto-decision)`, `containsall="af-marker"` or `exclude(-VM-)` is its raw text, `"auto-decision"`. `GetWarnings()` says that Python TTP fails on it and gives the quoted call, `set("auto-decision")`, which works in both.
+- **Python TTP 0.10.1:** evaluates the argument as Python (`auto - decision`, with each unknown name as its own string) and exits: `unsupported operand type(s) for -: 'str' and 'str'`.
+- **Why:** such templates exist in real use (8 DH templates). Refusing them broke working gottp templates for no benefit.
+- **Test status:** `TestRawTextArguments` in `test/function_calls_test.go`; `TestParseRawArgs` in `internal/call`.
+
+### Arguments that are Python expressions (D1, deliberate)
+- **gottp:** an argument that is a Python expression rather than a literal, such as `set(1+2)`, `sformat("a"+"b")`, `x.upper()`, an f-string, `b"x"`, `1e400`, `"\N{...}"`, a set, `*args` or a comprehension, is passed as its raw source text (`"1+2"`). `GetWarnings()` says that Python TTP evaluates it and gottp passes the raw text.
+- **Python TTP 0.10.1:** evaluates it with `eval`, so `set(1+2)` is `3`.
+- **Why:** gottp reads literals, not Python. Only broken syntax (an unterminated quote, unbalanced brackets) and the calls TTP raises `TypeError` on are compile errors.
+- **Test status:** `TestRawTextArguments` in `test/function_calls_test.go`; `TestParseRawArgs` in `internal/call`.
+
 ## Recent Fixes and Improvements
 
 ### Fixed During Testing (2024)

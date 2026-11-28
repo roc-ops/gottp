@@ -1,0 +1,3 @@
+<group name="g" contains=" ">
+v {{ x }}
+</group>

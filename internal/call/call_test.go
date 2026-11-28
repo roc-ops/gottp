@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/roc-ops/gottp/internal/variable"
 )
 
 // testdata/python.json is recorded from Python TTP 0.10.1 (get_attributes)
@@ -139,23 +141,108 @@ func TestParseErrors(t *testing.T) {
 		`f((x)`,
 		`f(x))`,
 		`a(b)(c)`,
-		`f(Gig Eth)`,
-		`f(-VM-)`,
-		`f(1.1.1.1)`,
 		`f(a=1, 2)`,
 		`f(a=1, a=2)`,
 		`f(,)`,
-		`f(*x)`,
-		`f(**x)`,
 		`foo bar`,
 		`f([1, 2)`,
-		`f({"a" 1})`,
 		"f(\"a\nb\")",
 		`f(` + strings.Repeat("[", 500) + strings.Repeat("]", 500) + `)`,
 	} {
 		if c, err := Parse(text); err == nil {
 			t.Errorf("Parse(%q) = %+v, want an error", text, c)
 		}
+	}
+}
+
+// TestParseRawArgs: arguments that aren't Python literals are passed as
+// their raw text, with a note. A bare word that Python TTP fails to
+// evaluate gets a note suggesting quotes; an expression Python TTP would
+// evaluate gets a note that gottp doesn't (D1).
+func TestParseRawArgs(t *testing.T) {
+	for _, tc := range []struct {
+		text, arg string
+		bare      bool
+		suggest   string
+	}{
+		{`f(Gig Eth)`, `Gig Eth`, true, `f("Gig Eth")`},
+		{`f(-VM-)`, `-VM-`, true, `f("-VM-")`},
+		{`f(1.1.1.1)`, `1.1.1.1`, true, `f("1.1.1.1")`},
+		{`set(auto-decision)`, `auto-decision`, true, `set("auto-decision")`},
+		{`containsall(af-marker)`, `af-marker`, true, `containsall("af-marker")`},
+		{`set(...-...)`, `...-...`, true, `set("...-...")`},
+		{`set(k=a\b-c)`, `a\b-c`, true, `set(k="a\\b-c")`},
+		{`f(*x)`, `*x`, false, ""},
+		{`f(**x)`, `**x`, false, ""},
+		{`f({"a" 1})`, `{"a" 1}`, false, ""},
+		{`set(1+2)`, `1+2`, false, ""},
+		{`sformat("a"+"b")`, `"a"+"b"`, false, ""},
+		{`f(x.upper())`, `x.upper()`, false, ""},
+		{`f(f"{x}")`, `f"{x}"`, false, ""},
+		{`f(b"x")`, `b"x"`, false, ""},
+		{`f(1e400)`, `1e400`, false, ""},
+		{`f("\N{EN DASH}")`, `"\N{EN DASH}"`, false, ""},
+		{`f({1, 2})`, `{1, 2}`, false, ""},
+		{`f([x for x in y])`, `[x for x in y]`, false, ""},
+		{`f(a#b)`, `a#b`, true, `f("a#b")`},
+	} {
+		c, err := Parse(tc.text)
+		if err != nil {
+			t.Errorf("Parse(%q): %v", tc.text, err)
+			continue
+		}
+		var got interface{}
+		if len(c.Args) == 1 {
+			got = c.Args[0]
+		} else if len(c.Kwargs) == 1 {
+			got = c.Kwargs[0].Value
+		}
+		if got != tc.arg || len(c.Notes) != 1 {
+			t.Errorf("Parse(%q): arg %#v, notes %q; want %q and one note", tc.text, got, c.Notes, tc.arg)
+			continue
+		}
+		note := c.Notes[0]
+		if tc.bare != strings.Contains(note, "fails") {
+			t.Errorf("Parse(%q): note %q, want bare=%v", tc.text, note, tc.bare)
+		}
+		if tc.suggest != "" && !strings.Contains(note, "e.g. "+tc.suggest+",") {
+			t.Errorf("Parse(%q): note %q, want suggestion %s", tc.text, note, tc.suggest)
+		}
+	}
+}
+
+// TestParseUnicodeNames: bare names are Python identifiers, so they may
+// start with any letter (#157 review).
+func TestParseUnicodeNames(t *testing.T) {
+	for text, want := range map[string]interface{}{
+		`contains(Москва)`: "Москва",
+		`contains(abcé)`:   "abcé",
+		`sformat(é)`:       "é",
+		`f(_x١)`:           "_x١",
+		`f(ПРАВДА)`:        "ПРАВДА",
+		`f(name_é=True)`:   true,
+	} {
+		c, err := Parse(text)
+		if err != nil {
+			t.Errorf("Parse(%q): %v", text, err)
+			continue
+		}
+		var got interface{}
+		if len(c.Args) == 1 {
+			got = c.Args[0]
+		} else if len(c.Kwargs) == 1 {
+			got = c.Kwargs[0].Value
+		}
+		if got != want || len(c.Notes) != 0 {
+			t.Errorf("Parse(%q): %#v, notes %q; want %#v", text, got, c.Notes, want)
+		}
+	}
+	// Errors name the character, not its first byte.
+	if _, err := Parse(`f(é))`); err == nil || !strings.Contains(err.Error(), `')'`) {
+		t.Errorf("Parse(f(é))): %v", err)
+	}
+	if _, _, err := variable.PythonValueAt("é", 0, false); err == nil || !strings.Contains(err.Error(), `"é"`) {
+		t.Errorf("PythonValueAt(é): %v, want the character in the error", err)
 	}
 }
 

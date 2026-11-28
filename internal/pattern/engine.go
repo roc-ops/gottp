@@ -420,16 +420,20 @@ func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]
 		}
 		// re("regex"): the argument is read as a Python string (#151), so
 		// re("\\d+") and re(r"\d+") are both the regex \d+. It may name a
-		// template variable or a built-in pattern instead.
+		// template variable or a built-in pattern instead. Without a
+		// positional argument TTP's extract_re uses the function's name,
+		// so re() is the regex "re".
 		if funcName == "re" {
-			if arg, ok := firstArg(funcStr); ok {
-				if varValue, ok := vars[arg]; ok {
-					res = append(res, fmt.Sprintf("%v", varValue))
-				} else if pattern, ok := e.patterns[arg]; ok {
-					res = append(res, pattern)
-				} else {
-					res = append(res, arg)
-				}
+			arg, ok := firstArg(funcStr)
+			if !ok {
+				arg = funcName
+			}
+			if varValue, ok := vars[arg]; ok {
+				res = append(res, fmt.Sprintf("%v", varValue))
+			} else if pattern, ok := e.patterns[arg]; ok {
+				res = append(res, pattern)
+			} else {
+				res = append(res, arg)
 			}
 		}
 	}

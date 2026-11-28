@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -117,11 +118,9 @@ func (p *pyLiteralParser) value() (interface{}, error) {
 		return p.dict()
 	case c == '"' || c == '\'':
 		return p.stringLiterals()
-	case isIdentStart(c):
+	case IdentStartAt(p.s, p.i):
 		start := p.i
-		for p.i < len(p.s) && isIdentChar(p.s[p.i]) {
-			p.i++
-		}
+		p.i = IdentEnd(p.s, p.i)
 		word := p.s[start:p.i]
 		if p.i < len(p.s) && (p.s[p.i] == '"' || p.s[p.i] == '\'') && isStringPrefix(word) {
 			p.i = start
@@ -147,6 +146,9 @@ func (p *pyLiteralParser) value() (interface{}, error) {
 			return word, nil
 		}
 		return nil, fmt.Errorf("name %q is not a literal", word)
+	case c >= utf8.RuneSelf:
+		r, _ := utf8.DecodeRuneInString(p.s[p.i:])
+		return nil, fmt.Errorf("unexpected %q", r)
 	default:
 		return p.number()
 	}
@@ -237,7 +239,8 @@ func (p *pyLiteralParser) number() (interface{}, error) {
 	}
 	text := strings.ReplaceAll(p.s[start:p.i], "_", "")
 	if text == "" {
-		return nil, fmt.Errorf("unexpected %q", p.s[start])
+		r, _ := utf8.DecodeRuneInString(p.s[start:])
+		return nil, fmt.Errorf("unexpected %q", r)
 	}
 	if n, err := strconv.ParseInt(text, 0, 64); err == nil && !isLeadingZeroInt(text) {
 		return int(n), nil
@@ -266,9 +269,7 @@ func (p *pyLiteralParser) stringLiterals() (interface{}, error) {
 			p.skipSpace()
 		}
 		start := p.i
-		for p.i < len(p.s) && isIdentChar(p.s[p.i]) {
-			p.i++
-		}
+		p.i = IdentEnd(p.s, p.i)
 		prefix := p.s[start:p.i]
 		if p.i >= len(p.s) || (p.s[p.i] != '"' && p.s[p.i] != '\'') || !isStringPrefix(prefix) {
 			p.i = save
@@ -307,6 +308,10 @@ func (p *pyLiteralParser) stringBody(raw bool) (string, error) {
 			if raw {
 				return body, nil
 			}
+			if hasNamedEscape(body) {
+				// A named Unicode escape needs Python's name table.
+				return "", fmt.Errorf(`\N{...} escape is not supported`)
+			}
 			return decodePythonEscapes(body), nil
 		case c == '\n' && len(quote) == 1:
 			return "", fmt.Errorf("newline in string")
@@ -315,6 +320,19 @@ func (p *pyLiteralParser) stringBody(raw bool) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("unterminated string")
+}
+
+// hasNamedEscape reports a \N{...} escape in a string body.
+func hasNamedEscape(body string) bool {
+	for i := 0; i+2 < len(body); i++ {
+		if body[i] == '\\' {
+			if body[i+1] == 'N' && body[i+2] == '{' {
+				return true
+			}
+			i++
+		}
+	}
+	return false
 }
 
 // decodePythonEscapes applies Python's string escapes to body. Unknown
@@ -386,12 +404,57 @@ func decodePythonEscapes(body string) string {
 	return b.String()
 }
 
-func isIdentStart(c byte) bool {
-	return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+// IsIdentStartRune approximates Python's XID_Start, the characters an
+// identifier may start with: a letter (categories L and Nl) or "_".
+func IsIdentStartRune(r rune) bool {
+	if r < utf8.RuneSelf {
+		return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+	}
+	return unicode.IsLetter(r) || unicode.Is(unicode.Nl, r) || unicode.Is(unicode.Other_ID_Start, r)
 }
 
-func isIdentChar(c byte) bool {
-	return isIdentStart(c) || (c >= '0' && c <= '9')
+// IsIdentRune approximates Python's XID_Continue, the characters after the
+// first: XID_Start, digits (Nd), combining marks (Mn, Mc) and connector
+// punctuation (Pc).
+func IsIdentRune(r rune) bool {
+	if r < utf8.RuneSelf {
+		return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+	}
+	return IsIdentStartRune(r) || unicode.In(r, unicode.Nd, unicode.Mn, unicode.Mc, unicode.Pc) ||
+		unicode.Is(unicode.Other_ID_Continue, r)
+}
+
+// IdentStartAt reports whether a Python identifier starts at byte offset i
+// of s.
+func IdentStartAt(s string, i int) bool {
+	if i >= len(s) {
+		return false
+	}
+	if c := s[i]; c < utf8.RuneSelf {
+		return IsIdentStartRune(rune(c))
+	}
+	r, _ := utf8.DecodeRuneInString(s[i:])
+	return IsIdentStartRune(r)
+}
+
+// IdentEnd returns the offset just after the identifier characters of s
+// starting at byte offset i (i itself if there are none).
+func IdentEnd(s string, i int) int {
+	for i < len(s) {
+		if c := s[i]; c < utf8.RuneSelf {
+			if !IsIdentRune(rune(c)) {
+				break
+			}
+			i++
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if !IsIdentRune(r) {
+			break
+		}
+		i += size
+	}
+	return i
 }
 
 // isStringPrefix reports a string prefix gottp evaluates: none, r and u

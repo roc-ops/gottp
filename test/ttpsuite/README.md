@@ -10,9 +10,9 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 
 ```
 TTP 0.10.1 suite: pass 104 / skipped-by-issue 91 / design 5 of 200
-gottp repros: pass 110 / skipped-by-issue 16 / design 0 of 126
-source-map parity: same 329 / diverge 0 of 329
-stream snapshots: 144 streamable of 329 cases
+gottp repros: pass 124 / skipped-by-issue 16 / design 0 of 140
+source-map parity: same 343 / diverge 0 of 343
+stream snapshots: 154 streamable of 343 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -179,6 +179,20 @@ Function-call pins for refactor F (#36), recorded from TTP 0.10.1. F1 gives matc
 | `issue23_sformat_equals_in_quotes` | `sformat("v={}")`: an `=` inside quotes isn't a keyword argument | passes (F1) |
 | `issue151_re_double_backslash_argument` | inline `re("\\d+")` is a Python string, so it matches `\d+` | passes (F1) |
 | `issue151_re_raw_string_argument` | inline `re(r"\d+")` is a Python raw string (also #67) | passes (F1) |
+| `issue157_unicode_name_group_contains` | `contains="Москва"`: a bare name may use any letters | passes |
+| `issue157_unicode_name_contains` | `contains(abcé)` | passes |
+| `issue157_unicode_name_sformat` | `sformat(é)` | passes |
+| `issue157_whitespace_group_contains` | `contains=" "` is `contains( )`, a call without arguments, which drops the record | passes |
+| `issue157_group_functions_contains_no_args` | the same for `functions="contains()"` | passes |
+| `issue157_equal_true_is_not_string` | `equal(true)` compares `"True" == True`, which is false | passes |
+| `issue157_equal_int_is_not_string` | `equal(1)` doesn't match the text `1` | passes |
+| `issue157_equal_to_int_matches_int` | `to_int \| equal(1)` matches the int | passes |
+| `issue157_notequal_int_is_not_string` | `notequal(1)` keeps the text `1` | passes |
+| `issue157_group_equal_int_is_not_string` | group `equal="x, 1"` doesn't match the text `1` | passes |
+| `issue157_group_equal_string` | group `equal="x, foo"` keeps only `foo` | passes |
+| `issue157_re_no_args_is_literal_re` | `re()` is the regex `re`, TTP's fallback to the function name | passes |
+| `issue157_re_keyword_only_is_literal_re` | the same for `re(x=1)` | passes |
+| `issue157_re_char_keyword_is_literal_re` | the same for `re(char="-")` | passes |
 
 ## Source-map parity
 

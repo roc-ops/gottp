@@ -148,15 +148,18 @@ func parseOne(t *testing.T, tmpl, data string) interface{} {
 	return res
 }
 
-// TestMalformedCallsAreCompileErrors: calls Python TTP can't read (it stops
-// with SystemExit) are compile errors in every scope.
+// TestMalformedCallsAreCompileErrors: calls with broken syntax (an
+// unterminated quote, unbalanced brackets) and the macro() calls Python
+// TTP fails with a TypeError on are compile errors in every scope. An
+// argument that is only not a literal compiles (TestRawTextArguments).
 func TestMalformedCallsAreCompileErrors(t *testing.T) {
 	cases := map[string]string{
 		"unterminated quote":   "x {{ v | contains(\"a) }}\n",
 		"unbalanced brackets":  "x {{ v | contains([1, 2) }}\n",
-		"not a literal":        "x {{ v | contains(Gig Eth) }}\n",
 		"positional after kw":  "x {{ v | lookup(add_field='a', t) }}\n",
-		"group attribute":      "<group name=\"g\" contains=\"-VM-\">\nx {{ v }}\n</group>\n",
+		"group attribute":      "<group name=\"g\" contains=\"'-VM-\">\nx {{ v }}\n</group>\n",
+		"empty argument":       "x {{ v | contains(a,,b) }}\n",
+		"output macro attr":    "<group name=\"g\">\nx {{ v }}\n</group>\n<output macro=\"\"/>\n",
 		"group functions":      "<group name=\"g\" functions=\"contains('a'), record('b')\">\nx {{ v }}\n</group>\n",
 		"input functions":      "<input load=\"text\" functions=\"test('a)\">\nx 1\n</input>\n<group name=\"g\">\nx {{ v }}\n</group>\n",
 		"output functions":     "<group name=\"g\">\nx {{ v }}\n</group>\n<output functions=\"traverse('a)\"/>\n",
@@ -252,10 +255,24 @@ func TestCustomGroupAttributeIsReadAtCompileTime(t *testing.T) {
 		got = args
 		return data, true, nil
 	}}}
-	if _, err := gottp.CompileTemplateWithOptions("<group name=\"g\" tag=\"Gig Eth\">\nx {{ v }}\n</group>\n", &gottp.CompileOptions{Functions: fns}); err == nil {
-		t.Error("want a compile error for tag=\"Gig Eth\"")
+	if _, err := gottp.CompileTemplateWithOptions("<group name=\"g\" tag=\"'Gig Eth\">\nx {{ v }}\n</group>\n", &gottp.CompileOptions{Functions: fns}); err == nil {
+		t.Error("want a compile error for tag=\"'Gig Eth\"")
 	}
-	c, err := gottp.CompileTemplateWithOptions("<group name=\"g\" tag=\"'a b', k=1\">\nx {{ v }}\n</group>\n", &gottp.CompileOptions{Functions: fns})
+	// A bare word is passed as its text, with a warning.
+	c, err := gottp.CompileTemplateWithOptions("<group name=\"g\" tag=\"Gig-Eth\">\nx {{ v }}\n</group>\n", &gottp.CompileOptions{Functions: fns})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := c.GetWarnings(); len(w) != 1 || !strings.Contains(w[0], `tag("Gig-Eth")`) {
+		t.Errorf("warnings %q, want one suggesting tag(\"Gig-Eth\")", w)
+	}
+	if _, err := c.Parse(gottp.Inputs{"Default_Input": "x 1\n"}, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(got) != "[Gig-Eth]" {
+		t.Errorf("args %q", got)
+	}
+	c, err = gottp.CompileTemplateWithOptions("<group name=\"g\" tag=\"'a b', k=1\">\nx {{ v }}\n</group>\n", &gottp.CompileOptions{Functions: fns})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,5 +281,66 @@ func TestCustomGroupAttributeIsReadAtCompileTime(t *testing.T) {
 	}
 	if fmt.Sprint(got) != "[a b k=1]" {
 		t.Errorf("args %q", got)
+	}
+}
+
+// TestRawTextArguments: an unquoted word Python TTP can't evaluate
+// (set(auto-decision) is "auto" - "decision" in Python, and TTP exits) and
+// an argument that is a Python expression rather than a literal (D1) both
+// compile. gottp passes the argument's raw text and warns: for the word,
+// that Python TTP fails on it, with the quoted call to use instead; for
+// the expression, that Python TTP evaluates it (#157 review, a deliberate
+// gottp extension; see test/comparison/KNOWN_DIFFERENCES.md).
+func TestRawTextArguments(t *testing.T) {
+	cases := []struct {
+		name, tmpl, data, want string
+		warn                   []string
+	}{
+		{
+			name: "set bare word",
+			tmpl: "<group name=\"g\">\nx {{ v }} {{ mode | set(auto-decision) }}\n</group>\n",
+			data: "x 1\n",
+			want: "[map[g:map[mode:auto-decision v:1]]]",
+			warn: []string{`match variable "mode"`, "Python TTP evaluates it as a Python expression and fails", `set("auto-decision")`},
+		},
+		{
+			name: "set dots and dashes",
+			tmpl: "<group name=\"g\">\nx {{ v }} {{ mode | set(...-...) }}\n</group>\n",
+			data: "x 1\n",
+			want: "[map[g:map[mode:...-... v:1]]]",
+			warn: []string{`set("...-...")`},
+		},
+		{
+			name: "containsall attribute",
+			tmpl: "<group name=\"g\" containsall=\"af-marker\">\nx {{ v }}\nm {{ af-marker }}\n</group>\n",
+			data: "x 1\nm 2\n",
+			want: "[map[g:map[af-marker:2 v:1]]]",
+			warn: []string{`attribute containsall`, `containsall("af-marker")`},
+		},
+		{
+			name: "expression",
+			tmpl: "<group name=\"g\">\nx {{ v | set(1+2) }} {{ w | sformat(\"a\"+\"{}\") }}\n</group>\n",
+			data: "x 1 2\n",
+			want: "[map[g:map[v:1+2 w:\"a\"+\"2\"]]]",
+			warn: []string{"is a Python expression, not a literal: Python TTP evaluates it; gottp passes its text \"1+2\" unevaluated"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := gottp.CompileTemplate(tc.tmpl)
+			if err != nil {
+				t.Fatalf("compile: %v", err)
+			}
+			if w := strings.Join(c.GetWarnings(), "\n"); !containsAll(w, tc.warn) {
+				t.Errorf("warnings %q, want %q", w, tc.warn)
+			}
+			res, err := c.Parse(gottp.Inputs{"Default_Input": tc.data}, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := fmt.Sprint(res); got != tc.want {
+				t.Errorf("got %s, want %s", got, tc.want)
+			}
+		})
 	}
 }

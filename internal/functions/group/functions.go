@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/roc-ops/gottp/internal/call"
 )
 
 // Function represents a group function
@@ -73,9 +75,7 @@ func (r *Registry) registerBuiltins() {
 // contains checks if data contains at least ONE of the specified keys
 // Python TTP: returns True if at least one variable is found, False otherwise
 func contains(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error) {
-	if len(args) < 1 {
-		return data, false, fmt.Errorf("contains requires at least one argument")
-	}
+	// Without arguments no key is found, as in TTP's contains(data, *args).
 	defaults := recordDefaults(kwargs)
 
 	// The first of the keys present decides: a value that is only the
@@ -217,10 +217,6 @@ func record(data map[string]interface{}, args []string, kwargs map[string]interf
 // deleteKey removes keys from data
 // Python TTP: del="key1, key2" deletes all specified keys
 func deleteKey(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error) {
-	if len(args) < 1 {
-		return data, true, fmt.Errorf("delete requires at least one argument")
-	}
-
 	// Delete all specified keys
 	for _, key := range args {
 		delete(data, key)
@@ -362,9 +358,8 @@ func itemize(data map[string]interface{}, args []string, kwargs map[string]inter
 // whose value is only the group's default for it doesn't count (TTP's
 // containsall).
 func containsall(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error) {
-	if len(args) < 1 {
-		return data, false, fmt.Errorf("containsall requires at least one argument")
-	}
+	// Without arguments every key (none) is found, as in TTP's
+	// containsall(data, *args).
 	defaults := recordDefaults(kwargs)
 
 	for _, key := range args {
@@ -405,7 +400,8 @@ func exclude(data map[string]interface{}, args []string, kwargs map[string]inter
 // excludeall).
 func excludeall(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error) {
 	if len(args) < 1 {
-		return data, true, nil // No keys to exclude, so valid
+		// TTP's excludeall rejects when every key given (none) is found.
+		return data, false, nil
 	}
 	defaults := recordDefaults(kwargs)
 
@@ -422,36 +418,37 @@ func excludeall(data map[string]interface{}, args []string, kwargs map[string]in
 	return data, false, nil
 }
 
-// equal verifies that a key's value equals the provided value
+// equal keeps the record when its key equals value, as TTP's
+// equal(data, key, value): value names a template variable, or is itself
+// the value, and the two compare by type and value (call.Equal), so "1"
+// doesn't equal 1. The pipeline passes the arguments as Python reads them
+// in kwargs["_args"]; without them (a direct call) the value's text is
+// compared with args[1].
 func equal(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error) {
 	if len(args) < 2 {
 		return data, false, fmt.Errorf("equal requires key and value arguments")
 	}
-
 	key := args[0]
-	expectedValue := args[1]
-
-	value, exists := data[key]
-	if !exists {
-		return data, false, nil
+	pyArgs, typed := kwargs["_args"].([]interface{})
+	if !typed || len(pyArgs) < 2 {
+		value, exists := data[key]
+		return data, exists && fmt.Sprintf("%v", value) == args[1], nil
 	}
-
-	// Compare values
-	if fmt.Sprintf("%v", value) != expectedValue {
-		return data, false, nil
+	expected := pyArgs[1]
+	if name, ok := expected.(string); ok && !strings.HasPrefix(name, "_") {
+		// _ttp_["vars"].get(value, value)
+		if v, ok := kwargs[name]; ok {
+			expected = v
+		}
 	}
-
-	return data, true, nil
+	// data.get(key) is None for a missing key.
+	return data, call.Equal(data[key], expected), nil
 }
 
 // toInt converts specified keys to integers
 // Python TTP: to_int="key1, key2" or to_int="key, intlist=True"
 // If intlist=True, convert each item in the list to integer
 func toInt(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error) {
-	if len(args) < 1 {
-		return data, true, nil // No keys specified, return as-is
-	}
-
 	// Check for intlist parameter
 	intlist := false
 	var keys []string

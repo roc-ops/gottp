@@ -1028,7 +1028,7 @@ func (r *Runtime) processFunctions(value interface{}, calls []*call.Call, vars m
 
 		// Only create kwargs map if function needs it (chain, macro, or functions that use vars)
 		// This avoids unnecessary map creation and copying for most functions
-		needsKwargs := funcName == "macro" || funcName == "lookup" || funcName == "gpvlookup" || funcName == "rlookup" || funcName == "let" || funcName == "record" || funcName == "set" || funcName == "replaceall" || funcName == "resuball" || funcName == "unrange" || hasKeywordArgs
+		needsKwargs := funcName == "equal" || funcName == "notequal" || funcName == "macro" || funcName == "lookup" || funcName == "gpvlookup" || funcName == "rlookup" || funcName == "let" || funcName == "record" || funcName == "set" || funcName == "replaceall" || funcName == "resuball" || funcName == "unrange" || hasKeywordArgs
 		if needsKwargs {
 			if !needsVars {
 				kwargs = make(map[string]interface{}, len(vars)+len(keywordArgs)+3) // Pre-allocate with capacity
@@ -1081,6 +1081,23 @@ func (r *Runtime) processFunctions(value interface{}, calls []*call.Call, vars m
 					if _, isStr := c.Args[0].(string); !isStr {
 						kwargs["_set_value"] = c.Args[0]
 					}
+				}
+			}
+
+			// equal() and notequal() compare with their argument as Python
+			// reads it, by type and value (TTP's data == value), so "True"
+			// doesn't equal True. A string naming a template variable is
+			// that variable's value, as for every argument.
+			if funcName == "equal" || funcName == "notequal" {
+				delete(kwargs, "_equal_value")
+				if len(c.Args) > 0 {
+					v := c.Args[0]
+					if s, isStr := v.(string); isStr {
+						if vv, ok := vars[s]; ok {
+							v = vv
+						}
+					}
+					kwargs["_equal_value"] = v
 				}
 			}
 
