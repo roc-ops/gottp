@@ -33,6 +33,24 @@ func (v *Validator) Validate(data interface{}, yangPath, groupName string) *Vali
 	return result
 }
 
+// MergeResults merges b into a, a group's validation results from two
+// inputs: valid only if both are, with the errors and warnings of both. A
+// message reported once per validation (a path that names no schema node,
+// a warning marked once) stays reported once. Either may be nil.
+func MergeResults(a, b *ValidationResult) *ValidationResult {
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+	return &ValidationResult{
+		Valid:    a.Valid && b.Valid,
+		Errors:   dedupeOnce(append(append([]*ValidationError{}, a.Errors...), b.Errors...)),
+		Warnings: dedupeOnce(append(append([]*ValidationError{}, a.Warnings...), b.Warnings...)),
+	}
+}
+
 // dedupeOnce drops repeats of warnings marked once (same field and message).
 func dedupeOnce(warnings []*ValidationError) []*ValidationError {
 	seen := map[[2]string]bool{}
@@ -65,6 +83,7 @@ func (v *Validator) validate(data interface{}, yangPath, groupName string) *Vali
 			GroupName: groupName,
 			Path:      yangPath,
 			Message:   fmt.Sprintf("YANG path not found: %v", err),
+			once:      true,
 		})
 		return result
 	}

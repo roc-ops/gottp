@@ -798,7 +798,7 @@ func (t *treeRun) result() (interface{}, []yangJob, error) {
 	var jobs []yangJob
 	if r.yangValidator != nil {
 		if t.top.yang != "" && len(t.top0) > 0 {
-			jobs = append(jobs, yangJob{key: t.top.cg.Name, path: t.top.yang, name: t.top.cg.Name, data: t.top0})
+			jobs = append(jobs, yangJob{key: t.top.cg.Name, path: t.top.yang, name: t.top.cg.Name, group: t.top.cg, data: t.top0})
 		}
 		for _, key := range t.yangOrder {
 			list := t.yangLists[key]
@@ -806,7 +806,7 @@ func (t *treeRun) result() (interface{}, []yangJob, error) {
 			if len(list) == 1 {
 				data = list[0]
 			}
-			jobs = append(jobs, yangJob{key: fmt.Sprintf("%s[%d]", key.g.cg.Name, key.parent), path: key.g.yang, name: key.g.cg.Name, data: data})
+			jobs = append(jobs, yangJob{key: fmt.Sprintf("%s[%d]", key.g.cg.Name, key.parent), path: key.g.yang, name: key.g.cg.Name, group: key.g.cg, data: data})
 		}
 	}
 	if t.isItemized {
