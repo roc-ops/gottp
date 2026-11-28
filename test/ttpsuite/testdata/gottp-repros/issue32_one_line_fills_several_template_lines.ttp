@@ -1,0 +1,4 @@
+<group name="r">
+Local : {{ local }} {{ ignore(".*") }}
+{{ ignore(".*") }} Uplink : {{ uplink }}
+</group>

@@ -73,9 +73,54 @@ func loadCases(t *testing.T) []ttpCase {
 	return all
 }
 
-func loadKnownFailures(t *testing.T) map[string]knownFailure {
+// reprosDir holds gottp bug repros: NAME.ttp (template), NAME.txt (the
+// Default_Input data) and NAME.expected.json (Python TTP 0.10.1's result,
+// written by record.py expect). Their cases are named "gottp-repros/NAME".
+var reprosDir = filepath.Join("testdata", "gottp-repros")
+
+const reprosPrefix = "gottp-repros/"
+
+func loadRepros(t *testing.T) []ttpCase {
 	t.Helper()
-	b, err := os.ReadFile("known_failures.json")
+	files, err := filepath.Glob(filepath.Join(reprosDir, "*.ttp"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no repros in %s (err=%v)", reprosDir, err)
+	}
+	var all []ttpCase
+	for _, f := range files {
+		stem := strings.TrimSuffix(f, ".ttp")
+		tmpl, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(stem + ".txt")
+		if err != nil {
+			t.Fatalf("%s: %v", f, err)
+		}
+		exp, err := os.ReadFile(stem + ".expected.json")
+		if err != nil {
+			t.Fatalf("%s: %v (run record.py expect)", f, err)
+		}
+		c := ttpCase{
+			Name:     reprosPrefix + filepath.Base(stem),
+			Source:   filepath.ToSlash(f),
+			Template: string(tmpl),
+			Inputs:   []input{{Name: "Default_Input", Data: string(data)}},
+		}
+		if err := json.Unmarshal(exp, &c.Expected); err != nil {
+			t.Fatalf("%s.expected.json: %v", stem, err)
+		}
+		all = append(all, c)
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].Name < all[j].Name })
+	return all
+}
+
+// loadKnownFailures reads a known-failures table (known_failures.json or
+// sourcemap_divergences.json): {"cases": {name: knownFailure}}.
+func loadKnownFailures(t *testing.T, file string) map[string]knownFailure {
+	t.Helper()
+	b, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,19 +128,34 @@ func loadKnownFailures(t *testing.T) map[string]knownFailure {
 		Cases map[string]knownFailure `json:"cases"`
 	}
 	if err := json.Unmarshal(b, &kf); err != nil {
-		t.Fatalf("known_failures.json: %v", err)
+		t.Fatalf("%s: %v", file, err)
 	}
 	for name, k := range kf.Cases {
 		if k.Reason == "" || (k.Issue <= 0 && !k.design()) {
-			t.Errorf("known_failures.json: %s needs an issue number and a reason, or a reason starting with \"design:\"", name)
+			t.Errorf("%s: %s needs an issue number and a reason, or a reason starting with \"design:\"", file, name)
 		}
 	}
 	return kf.Cases
 }
 
-// runCase parses one case through gottp's Python-style API and returns the
-// result after a JSON round trip, so it compares like the recorded one.
-func runCase(c ttpCase) (interface{}, error) {
+// checkNoStaleEntries fails for every entry in known (from file) that names
+// no case in cases and is selected by owns, so a table can't outlive its cases.
+func checkNoStaleEntries(t *testing.T, file string, known map[string]knownFailure, cases []ttpCase, owns func(string) bool) {
+	t.Helper()
+	seen := map[string]bool{}
+	for _, c := range cases {
+		seen[c.Name] = true
+	}
+	for name := range known {
+		if owns(name) && !seen[name] {
+			t.Errorf("%s lists %q, which is not a case", file, name)
+		}
+	}
+}
+
+// runWithTimeout runs parse in a goroutine, turning a panic into an error and
+// giving up after caseTimeout.
+func runWithTimeout(parse func() (interface{}, error)) (interface{}, error) {
 	type outcome struct {
 		result interface{}
 		err    error
@@ -109,7 +169,7 @@ func runCase(c ttpCase) (interface{}, error) {
 			}
 			done <- o
 		}()
-		o.result, o.err = parseCase(c)
+		o.result, o.err = parse()
 	}()
 	select {
 	case o := <-done:
@@ -117,6 +177,12 @@ func runCase(c ttpCase) (interface{}, error) {
 	case <-time.After(caseTimeout):
 		return nil, fmt.Errorf("timed out after %s", caseTimeout)
 	}
+}
+
+// runCase parses one case through gottp's Python-style API and returns the
+// result after a JSON round trip, so it compares like the recorded one.
+func runCase(c ttpCase) (interface{}, error) {
+	return runWithTimeout(func() (interface{}, error) { return parseCase(c) })
 }
 
 func parseCase(c ttpCase) (interface{}, error) {
@@ -130,7 +196,11 @@ func parseCase(c ttpCase) (interface{}, error) {
 	if err := p.Parse(); err != nil {
 		return nil, fmt.Errorf("Parse: %w", err)
 	}
-	b, err := json.Marshal(p.Result())
+	return jsonRoundTrip(p.Result())
+}
+
+func jsonRoundTrip(v interface{}) (interface{}, error) {
+	b, err := json.Marshal(v)
 	if err != nil {
 		return nil, fmt.Errorf("marshal result: %w", err)
 	}
@@ -141,27 +211,42 @@ func parseCase(c ttpCase) (interface{}, error) {
 	return result, nil
 }
 
-func TestTTPSuite(t *testing.T) {
-	cases := loadCases(t)
-	known := loadKnownFailures(t)
-	seen := map[string]bool{}
-	for _, c := range cases {
-		seen[c.Name] = true
-	}
-	for name := range known {
-		if !seen[name] {
-			t.Errorf("known_failures.json lists %q, which is not a case", name)
-		}
-	}
-
+// enterPytestDir makes testdata/pytest the working directory for the rest of
+// the test, because templates reference assets as ./assets/..., relative to
+// TTP's test/pytest. It returns its absolute path.
+func enterPytestDir(t *testing.T) string {
+	t.Helper()
 	abs, err := filepath.Abs(filepath.Join("testdata", "pytest"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Templates reference assets as ./assets/..., relative to TTP's test/pytest.
 	t.Chdir(abs)
+	return abs
+}
 
-	// TTPSUITE_REPORT=file writes every case's outcome and first difference
+// TestTTPSuite replays TTP 0.10.1's own test suite (testdata/cases).
+func TestTTPSuite(t *testing.T) {
+	cases := loadCases(t)
+	known := loadKnownFailures(t, "known_failures.json")
+	checkNoStaleEntries(t, "known_failures.json", known, cases, func(n string) bool { return !strings.HasPrefix(n, reprosPrefix) })
+	runSuite(t, "TTP 0.10.1 suite", "TTPSUITE_REPORT", cases, known)
+}
+
+// TestGottpRepros replays gottp bug repros (testdata/gottp-repros) against
+// what Python TTP 0.10.1 returns for them. They share known_failures.json, so
+// each one starts failing (and must be removed from the table) once its
+// issue is fixed.
+func TestGottpRepros(t *testing.T) {
+	cases := loadRepros(t)
+	known := loadKnownFailures(t, "known_failures.json")
+	checkNoStaleEntries(t, "known_failures.json", known, cases, func(n string) bool { return strings.HasPrefix(n, reprosPrefix) })
+	runSuite(t, "gottp repros", "TTPSUITE_REPROS_REPORT", cases, known)
+}
+
+func runSuite(t *testing.T, label, reportEnv string, cases []ttpCase, known map[string]knownFailure) {
+	abs := enterPytestDir(t)
+
+	// $reportEnv=file writes every case's outcome and first difference
 	// as JSON, for triaging failures into known_failures.json.
 	type reportRow struct {
 		Name    string      `json:"name"`
@@ -206,13 +291,13 @@ func TestTTPSuite(t *testing.T) {
 			}
 		})
 	}
-	if path := os.Getenv("TTPSUITE_REPORT"); path != "" {
+	if path := os.Getenv(reportEnv); path != "" {
 		b, _ := json.MarshalIndent(report, "", " ")
 		if err := os.WriteFile(path, b, 0o644); err != nil {
-			t.Errorf("TTPSUITE_REPORT: %v", err)
+			t.Errorf("%s: %v", reportEnv, err)
 		}
 	}
-	summary := fmt.Sprintf("TTP 0.10.1 suite: pass %d / skipped-by-issue %d / design %d of %d", pass, byIssue, design, len(cases))
+	summary := fmt.Sprintf("%s: pass %d / skipped-by-issue %d / design %d of %d", label, pass, byIssue, design, len(cases))
 	if ran != len(cases) {
 		summary += fmt.Sprintf(" (%d run)", ran)
 	}

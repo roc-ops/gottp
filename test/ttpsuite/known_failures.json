@@ -1,6 +1,42 @@
 {
  "_comment": "TTP 0.10.1 suite cases that don't match yet. issue = the issue the first strict difference belongs to; also = issues hit after it. A reason starting with 'design:' marks a deliberate difference. A case listed here that passes fails the test, so remove it when its issue is fixed.",
  "cases": {
+  "gottp-repros/issue28_parent_start_line_without_variables": {
+   "issue": 28,
+   "reason": "parent group whose _start_ line has no variables drops its child groups"
+  },
+  "gottp-repros/issue29_joinmatches_on_start_line": {
+   "issue": 29,
+   "reason": "joinmatches on a _start_ line merges consecutive records into one"
+  },
+  "gottp-repros/issue30_indented_line_matches_any_indentation": {
+   "issue": 30,
+   "reason": "indented template line matches data at any indentation"
+  },
+  "gottp-repros/issue31_ignore_vars_name": {
+   "issue": 31,
+   "reason": "ignore(\"<vars name>\") empties the group"
+  },
+  "gottp-repros/issue32_one_line_fills_several_template_lines": {
+   "issue": 32,
+   "reason": "one data line fills variables from several template lines"
+  },
+  "gottp-repros/issue33_trailing_ignore_with_trailing_whitespace": {
+   "issue": 33,
+   "reason": "trailing {{ ignore(\".*\") }} fails when the data line has trailing whitespace"
+  },
+  "gottp-repros/issue34_split_joinmatches": {
+   "issue": 34,
+   "reason": "split() | joinmatches returns a joined string instead of a merged list"
+  },
+  "gottp-repros/issue35_strip_characters_argument": {
+   "issue": 35,
+   "reason": "strip(\"()\") ignores its characters argument"
+  },
+  "gottp-repros/issue36_unknown_function_falls_back_to_str_method": {
+   "issue": 36,
+   "reason": "rstrip(\",\") (str method fallback) is silently skipped"
+  },
   "test_N2G_formatter/test_n2g_formatter": {
    "issue": 80,
    "reason": "format=\"n2g\" is not supported"

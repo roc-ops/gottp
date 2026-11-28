@@ -1,0 +1,1 @@
+ Core Freq : 1200MHz   DDR Freq : 600MHz  

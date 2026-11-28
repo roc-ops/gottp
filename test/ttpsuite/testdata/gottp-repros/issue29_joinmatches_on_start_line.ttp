@@ -1,0 +1,4 @@
+<group name="r">
+{{ id | DIGIT | _start_ }} {{ name | joinmatches }}
+  cont {{ name | joinmatches }}
+</group>

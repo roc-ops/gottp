@@ -1,0 +1,6 @@
+<vars>
+st = "UP|DOWN"
+</vars>
+<group name="g">
+{{ n }} {{ ignore("st") }} {{ w }}
+</group>
