@@ -11,6 +11,7 @@ Data lines are no longer stripped of trailing spaces and tabs before they are ma
 - **`_exact_space_` lines allow trailing whitespace**, as TTP appends `[\t ]*` whether or not `_exact_space_` is set: `a  {{ x | _exact_space_ }}` matches `a  1  `.
 - **A template with no tags keeps its first line's indent**: ` Core {{ c }}` matches ` Core 1` but not `Core 1`. The whole template was trimmed, so the first line matched at any indent. Leading blank lines are still dropped.
 - Source maps: a match's `EndCol` now includes the line's trailing whitespace, as Python's match span does.
+- Not yet: lines that are empty or hold only spaces or tabs are still skipped before matching, where TTP can match them (#162).
 - `\r` is still trimmed from data lines, so with CRLF input `.*` doesn't capture the `\r` as it does in TTP (see `test/comparison/KNOWN_DIFFERENCES.md`).
 
 ### Added: Python type methods for match variables (refactor F2, #36)

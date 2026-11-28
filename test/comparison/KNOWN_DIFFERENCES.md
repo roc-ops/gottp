@@ -93,7 +93,7 @@ The comparison test suite includes:
 - **Test Status**: Should pass (no-op returns original value)
 
 ### Carriage returns in CRLF input (deliberate)
-- **Python TTP**: keeps the `\r` of a CRLF line in the text it matches, so a greedy capture at the end of a line (`{{ x | re(".*") }}`, `ORPHRASE`-like patterns) includes the `\r`.
+- **Python TTP**: keeps the `\r` of a CRLF line in the text it matches, so a capture at the end of a line whose pattern can match `\r` includes it: `{{ x | re(".*") }}` gives `"a  \r"` and `{{ x | _line_ }}` gives `"v c \r"`. `PHRASE`/`ORPHRASE`/`WORD` captures don't include it in either engine, and neither does the last line of input when it has no newline.
 - **GoTTP**: trims `\r` from each data line before matching (trailing spaces and tabs are kept, as in TTP, since #33), so the same capture has no `\r`.
 - **Reason**: a stray `\r` in values is never wanted, and the result doesn't depend on the input's line endings.
 

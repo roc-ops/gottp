@@ -689,8 +689,8 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 		matchesBlank := prof.MatchesBlank(patternIdx)
 		first := sort.SearchInts(in.offsets[:len(in.lines)], lo)
 		for lineIdx := first; lineIdx < len(in.lines) && in.offsets[lineIdx]+len(in.lines[lineIdx]) < hi; lineIdx++ {
-			// Trim \r and trailing spaces, but keep leading spaces: the
-			// regex comes from the template line, indentation included.
+			// Trim only \r: Python TTP keeps leading and trailing spaces
+			// and tabs, and the line regex allows trailing [\t ]* (#33).
 			line := strings.TrimRight(in.lines[lineIdx], "\r")
 			trimmedLine := strings.TrimSpace(line)
 			// Skip empty lines unless this pattern is a start or end
@@ -998,7 +998,7 @@ func (r *Runtime) parseGroupStream(
 			pos = pos + nl + 1
 		}
 
-		// Trim \r and trailing spaces, as parseGroup does.
+		// Trim only \r, as matchPattern does (#33).
 		line := strings.TrimRight(rawLine, "\r")
 		trimmedLine := strings.TrimSpace(line)
 
