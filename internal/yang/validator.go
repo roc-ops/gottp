@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -74,6 +75,10 @@ func (v *Validator) validate(data interface{}, yangPath, groupName string) *Vali
 	case map[string]interface{}:
 		dataToValidate = d
 	case []map[string]interface{}:
+		if e := levelError(d, schemaEntry, yangPath, groupName); e != nil {
+			result.Valid = false
+			result.Errors = append(result.Errors, e)
+		}
 		// For arrays, validate each item
 		for i, item := range d {
 			itemResult := v.validateSingleItem(item, schemaEntry, yangPath, groupName, i)
@@ -108,6 +113,11 @@ func (v *Validator) validate(data interface{}, yangPath, groupName string) *Vali
 			})
 			return result
 		}
+	}
+
+	if e := levelError([]map[string]interface{}{dataToValidate.(map[string]interface{})}, schemaEntry, yangPath, groupName); e != nil {
+		result.Valid = false
+		result.Errors = append(result.Errors, e)
 	}
 
 	// Validate single item
@@ -637,4 +647,55 @@ func identityModule(id *yang.Identity) string {
 		return root.BelongsTo.Name
 	}
 	return root.Name
+}
+
+// levelError returns an error when items have fields but none of them is
+// defined under entry. The path is then at the wrong level (usually the
+// container rather than the list each match maps to, or a leaf), and
+// nothing would be checked. The error suggests the children of entry that
+// do define some of the fields.
+func levelError(items []map[string]interface{}, entry *yang.Entry, yangPath, groupName string) *ValidationError {
+	fieldSet := map[string]bool{}
+	for _, item := range items {
+		for name := range item {
+			if _, ok := lookupChild(entry, name); ok {
+				return nil
+			}
+			fieldSet[name] = true
+		}
+	}
+	if len(fieldSet) == 0 {
+		return nil
+	}
+	fields := make([]string, 0, len(fieldSet))
+	for name := range fieldSet {
+		fields = append(fields, name)
+	}
+	sort.Strings(fields)
+
+	var suggestions []string
+	var collect func(e *yang.Entry)
+	collect = func(e *yang.Entry) {
+		for _, child := range e.Dir {
+			if child.IsChoice() || child.IsCase() {
+				collect(child)
+				continue
+			}
+			for _, name := range fields {
+				if _, ok := lookupChild(child, name); ok {
+					suggestions = append(suggestions, strings.TrimRight(yangPath, "/")+"/"+child.Name)
+					break
+				}
+			}
+		}
+	}
+	collect(entry)
+	sort.Strings(suggestions)
+
+	msg := fmt.Sprintf("YANG path '%s' defines none of the fields %s; the path must name the node each match maps to (a list, not its container)",
+		yangPath, strings.Join(fields, ", "))
+	if len(suggestions) > 0 {
+		msg += fmt.Sprintf(": did you mean %s?", strings.Join(suggestions, " or "))
+	}
+	return &ValidationError{GroupName: groupName, Path: yangPath, Message: msg}
 }

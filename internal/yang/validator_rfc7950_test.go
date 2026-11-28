@@ -314,3 +314,41 @@ func TestPatternRE2CannotExpressIsReported(t *testing.T) {
 		}
 	}
 }
+
+// Issue #57: a path that names none of the data's fields is at the wrong
+// level (typically the container instead of its list), so nothing would be
+// checked. That is an error, not Valid=true with warnings.
+const levelYANG = `
+module t-level {
+  namespace "urn:t:level"; prefix tl;
+  container show {
+    leaf version { type string; }
+    list cpu { key id; leaf id { type uint8; } leaf usage { type uint8; } }
+  }
+}`
+
+func TestPathMatchingNoFieldIsAnError(t *testing.T) {
+	v := newTestValidator(t, "t-level", levelYANG)
+	items := []map[string]interface{}{{"id": 1, "usage": 50}, {"id": 2, "usage": 60}}
+	r := v.Validate(items, "t-level:show", "cpu*")
+	assertInvalid(t, r, "", "none of the fields id, usage")
+	assertInvalid(t, r, "", "t-level:show/cpu")
+	if n := len(r.Errors); n != 1 {
+		t.Errorf("expected one error for the whole group, got %d: %s", n, formatErrors(r))
+	}
+
+	// A path naming a leaf has no fields at all.
+	assertInvalid(t, v.Validate(items, "t-level:show/version", "cpu*"), "", "none of the fields")
+}
+
+func TestPathMatchingSomeFieldsIsNotAnError(t *testing.T) {
+	v := newTestValidator(t, "t-level", levelYANG)
+	r := v.Validate([]map[string]interface{}{{"id": 1, "extra": "x"}}, "t-level:show/cpu", "cpu*")
+	assertValid(t, r)
+	if len(r.Warnings) != 1 {
+		t.Errorf("expected one 'not defined' warning, got: %s", formatWarnings(r))
+	}
+	// Nothing to check is not an error either.
+	assertValid(t, v.Validate([]map[string]interface{}{}, "t-level:show", "cpu*"))
+	assertValid(t, v.Validate(map[string]interface{}{}, "t-level:show", "cpu*"))
+}

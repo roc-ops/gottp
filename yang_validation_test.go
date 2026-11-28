@@ -133,3 +133,27 @@ modem {{ mac }}
 	valid, errs, warns = parseWithYANG(t, tmpl, "modem 0011.2233.4455\n", module, "modem*")
 	requireYANGValid(t, valid, errs, warns)
 }
+
+// Issue #57: a yang= path one level too high (the container, not the list
+// each match maps to) is an error, not Valid=true with warnings.
+func TestYANGPathAtWrongLevelIsAnError(t *testing.T) {
+	module := `module t-cpuinfo {
+  namespace "urn:t:cpuinfo"; prefix ci;
+  container show_cpuinfo { list cpu { key cpu-id;
+    leaf cpu-id { type uint8; }
+    leaf usage-5s { type decimal64 { fraction-digits 2; range "0..100"; } }
+  } }
+}`
+	input := "CPU0 12.50%\nCPU1 140.00%\n"
+	wrong := `<group name="cpu*" yang="t-cpuinfo:show_cpuinfo">
+CPU{{ cpu-id | to_int }} {{ usage-5s | to_float }}%
+</group>`
+	valid, errs, warns := parseWithYANG(t, wrong, input, module, "cpu*")
+	requireYANGError(t, valid, errs, warns,
+		"YANG path 't-cpuinfo:show_cpuinfo' defines none of the fields cpu-id, usage-5s")
+	requireYANGError(t, valid, errs, warns, "did you mean t-cpuinfo:show_cpuinfo/cpu?")
+
+	right := strings.Replace(wrong, `show_cpuinfo"`, `show_cpuinfo/cpu"`, 1)
+	valid, errs, warns = parseWithYANG(t, right, input, module, "cpu*")
+	requireYANGError(t, valid, errs, warns, "Field 'usage-5s' value is out of range in item 1")
+}
