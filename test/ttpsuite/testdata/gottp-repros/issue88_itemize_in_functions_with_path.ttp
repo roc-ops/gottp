@@ -1,0 +1,3 @@
+<group name="g" functions="itemize(key='name', path='ifs')">
+interface {{ name }}
+</group>

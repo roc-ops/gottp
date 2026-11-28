@@ -2,17 +2,17 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (refactor C2, #60):
+Current result (refactor E0, #60):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 73 / skipped-by-issue 123 / design 4 of 200
-gottp repros: pass 65 / skipped-by-issue 6 / design 0 of 71
-source-map parity: same 274 / diverge 0 of 274
-stream snapshots: 114 streamable of 274 cases
+TTP 0.10.1 suite: pass 76 / skipped-by-issue 119 / design 5 of 200
+gottp repros: pass 71 / skipped-by-issue 20 / design 0 of 91
+source-map parity: same 294 / diverge 0 of 294
+stream snapshots: 116 streamable of 294 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -109,6 +109,31 @@ Fixes on top of C2, each recorded from TTP 0.10.1; all pass:
 | `issue60_c2_record_after_contains` | `contains="z" record="x"`: a record `contains=` drops records nothing |
 | `issue60_c2_child_record_after_contains` | the same in a child group |
 | `issue60_c2_group_functions_attribute_order` | group function attributes run in template order: `del="z" contains="z"` drops every record |
+
+Group-function order pins for refactor E (#149), recorded from TTP 0.10.1. TTP's `processgrp` (`ttp.py:3240`) runs per record, when the record is saved: it fills in the defaults, then runs every group function in attribute order (`macro=`, `void=` and `functions=`/`chain=` included, each at its own position), and the first rejection drops the record. E1 ports that pipeline. Those marked *fails* are in `known_failures.json` under their issue; the others pass today and pin behaviour E1 must keep.
+
+| Repro | Rule | Today |
+|---|---|---|
+| `issue149_macro_runs_before_contains` | `macro="m" contains="mk"`, where `m` adds `mk`: the records are kept | fails |
+| `issue149_macro_runs_before_record` | `macro="m" record="desc, rd"`: a later group's `set="rd, seen"` gets the macro's value | fails |
+| `issue149_void_runs_before_record` | `void="" record="desc, rd"`: the record is voided first, so nothing is recorded | fails |
+| `issue149_functions_run_per_record` | `record="desc, rd" set="rd, desc"` on A (`desc z1`), B (no desc), C (`desc z`) gives `z1, z1, z`: every function runs on one record before the next | fails |
+| `issue149_child_functions_run_per_record` | the same in a child group | passes |
+| `issue149_itemize_then_contains_child` | `itemize="name" contains="mk"` on a child group: `contains=` still runs and drops every record | fails |
+| `issue149_functions_attr_before_record` | `functions="contains('z')" record="x"`: the dropped record isn't recorded | fails |
+| `issue149_functions_attr_after_record` | `record="x" functions="contains('z')"`: the record is recorded before it is dropped | passes |
+| `issue149_chain_attr_before_record` | `chain="ch" record="x"`, the same with a `<vars>` chain | fails |
+| `issue149_chain_attr_after_record` | `record="x" chain="ch"` | passes |
+| `issue149_variable_default_before_contains_val` | a `default()` value is filled in before the functions, so `contains_val=` sees it | fails |
+| `issue149_set_default_before_contains_val` | the same for a `{{ desc \| set("dflt") }}` default | fails |
+| `issue149_group_default_before_record` | the same for group `default=`, seen by `record=` | fails |
+| `issue149_contains_then_del_keeps_records` | `contains="z" del="z"` keeps the records with `z` and then deletes `z` (the reverse of `issue60_c2_group_functions_attribute_order`) | passes |
+| `issue149_record_without_merge` | `record="x"` over three records, one without `z`: three records, and the last value is recorded | passes |
+| `issue88_itemize_path_keyword` | `itemize="key='name', path='info.names'"`, the keyword form with a dotted path | fails |
+| `issue88_itemize_in_functions_with_path` | `functions="itemize(key='name', path='ifs')"` | fails |
+| `issue88_itemize_dynamic_path_argument` | `itemize="name, 'ifs.{{ kind }}'"`, a path with a variable | fails |
+| `issue147_macro_named_like_var_top_group` | `macro="fan"` with `<vars>fan = "zzz"</vars>` runs the macro | fails |
+| `issue147_macro_named_like_var_child_group` | the same on a child group | fails |
 
 ## Source-map parity
 
