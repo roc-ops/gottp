@@ -35,6 +35,21 @@ func TestHeadersIndicatorBeyondTTP(t *testing.T) {
 			data:     "Port-Id   1st     a\"b\\c\nGi0/1     foo     up\n",
 			want:     `[[{"g":{"1st":"foo","Port-Id":"Gi0/1","a\"b\\c":"up"}}]]`,
 		},
+		{
+			// TTP raises a TypeError on these: it passes the header to
+			// exclude() unquoted, so None becomes Python's None.
+			name:     "None and True headers",
+			template: "<group name=\"g\">\nPort   None  True {{ _headers_ }}\n</group>",
+			data:     "Port   None  True\nGi0/1  x     y\n",
+			want:     `[[{"g":{"None":"x","Port":"Gi0/1","True":"y"}}]]`,
+		},
+		{
+			// Same output as TTP 0.10.1.
+			name:     "header named _headers_",
+			template: "<group name=\"g\">\nPort   _headers_  Nonx  Tru {{ _headers_ }}\n</group>",
+			data:     "Port   _headers_  Nonx  Tru \nGi0/1  foo        x     y\n",
+			want:     `[[{"g":{"Nonx":"x","Port":"Gi0/1","Tru":"y","_headers_":"foo"}}]]`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -66,6 +81,7 @@ func TestHeadersIndicatorCompileErrors(t *testing.T) {
 		{"duplicate header", "Port   Port   Status {{ _headers_ }}", `duplicate header "Port"`},
 		{"no headers", "{{ _headers_ }}", "no headers"},
 		{"reserved header", "Port   ignore  Status {{ _headers_ }}", `header "ignore"`},
+		{"reserved header _line_", "Port   _line_  Status {{ _headers_ }}", `header "_line_"`},
 		{"columns without argument", "Port   Name  Status {{ _headers_ | columns }}", "columns"},
 		{"columns not a number", `Port   Name  Status {{ _headers_ | columns("x") }}`, "columns"},
 	}

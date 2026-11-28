@@ -87,7 +87,10 @@ func (e *Engine) HeadersLine(line string, variables []*MatchVariable) (regex str
 			return "", nil, true, fmt.Errorf("line %q: duplicate header %q", line, name)
 		}
 		seen[name] = true
-		if IsIndicatorVar(name) || IsNonCapturingVar(name) || name == IndicatorHeaders {
+		// gottp's runtime gives these names special handling, so a column
+		// with one of them would be dropped or would change how records join.
+		// TTP treats them as plain keys. A _headers_ header is fine.
+		if IsNonCapturingVar(name) || name == IndicatorLine {
 			return "", nil, true, fmt.Errorf("line %q: header %q is a reserved variable name", line, name)
 		}
 		width := utf8.RuneCountInString(h)
