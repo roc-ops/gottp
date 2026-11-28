@@ -26,6 +26,29 @@ func NewValidator(moduleSet *ModuleSet) *Validator {
 // data can be a map[string]interface{} or []map[string]interface{}
 // yangPath format: "module-name:path/to/node"
 func (v *Validator) Validate(data interface{}, yangPath, groupName string) *ValidationResult {
+	result := v.validate(data, yangPath, groupName)
+	result.Warnings = dedupeOnce(result.Warnings)
+	return result
+}
+
+// dedupeOnce drops repeats of warnings marked once (same field and message).
+func dedupeOnce(warnings []*ValidationError) []*ValidationError {
+	seen := map[[2]string]bool{}
+	out := warnings[:0]
+	for _, w := range warnings {
+		if w.once {
+			key := [2]string{w.Field, w.Message}
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+		}
+		out = append(out, w)
+	}
+	return out
+}
+
+func (v *Validator) validate(data interface{}, yangPath, groupName string) *ValidationResult {
 	result := &ValidationResult{
 		Valid:    true,
 		Errors:   []*ValidationError{},
@@ -232,7 +255,13 @@ func (v *Validator) validateValueType(value interface{}, yangType *yang.YangType
 
 	switch yangType.Kind {
 	case yang.Ystring:
-		_, ok := value.(string)
+		s, ok := value.(string)
+		if ok && entry != nil && entry.Type != yangType {
+			// A union member: the value is of this member type only if it
+			// also meets the member's patterns. (A leaf's own patterns are
+			// checked, with a specific message, by validateConstraints.)
+			_, ok = v.checkPatterns(s, yangType)
+		}
 		return ok
 	case yang.Yint8, yang.Yint16, yang.Yint32, yang.Yint64:
 		switch val := value.(type) {
@@ -381,11 +410,55 @@ func (v *Validator) validateConstraints(data map[string]interface{}, schemaEntry
 			}
 		}
 
-		// Validate pattern constraints for string types
-		if len(childEntry.Type.Pattern) > 0 {
-			// Pattern validation would require regex matching
-			// For now, we'll skip this as it requires more complex implementation
-			// TODO: Implement pattern validation
+		// Validate pattern constraints for string types. Union members'
+		// patterns are checked by validateValueType.
+		if len(childEntry.Type.Pattern) > 0 && childEntry.Type.Kind == yang.Ystring {
+			check := func(s string, element int) {
+				failed, ok := v.checkPatterns(s, childEntry.Type)
+				if ok {
+					return
+				}
+				result.Valid = false
+				what := fmt.Sprintf("Field '%s'", name)
+				if element >= 0 {
+					what = fmt.Sprintf("Field '%s' leaf-list element [%d]", name, element)
+				}
+				verb := "does not match"
+				if failed.invert {
+					verb = "matches invert-match"
+				}
+				msg := fmt.Sprintf("%s value %q %s pattern '%s'", what, s, verb, failed.pattern)
+				if index >= 0 {
+					msg += fmt.Sprintf(" in item %d", index)
+				}
+				result.Errors = append(result.Errors, &ValidationError{
+					GroupName: groupName,
+					Path:      yangPath,
+					Field:     name,
+					Message:   msg,
+				})
+			}
+			if slice, ok := value.([]interface{}); ok {
+				for i, elem := range slice {
+					if s, ok := elem.(string); ok {
+						check(s, i)
+					}
+				}
+			} else if s, ok := value.(string); ok {
+				check(s, -1)
+			}
+		}
+
+		// A pattern RE2 can't express leaves the value unchecked: say so
+		// rather than pass silently. Reported once per Validate call.
+		for _, msg := range v.uncheckablePatterns(childEntry.Type) {
+			result.Warnings = append(result.Warnings, &ValidationError{
+				GroupName: groupName,
+				Path:      yangPath,
+				Field:     name,
+				Message:   fmt.Sprintf("Field '%s' %s; values are not checked against it", name, msg),
+				once:      true,
+			})
 		}
 	}
 }

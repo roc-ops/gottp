@@ -222,3 +222,95 @@ func TestIdentityrefMembership(t *testing.T) {
 		})
 	}
 }
+
+// Issue #55: pattern restrictions (RFC 7950 9.4.5) use XSD regular
+// expressions, which match the whole value. Patterns are ANDed, a pattern
+// with "modifier invert-match" must not match, and a pattern Go's RE2
+// can't express is reported instead of silently passing.
+const patternYANG = `
+module t-pat {
+  yang-version 1.1;
+  namespace "urn:t:pat"; prefix tp;
+  typedef lower { type string { pattern "[a-z]+"; } }
+  typedef ident { type lower { pattern "x.*"; } }
+  container c {
+    leaf word { type lower; }
+    leaf xword { type ident; }
+    leaf no-admin {
+      type string {
+        pattern "admin" { modifier invert-match; }
+      }
+    }
+    leaf mac { type string { pattern "[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}"; } }
+    leaf digits { type string { pattern "\\d+"; } }
+    leaf caret { type string { pattern "^a$"; } }
+    leaf dot { type string { pattern "a.b"; } }
+    leaf wordish { type string { pattern "[\\w\\-]+"; } }
+    leaf-list tags { type lower; }
+    leaf id-or-num { type union { type lower; type uint8; } }
+    leaf xml-name { type string { pattern "\\i\\c*"; } }
+    leaf block { type string { pattern "\\p{IsBasicLatin}+"; } }
+  }
+}`
+
+func TestPatternIsEnforced(t *testing.T) {
+	v := newTestValidator(t, "t-pat", patternYANG)
+	for _, tc := range []struct {
+		field string
+		value interface{}
+	}{
+		{"word", "ABC"},
+		{"word", "abc1"}, // a match must cover the whole value, not a substring
+		{"xword", "abc"}, // matches the typedef's pattern but not the derived one
+		{"no-admin", "admin"},
+		{"mac", "00:11:22:33:44"},
+		{"digits", "12a"},
+		{"caret", "a"}, // ^ and $ are ordinary characters in XSD regexes
+		{"dot", "a\nb"},
+		{"wordish", "a_b"}, // XSD \w excludes punctuation, so also '_'
+		{"tags", []interface{}{"ok", "NOT"}},
+	} {
+		t.Run(tc.field, func(t *testing.T) {
+			r := v.Validate(map[string]interface{}{tc.field: tc.value}, "t-pat:c", "g")
+			assertInvalid(t, r, tc.field, "pattern")
+		})
+	}
+	// A union member's patterns decide whether the value is of that member.
+	r := v.Validate(map[string]interface{}{"id-or-num": "ABC"}, "t-pat:c", "g")
+	assertInvalid(t, r, "id-or-num", `invalid value "ABC"`)
+}
+
+func TestPatternAcceptsMatchingValues(t *testing.T) {
+	v := newTestValidator(t, "t-pat", patternYANG)
+	r := v.Validate(map[string]interface{}{
+		"word": "abc", "xword": "xyz", "no-admin": "administrator",
+		"mac": "00:11:22:aa:BB:cc", "digits": "0123", "caret": "^a$",
+		"dot": "a-b", "wordish": "héllo-wörld", "tags": []interface{}{"a", "b"},
+		"id-or-num": 7,
+	}, "t-pat:c", "g")
+	assertValid(t, r)
+	if len(r.Warnings) > 0 {
+		t.Errorf("expected no warnings, got: %s", formatWarnings(r))
+	}
+}
+
+func TestPatternRE2CannotExpressIsReported(t *testing.T) {
+	v := newTestValidator(t, "t-pat", patternYANG)
+	items := []map[string]interface{}{
+		{"xml-name": "a", "block": "a"},
+		{"xml-name": "b", "block": "b"},
+	}
+	r := v.Validate(items, "t-pat:c", "g")
+	assertValid(t, r) // unknown, not wrong
+	for _, field := range []string{"xml-name", "block"} {
+		n := 0
+		for _, w := range r.Warnings {
+			if w.Field == field && strings.Contains(w.Message, "cannot be checked") {
+				n++
+			}
+		}
+		if n != 1 {
+			t.Errorf("expected one 'cannot be checked' warning for %s, got %d: %s", field, n, formatWarnings(r))
+		}
+	}
+}

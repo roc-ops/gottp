@@ -112,3 +112,24 @@ func TestYANGEnumerationMembership(t *testing.T) {
 	valid, errs, warns = parseWithYANG(t, tmpl, "ge1 is up speed auto\n", module, "port*")
 	requireYANGValid(t, valid, errs, warns)
 }
+
+// Issue #55: a pattern restriction must match the whole value.
+func TestYANGPatternIsEnforced(t *testing.T) {
+	module := `module t-mac {
+  namespace "urn:t:mac"; prefix tm;
+  typedef mac { type string { pattern "[0-9a-f]{4}\\.[0-9a-f]{4}\\.[0-9a-f]{4}"; } }
+  container show { list modem { key mac; leaf mac { type mac; } } }
+}`
+	tmpl := `<group name="modem*" yang="t-mac:show/modem">
+modem {{ mac }}
+</group>`
+	valid, errs, warns := parseWithYANG(t, tmpl, "modem 0011.2233.44zz\n", module, "modem*")
+	requireYANGError(t, valid, errs, warns, `Field 'mac' value "0011.2233.44zz" does not match pattern`)
+
+	// A substring match is not enough.
+	valid, errs, warns = parseWithYANG(t, tmpl, "modem 0011.2233.4455.6677\n", module, "modem*")
+	requireYANGError(t, valid, errs, warns, "does not match pattern")
+
+	valid, errs, warns = parseWithYANG(t, tmpl, "modem 0011.2233.4455\n", module, "modem*")
+	requireYANGValid(t, valid, errs, warns)
+}
