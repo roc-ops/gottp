@@ -1785,13 +1785,7 @@ func (r *Runtime) stepMerge(
 			}
 		} else if group.Method == "table" && shouldStartNewMatch {
 			if state.currentMatch != nil {
-				hasNonSpecialVars := false
-				for k := range state.currentMatch {
-					if k != "ignore" && k != "_start_" && k != "_end_" && k != "_line_" {
-						hasNonSpecialVars = true
-						break
-					}
-				}
+				hasNonSpecialVars := hasNonIndicatorKey(state.currentMatch)
 
 				ignoreUsesTemplateVar := false
 				for _, compiledPattern := range group.Patterns {
@@ -1909,13 +1903,7 @@ func (r *Runtime) stepMerge(
 			}
 			if !shouldMerge {
 				if state.currentMatch != nil && shouldFinalizePrevious {
-					hasNonSpecialVars := false
-					for k := range state.currentMatch {
-						if k != "ignore" && k != "_start_" && k != "_end_" && k != "_line_" {
-							hasNonSpecialVars = true
-							break
-						}
-					}
+					hasNonSpecialVars := hasNonIndicatorKey(state.currentMatch)
 					shouldSave := hasNonSpecialVars || isRepeatStartMatch
 					if shouldSave {
 						matchCopy := make(map[string]interface{})
@@ -2073,13 +2061,7 @@ func (r *Runtime) stepMerge(
 		}
 
 		if shouldFinalizeAndStartNew {
-			hasNonSpecialVars := false
-			for k := range state.currentMatch {
-				if k != "ignore" && k != "_start_" && k != "_end_" && k != "_line_" {
-					hasNonSpecialVars = true
-					break
-				}
-			}
+			hasNonSpecialVars := hasNonIndicatorKey(state.currentMatch)
 			if hasNonSpecialVars {
 				matchCopy := make(map[string]interface{})
 				for k, v := range state.currentMatch {
@@ -2185,7 +2167,7 @@ func (r *Runtime) stepMerge(
 				}
 			} else {
 				for k, v := range match.result {
-					if k == "ignore" || k == "_start_" || k == "_end_" || k == "_line_" {
+					if pattern.IsIndicatorVar(k) {
 						continue
 					}
 					if !joinMatchesVars[k] {
@@ -2327,7 +2309,7 @@ func (r *Runtime) stepMerge(
 			}
 		} else {
 			for k, v := range match.result {
-				if k == "ignore" || k == "_start_" || k == "_end_" {
+				if pattern.IsIndicatorVar(k) && k != pattern.IndicatorLine {
 					continue
 				}
 				if _, exists := state.currentMatch[k]; !exists {
@@ -2513,13 +2495,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 			hasNormalMatch := false
 			for j < len(allMatches) && allMatches[j].spanStart == currentStart {
 				// Check if this is a "normal" match (not just pure _start_/_end_)
-				isPureIndicator := true
-				for v := range allMatches[j].result {
-					if v != "_start_" && v != "_end_" && v != "_line_" {
-						isPureIndicator = false
-						break
-					}
-				}
+				isPureIndicator := isPureIndicatorResult(allMatches[j].result)
 				if !isPureIndicator {
 					hasNormalMatch = true
 				}
@@ -2528,13 +2504,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 			// Process matches at this position
 			for k := i; k < j; k++ {
-				isPureIndicator := true
-				for v := range allMatches[k].result {
-					if v != "_start_" && v != "_end_" && v != "_line_" {
-						isPureIndicator = false
-						break
-					}
-				}
+				isPureIndicator := isPureIndicatorResult(allMatches[k].result)
 				// Check if this is a _start_ or _line_ pattern by checking the pattern index
 				// These patterns are needed to start matches even if redundant
 				isStartPatternMatch := false
@@ -2936,13 +2906,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	// This ensures that the last match is saved even if there's no subsequent _start_ pattern
 	if currentMatch != nil {
 		// Check if currentMatch has any non-special variables
-		hasNonSpecialVars := false
-		for k := range currentMatch {
-			if k != "ignore" && k != "_start_" && k != "_end_" && k != "_line_" {
-				hasNonSpecialVars = true
-				break
-			}
-		}
+		hasNonSpecialVars := hasNonIndicatorKey(currentMatch)
 		// Save if it has non-special variables
 		// For _start_/_end_ patterns, we should save even if currentMatchHasEnd is true
 		// because the match was ended by _end_ and should be saved
@@ -4023,10 +3987,10 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				// If default is a string, apply it to all unmatched variables in each match
 				// Collect all variable names from all patterns in the group
 				allVarNames := make(map[string]bool)
-				for _, pattern := range group.Patterns {
-					for varName := range pattern.Variables {
+				for _, cp := range group.Patterns {
+					for varName := range cp.Variables {
 						// Skip special variables that don't get defaults
-						if varName != "ignore" && varName != "_start_" && varName != "_end_" && varName != "_line_" {
+						if !pattern.IsIndicatorVar(varName) {
 							allVarNames[varName] = true
 						}
 					}
@@ -4075,7 +4039,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 		for varName, variable := range firstPattern.Variables {
 			// Skip special variables
-			if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_line_" {
+			if pattern.IsIndicatorVar(varName) {
 				continue
 			}
 
@@ -4100,10 +4064,10 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		// If start pattern has defaults, create a result with all variables that have defaults
 		if hasStartDefault {
 			// Collect all variables with defaults from all patterns
-			for _, pattern := range group.Patterns {
-				for varName, variable := range pattern.Variables {
+			for _, cp := range group.Patterns {
+				for varName, variable := range cp.Variables {
 					// Skip special variables
-					if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_line_" {
+					if pattern.IsIndicatorVar(varName) {
 						continue
 					}
 
@@ -4454,13 +4418,7 @@ func (r *Runtime) parseGroupStream(
 	// without the parentMatchToAllMatches bookkeeping (no nested groups in
 	// streamable templates).
 	if state.currentMatch != nil {
-		hasNonSpecialVars := false
-		for k := range state.currentMatch {
-			if k != "ignore" && k != "_start_" && k != "_end_" && k != "_line_" {
-				hasNonSpecialVars = true
-				break
-			}
-		}
+		hasNonSpecialVars := hasNonIndicatorKey(state.currentMatch)
 		if hasNonSpecialVars {
 			matchCopy := make(map[string]interface{})
 			for k, v := range state.currentMatch {
@@ -4758,13 +4716,7 @@ func filterRedundantIndicatorsInLine(lineMatches []patternMatch, group *compiler
 
 	hasNormalMatch := false
 	for _, m := range lineMatches {
-		isPureIndicator := true
-		for v := range m.result {
-			if v != "_start_" && v != "_end_" && v != "_line_" {
-				isPureIndicator = false
-				break
-			}
-		}
+		isPureIndicator := isPureIndicatorResult(m.result)
 		if !isPureIndicator {
 			hasNormalMatch = true
 			break
@@ -4777,13 +4729,7 @@ func filterRedundantIndicatorsInLine(lineMatches []patternMatch, group *compiler
 
 	out := lineMatches[:0]
 	for _, m := range lineMatches {
-		isPureIndicator := true
-		for v := range m.result {
-			if v != "_start_" && v != "_end_" && v != "_line_" {
-				isPureIndicator = false
-				break
-			}
-		}
+		isPureIndicator := isPureIndicatorResult(m.result)
 		isStartPatternMatch := false
 		isLinePatternMatch := false
 		if m.patternIdx < len(group.Patterns) {
@@ -4925,7 +4871,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 							}
 
 							// Skip special variables
-							if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+							if pattern.IsNonCapturingVar(varName) {
 								varIndex++
 								continue
 							}
@@ -4998,7 +4944,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 							continue
 						}
 
-						if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+						if pattern.IsNonCapturingVar(varName) {
 							varIndex++
 							continue
 						}
@@ -5630,7 +5576,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 									if _, ok := compiledPattern.Variables[varName]; !ok {
 										continue
 									}
-									if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+									if pattern.IsNonCapturingVar(varName) {
 										varIndex++
 										continue
 									}
@@ -5697,7 +5643,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 								if _, ok := compiledPattern.Variables[varName]; !ok {
 									continue
 								}
-								if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+								if pattern.IsNonCapturingVar(varName) {
 									varIndex++
 									continue
 								}
@@ -5843,7 +5789,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 											if _, ok := compiledPattern.Variables[varName]; !ok {
 												continue
 											}
-											if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+											if pattern.IsNonCapturingVar(varName) {
 												varIndex++
 												continue
 											}
@@ -5925,7 +5871,7 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 										if _, ok := compiledPattern.Variables[varName]; !ok {
 											continue
 										}
-										if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+										if pattern.IsNonCapturingVar(varName) {
 											varIndex++
 											continue
 										}
@@ -6202,7 +6148,7 @@ func (r *Runtime) extractMatchResult(match []string, compiledPattern *pattern.Co
 
 		// Skip special variables that don't save values
 		// Note: _line_ should NOT be skipped - it captures the line content when used with joinmatches
-		if varName == "ignore" || varName == "_start_" || varName == "_end_" || varName == "_exact_" || varName == "_exact_space_" {
+		if pattern.IsNonCapturingVar(varName) {
 			varIndex++
 			continue
 		}

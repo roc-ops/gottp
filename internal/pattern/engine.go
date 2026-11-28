@@ -39,8 +39,15 @@ const (
 // ignore, _start_, _end_ or _line_: a name whose match is never a result
 // value of its own.
 func IsIndicatorVar(name string) bool {
+	return name == VarIgnore || IsMarkerVar(name)
+}
+
+// IsMarkerVar reports whether a variable (or result key) named name is
+// _start_, _end_ or _line_. A match whose result has only such keys is a pure
+// indicator match.
+func IsMarkerVar(name string) bool {
 	switch name {
-	case VarIgnore, IndicatorStart, IndicatorEnd, IndicatorLine:
+	case IndicatorStart, IndicatorEnd, IndicatorLine:
 		return true
 	}
 	return false
