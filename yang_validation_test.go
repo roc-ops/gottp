@@ -66,3 +66,25 @@ CPU {{ id | to_float }}
 	valid, errs, warns = parseWithYANG(t, tmpl, "CPU 12\n", module, "cpu*")
 	requireYANGValid(t, valid, errs, warns)
 }
+
+// Issue #59: a leaf under choice/case is type-checked, not warned about.
+func TestYANGChoiceCaseLeafIsValidated(t *testing.T) {
+	module := `module t-if {
+  namespace "urn:t:if"; prefix tif;
+  container show { list intf { key name;
+    leaf name { type string; }
+    choice addr { case v4 { leaf mtu { type uint16 { range "68..9216"; } } } }
+  } }
+}`
+	tmpl := `<group name="intf*" yang="t-if:show/intf">
+{{ name }} mtu {{ mtu | to_int }}
+</group>`
+	valid, errs, warns := parseWithYANG(t, tmpl, "eth0 mtu 20\n", module, "intf*")
+	requireYANGError(t, valid, errs, warns, "Field 'mtu' value is out of range")
+
+	valid, errs, warns = parseWithYANG(t, tmpl, "eth0 mtu 1500\n", module, "intf*")
+	requireYANGValid(t, valid, errs, warns)
+	if len(warns) > 0 {
+		t.Fatalf("expected no warnings, got %q", warns)
+	}
+}

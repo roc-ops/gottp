@@ -149,7 +149,7 @@ func (v *Validator) validateFieldTypes(data map[string]interface{}, schemaEntry 
 	}
 
 	for name, value := range data {
-		childEntry, exists := schemaEntry.Dir[name]
+		childEntry, exists := lookupChild(schemaEntry, name)
 		if !exists {
 			// Field not in schema - this might be okay if schema allows additional fields
 			// For now, we'll just warn
@@ -303,7 +303,7 @@ func (v *Validator) validateConstraints(data map[string]interface{}, schemaEntry
 	}
 
 	for name, value := range data {
-		childEntry, exists := schemaEntry.Dir[name]
+		childEntry, exists := lookupChild(schemaEntry, name)
 		if !exists || childEntry.Type == nil {
 			continue
 		}
@@ -471,4 +471,25 @@ func (v *Validator) validateLength(value string, lengths yang.YangRange) bool {
 // isWhole reports whether f is a finite number with no fractional part.
 func isWhole(f float64) bool {
 	return !math.IsInf(f, 0) && !math.IsNaN(f) && f == math.Trunc(f)
+}
+
+// lookupChild finds the data node called name under entry. choice and case
+// nodes are schema-only (RFC 7950 7.9): their children appear in the data
+// tree as children of the choice's parent, so the lookup descends through
+// them, including nested choices.
+func lookupChild(entry *yang.Entry, name string) (*yang.Entry, bool) {
+	if entry == nil {
+		return nil, false
+	}
+	if child, ok := entry.Dir[name]; ok && !child.IsChoice() && !child.IsCase() {
+		return child, true
+	}
+	for _, child := range entry.Dir {
+		if child.IsChoice() || child.IsCase() {
+			if found, ok := lookupChild(child, name); ok {
+				return found, true
+			}
+		}
+	}
+	return nil, false
 }
