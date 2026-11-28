@@ -142,3 +142,83 @@ func TestMandatoryLeafInInactiveCaseIsNotRequired(t *testing.T) {
 	// (RFC 7950 7.6.5); here no node of case "key" exists.
 	assertValid(t, v.Validate(map[string]interface{}{"udp-port": 53}, "t-choice:c", "g"))
 }
+
+// Issue #56: enumeration values must be declared names (RFC 7950 9.6) and
+// identityref values must name an identity derived from the base
+// (RFC 7950 9.10, JSON encoding per RFC 7951 6.8).
+const enumIdentityYANG = `
+module t-enum {
+  namespace "urn:t:enum"; prefix te;
+  identity crypto;
+  identity aes { base crypto; }
+  identity aes-256 { base aes; }
+  typedef state { type enumeration { enum up; enum down; } }
+  container c {
+    leaf oper { type state; }
+    leaf-list states { type state; }
+    leaf speed { type union { type uint8; type enumeration { enum auto; } } }
+    leaf alg { type identityref { base crypto; } }
+  }
+}`
+
+const enumIdentityExtYANG = `
+module t-enum-ext {
+  namespace "urn:t:enum-ext"; prefix tex;
+  import t-enum { prefix te; }
+  identity blowfish { base te:crypto; }
+}`
+
+func newEnumValidator(t *testing.T) *Validator {
+	t.Helper()
+	ms := NewModuleSet()
+	for name, src := range map[string]string{"t-enum": enumIdentityYANG, "t-enum-ext": enumIdentityExtYANG} {
+		if err := ms.AddModule(name, src); err != nil {
+			t.Fatalf("AddModule %s: %v", name, err)
+		}
+	}
+	if err := ms.ProcessAllModules(); err != nil {
+		t.Fatalf("ProcessAllModules: %v", err)
+	}
+	return NewValidator(ms)
+}
+
+func TestEnumerationMembership(t *testing.T) {
+	v := newEnumValidator(t)
+	for _, tc := range []struct {
+		name  string
+		data  map[string]interface{}
+		field string
+	}{
+		{"undeclared enum", map[string]interface{}{"oper": "sideways"}, "oper"},
+		{"undeclared leaf-list enum", map[string]interface{}{"states": []interface{}{"up", "left"}}, "states"},
+		{"union enum member does not accept any string", map[string]interface{}{"speed": "zzz"}, "speed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assertInvalid(t, v.Validate(tc.data, "t-enum:c", "g"), tc.field, "invalid")
+		})
+	}
+	assertValid(t, v.Validate(map[string]interface{}{
+		"oper": "up", "states": []interface{}{"up", "down"}, "speed": "auto",
+	}, "t-enum:c", "g"))
+	assertValid(t, v.Validate(map[string]interface{}{"speed": 100}, "t-enum:c", "g"))
+}
+
+func TestIdentityrefMembership(t *testing.T) {
+	v := newEnumValidator(t)
+	for _, ok := range []string{"aes", "aes-256", "t-enum:aes", "t-enum-ext:blowfish"} {
+		t.Run("valid "+ok, func(t *testing.T) {
+			assertValid(t, v.Validate(map[string]interface{}{"alg": ok}, "t-enum:c", "g"))
+		})
+	}
+	for _, bad := range []string{
+		"rot13",          // not an identity
+		"crypto",         // the base itself is not derived from the base
+		"t-enum-ext:aes", // wrong module
+		"blowfish",       // defined in another module, so it must be qualified
+		"te:aes",         // a prefix is not a module name
+	} {
+		t.Run("invalid "+bad, func(t *testing.T) {
+			assertInvalid(t, v.Validate(map[string]interface{}{"alg": bad}, "t-enum:c", "g"), "alg", "invalid")
+		})
+	}
+}

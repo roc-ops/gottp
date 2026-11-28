@@ -169,10 +169,10 @@ func (v *Validator) validateFieldTypes(data map[string]interface{}, schemaEntry 
 				for i, elem := range slice {
 					if !v.validateValueType(elem, childEntry.Type, childEntry) {
 						result.Valid = false
-						actualType := fmt.Sprintf("%T", elem)
-						msg := fmt.Sprintf("Field '%s' leaf-list element [%d] has invalid type %s, expected %s", name, i, actualType, childEntry.Type.Name)
+						got, expected := describeMismatch(elem, childEntry.Type)
+						msg := fmt.Sprintf("Field '%s' leaf-list element [%d] has %s, expected %s", name, i, got, expected)
 						if index >= 0 {
-							msg = fmt.Sprintf("Field '%s' leaf-list element [%d] has invalid type %s in item %d, expected %s", name, i, actualType, index, childEntry.Type.Name)
+							msg = fmt.Sprintf("Field '%s' leaf-list element [%d] has %s in item %d, expected %s", name, i, got, index, expected)
 						}
 						result.Errors = append(result.Errors, &ValidationError{
 							GroupName: groupName,
@@ -184,11 +184,10 @@ func (v *Validator) validateFieldTypes(data map[string]interface{}, schemaEntry 
 				}
 			} else if !v.validateValueType(value, childEntry.Type, childEntry) {
 				result.Valid = false
-				// Provide more detailed error message with actual type
-				actualType := fmt.Sprintf("%T", value)
-				msg := fmt.Sprintf("Field '%s' has invalid type %s, expected %s", name, actualType, childEntry.Type.Name)
+				got, expected := describeMismatch(value, childEntry.Type)
+				msg := fmt.Sprintf("Field '%s' has %s, expected %s", name, got, expected)
 				if index >= 0 {
-					msg = fmt.Sprintf("Field '%s' has invalid type %s in item %d, expected %s", name, actualType, index, childEntry.Type.Name)
+					msg = fmt.Sprintf("Field '%s' has %s in item %d, expected %s", name, got, index, expected)
 				}
 				result.Errors = append(result.Errors, &ValidationError{
 					GroupName: groupName,
@@ -270,10 +269,13 @@ func (v *Validator) validateValueType(value interface{}, yangType *yang.YangType
 			return err == nil
 		}
 		return false
-	case yang.Yenum, yang.Yidentityref:
-		// Enum values should be strings
-		_, ok := value.(string)
-		return ok
+	case yang.Yenum:
+		// RFC 7950 9.6: the value must be one of the assigned names.
+		s, ok := value.(string)
+		return ok && yangType.Enum != nil && yangType.Enum.IsDefined(s)
+	case yang.Yidentityref:
+		s, ok := value.(string)
+		return ok && identityrefAccepts(s, yangType.IdentityBase, entry)
 	case yang.Yleafref:
 		// Leafref can be various types depending on target
 		return true
@@ -492,4 +494,74 @@ func lookupChild(entry *yang.Entry, name string) (*yang.Entry, bool) {
 		}
 	}
 	return nil, false
+}
+
+// describeMismatch describes, for an error message, why value failed
+// yangType: what was found and what was expected.
+func describeMismatch(value interface{}, yangType *yang.YangType) (got, expected string) {
+	got, expected = fmt.Sprintf("invalid type %T", value), yangType.Name
+	s, isString := value.(string)
+	if !isString {
+		return got, expected
+	}
+	switch yangType.Kind {
+	case yang.Yenum:
+		if yangType.Enum != nil {
+			// List the names in value (declaration) order.
+			var names []string
+			for _, val := range yangType.Enum.Values() {
+				names = append(names, yangType.Enum.Name(val))
+			}
+			return fmt.Sprintf("invalid value %q", s), "one of " + strings.Join(names, ", ")
+		}
+	case yang.Yidentityref:
+		if base := yangType.IdentityBase; base != nil {
+			return fmt.Sprintf("invalid value %q", s), fmt.Sprintf("an identity derived from %s:%s", identityModule(base), base.Name)
+		}
+	case yang.Yunion:
+		return fmt.Sprintf("invalid value %q", s), "a value of one of the " + yangType.Name + " member types"
+	}
+	return got, expected
+}
+
+// identityrefAccepts reports whether value names an identity derived from
+// base (RFC 7950 9.10.2; the base itself is not a valid value). The JSON
+// encoding is RFC 7951 6.8: "module:identity", where the module prefix may
+// be left out only when the identity is defined in the leaf's own module.
+func identityrefAccepts(value string, base *yang.Identity, entry *yang.Entry) bool {
+	if base == nil {
+		return false
+	}
+	modName, name, qualified := strings.Cut(value, ":")
+	if !qualified {
+		name, modName = value, ""
+		if entry != nil {
+			if m, err := entry.InstantiatingModule(); err == nil {
+				modName = m
+			}
+		}
+	}
+	for _, id := range base.Values {
+		if id.Name != name {
+			continue
+		}
+		// An unknown leaf module (modName == "") accepts the bare name.
+		if modName == "" || identityModule(id) == modName {
+			return true
+		}
+	}
+	return false
+}
+
+// identityModule returns the name of the module that defines id; for an
+// identity in a submodule, that is the module the submodule belongs to.
+func identityModule(id *yang.Identity) string {
+	root := yang.RootNode(id)
+	if root == nil {
+		return ""
+	}
+	if root.Kind() == "submodule" && root.BelongsTo != nil {
+		return root.BelongsTo.Name
+	}
+	return root.Name
 }

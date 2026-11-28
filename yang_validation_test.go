@@ -88,3 +88,27 @@ func TestYANGChoiceCaseLeafIsValidated(t *testing.T) {
 		t.Fatalf("expected no warnings, got %q", warns)
 	}
 }
+
+// Issue #56: an enumeration leaf only takes its declared names, also as a
+// union member.
+func TestYANGEnumerationMembership(t *testing.T) {
+	module := `module t-port {
+  namespace "urn:t:port"; prefix tp;
+  container show { list port { key name;
+    leaf name { type string; }
+    leaf state { type enumeration { enum up; enum down; } }
+    leaf speed { type union { type uint32; type enumeration { enum auto; } } }
+  } }
+}`
+	tmpl := `<group name="port*" yang="t-port:show/port">
+{{ name }} is {{ state }} speed {{ speed }}
+</group>`
+	valid, errs, warns := parseWithYANG(t, tmpl, "ge1 is sideways speed auto\n", module, "port*")
+	requireYANGError(t, valid, errs, warns, `Field 'state' has invalid value "sideways" in item 0, expected one of up, down`)
+
+	valid, errs, warns = parseWithYANG(t, tmpl, "ge1 is up speed fast\n", module, "port*")
+	requireYANGError(t, valid, errs, warns, `Field 'speed' has invalid value "fast"`)
+
+	valid, errs, warns = parseWithYANG(t, tmpl, "ge1 is up speed auto\n", module, "port*")
+	requireYANGValid(t, valid, errs, warns)
+}
