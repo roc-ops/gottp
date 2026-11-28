@@ -343,6 +343,26 @@ func (r *Runtime) ParseStream(
 	r = run
 
 	vars = r.applyParseOptions(vars, options)
+
+	// Custom group functions given as group attributes are known only now
+	// (compile-time or per-parse functions), as are the parse's vars a chain
+	// can name; streaming does not apply functions outside the allowlist.
+	var reasons []string
+	for _, g := range r.compiled.Groups {
+		if g.IsNested {
+			continue
+		}
+		for _, attr := range r.customAttrGroupFunctions(g) {
+			reasons = append(reasons, fmt.Sprintf("group %q uses the custom group function attribute %s=, which streaming does not apply", g.Name, attr))
+		}
+		// A chain= naming a template variable was checked at compile time
+		// against the template's <vars>; the parse's vars can override it.
+		reasons = append(reasons, compiler.NonStreamableChainReasons(g, vars)...)
+	}
+	if len(reasons) > 0 {
+		return wrapNotStreamableError(reasons)
+	}
+
 	inputOrder := r.prepareInputs(inputs)
 
 	// --- Drive parseGroupStream for each top-level group ---
@@ -2214,7 +2234,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	// These are group attributes that act as functions to filter/transform matches
 	// They should be processed before the functions/chain attribute
 	// Note: record attribute is handled above, so we skip it here
-	groupFunctionAttrs := []string{"containsall", "contains", "del", "delete", "exclude", "excludeall", "equal", "to_int", "contains_val", "exclude_val", "sformat", "itemize", "set", "expand", "items2dict", "to_ip"}
+	groupFunctionAttrs := builtinAttrGroupFunctions
 	for _, attrName := range groupFunctionAttrs {
 		// Special handling for expand - empty string means expand all dot-separated keys
 		if attrName == "expand" {
@@ -2456,9 +2476,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				continue
 			}
 			// Skip known non-function attributes
-			if attrName == "name" || attrName == "input" || attrName == "method" || attrName == "output" ||
-				attrName == "default" || attrName == "chain" || attrName == "functions" || attrName == "macro" ||
-				attrName == "record" {
+			if nonFunctionGroupAttrs[attrName] {
 				continue
 			}
 			// Check if this attribute name matches a custom group function
@@ -2683,77 +2701,11 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	// If the start pattern has variables with default(), create a result with defaults
 	// This matches Python TTP behavior: if no matches found for start REs but has_start_re_default,
 	// create a result structure populated with default values
-	if len(mergedMatches) == 0 && len(group.Patterns) > 0 {
-		// Check if first pattern (start pattern) has variables with default()
-		firstPattern := group.Patterns[0]
-		hasStartDefault := false
-		defaultValues := make(map[string]interface{})
-
-		for varName, variable := range firstPattern.Variables {
-			// Skip special variables
-			if pattern.IsIndicatorVar(varName) {
-				continue
-			}
-
-			// Check if this variable has default() function
-			for _, funcStr := range variable.Functions {
-				if strings.HasPrefix(funcStr, "default(") {
-					hasStartDefault = true
-					// Extract default value from default("value")
-					start := strings.Index(funcStr, "(")
-					end := strings.LastIndex(funcStr, ")")
-					if start >= 0 && end > start {
-						defaultVal := funcStr[start+1 : end]
-						defaultVal = strings.TrimSpace(defaultVal)
-						defaultVal = strings.Trim(defaultVal, `"'`)
-						defaultValues[varName] = defaultVal
-					}
-					break
-				}
-			}
-		}
-
-		// If start pattern has defaults, create a result with all variables that have defaults
-		if hasStartDefault {
-			// Collect all variables with defaults from all patterns
-			for _, cp := range group.Patterns {
-				for varName, variable := range cp.Variables {
-					// Skip special variables
-					if pattern.IsIndicatorVar(varName) {
-						continue
-					}
-
-					// Check if this variable has default() function
-					for _, funcStr := range variable.Functions {
-						if strings.HasPrefix(funcStr, "default(") {
-							// Extract default value from default("value")
-							start := strings.Index(funcStr, "(")
-							end := strings.LastIndex(funcStr, ")")
-							if start >= 0 && end > start {
-								defaultVal := funcStr[start+1 : end]
-								defaultVal = strings.TrimSpace(defaultVal)
-								defaultVal = strings.Trim(defaultVal, `"'`)
-								// Only set if not already set (first pattern takes precedence)
-								if _, exists := defaultValues[varName]; !exists {
-									defaultValues[varName] = defaultVal
-								}
-							}
-							break
-						}
-					}
-				}
-			}
-
-			// Create a result with default values
-			if len(defaultValues) > 0 {
-				defaultMatch := make(map[string]interface{})
-				for k, v := range defaultValues {
-					defaultMatch[k] = v
-				}
-				mergedMatches = append(mergedMatches, defaultMatch)
-				if obs != nil {
-					recs = append(recs, obs.newRecord(group))
-				}
+	if len(mergedMatches) == 0 {
+		if defaultMatch := startLineDefaultsRecord(group); defaultMatch != nil {
+			mergedMatches = append(mergedMatches, defaultMatch)
+			if obs != nil {
+				recs = append(recs, obs.newRecord(group))
 			}
 		}
 	}
@@ -2820,6 +2772,53 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	}
 }
 
+// startLineDefaultsRecord returns the record Parse gives for a group that
+// matched nothing when its start line (first pattern) has a variable with
+// default(): every variable of the group with default(), set to its default
+// value (the first pattern's value wins for a name used on several lines).
+// It returns nil when the start line has no default().
+func startLineDefaultsRecord(group *compiler.CompiledGroup) map[string]interface{} {
+	if len(group.Patterns) == 0 {
+		return nil
+	}
+	hasStartDefault := false
+	defaultValues := make(map[string]interface{})
+	for pi, cp := range group.Patterns {
+		for varName, variable := range cp.Variables {
+			if pattern.IsIndicatorVar(varName) {
+				continue
+			}
+			for _, funcStr := range variable.Functions {
+				if !strings.HasPrefix(funcStr, "default(") {
+					continue
+				}
+				if pi == 0 {
+					hasStartDefault = true
+				}
+				// Extract default value from default("value")
+				start := strings.Index(funcStr, "(")
+				end := strings.LastIndex(funcStr, ")")
+				if start >= 0 && end > start {
+					defaultVal := strings.TrimSpace(funcStr[start+1 : end])
+					defaultVal = strings.Trim(defaultVal, `"'`)
+					// The first pattern takes precedence.
+					if _, exists := defaultValues[varName]; !exists {
+						defaultValues[varName] = defaultVal
+					}
+				}
+				break
+			}
+		}
+		if pi == 0 && !hasStartDefault {
+			return nil
+		}
+	}
+	if len(defaultValues) == 0 {
+		return nil
+	}
+	return defaultValues
+}
+
 // applyGroupFilterStreaming runs the group's chain/functions attribute against
 // a single record. Returns nil to indicate the record should be dropped (e.g.
 // containsall failed). Implemented by wrapping the per-record value in a
@@ -2847,6 +2846,10 @@ func (r *Runtime) applyGroupFilterStreaming(
 	if len(out) == 0 {
 		return nil, nil
 	}
+	if out[0] == nil {
+		// Kept but empty: distinct from dropped (nil).
+		return map[string]interface{}{}, nil
+	}
 	return out[0], nil
 }
 
@@ -2867,6 +2870,10 @@ func (r *Runtime) applyGroupMacroStreaming(
 	}
 	if len(out) == 0 {
 		return nil, nil
+	}
+	if out[0] == nil {
+		// Kept but empty: distinct from dropped (nil).
+		return map[string]interface{}{}, nil
 	}
 	return out[0], nil
 }
@@ -2913,6 +2920,11 @@ func (r *Runtime) parseGroupStream(
 	joinMatchesVars := indicator.joinMatchesVars
 	joinMatchesHasToList := indicator.joinMatchesHasToList
 
+	// kept is set once a record survives the chain and macro. If none does,
+	// Parse gives a record of start-line defaults (see the end of this
+	// function).
+	kept := false
+
 	state := newMergeState()
 	// Streamable groups have no nested children — the parent->matches map is
 	// never read in streaming mode, so disable the bookkeeping. Otherwise
@@ -2935,6 +2947,12 @@ func (r *Runtime) parseGroupStream(
 		}
 		if filtered == nil {
 			return nil // dropped by macro
+		}
+		// The record survived the chain and macro, so Parse would not make
+		// its record of start-line defaults, even if the record is empty.
+		kept = true
+		if len(filtered) == 0 {
+			return nil // emptied (parseGroup drops empty records)
 		}
 		return fn(filtered, srcRange, group.NormalizedPath)
 	}
@@ -3073,6 +3091,20 @@ func (r *Runtime) parseGroupStream(
 			state.recordCount++
 			r.pathResolver.UpdateCache(matchCopy)
 			r.matchCollector.Clear()
+		}
+	}
+
+	// Parse gives a record of defaults when nothing survived and the start
+	// line has default(). That record covers no input text, so its srcRange
+	// is the empty range [0, 0] at the start of the input (the same range
+	// whether or not the input is empty); groupPath is the group's path, as
+	// for any record. Like parseGroup, it is not passed through the chain or
+	// the macro.
+	if !kept {
+		if defaults := startLineDefaultsRecord(group); defaults != nil {
+			if err := fn(defaults, [2]int{0, 0}, group.NormalizedPath); err != nil {
+				return err
+			}
 		}
 	}
 

@@ -471,3 +471,46 @@ func initSourceMapInputs(sourceMap *SourceMap, inputs map[string]string, inputOr
 		sourceMap.Inputs[inputName] = inputSourceMap
 	}
 }
+
+// builtinAttrGroupFunctions are the group functions parseGroup applies when
+// given as group attributes (record= is handled separately).
+var builtinAttrGroupFunctions = []string{"containsall", "contains", "del", "delete", "exclude", "excludeall", "equal", "to_int", "contains_val", "exclude_val", "sformat", "itemize", "set", "expand", "items2dict", "to_ip"}
+
+// nonFunctionGroupAttrs are group attributes parseGroup never treats as a
+// custom group function.
+var nonFunctionGroupAttrs = map[string]bool{
+	"name": true, "input": true, "method": true, "output": true, "default": true,
+	"chain": true, "functions": true, "macro": true, "record": true,
+}
+
+// customAttrGroupFunctions returns, sorted, the attributes of group that
+// parseGroup applies as custom group functions: with compile-time or
+// per-parse group functions present, any other attribute that names a group
+// function. The compiler's streamability check can't see these, so
+// ParseStream rejects them itself (#130).
+func (r *Runtime) customAttrGroupFunctions(group *compiler.CompiledGroup) []string {
+	if group.Attributes == nil || !(r.runtimeFunctions != nil && r.runtimeFunctions.Group != nil || r.compileFunctions != nil && r.compileFunctions.Group != nil) {
+		return nil
+	}
+	var names []string
+	for attrName := range group.Attributes {
+		if nonFunctionGroupAttrs[attrName] {
+			continue
+		}
+		builtin := false
+		for _, b := range builtinAttrGroupFunctions {
+			if attrName == b {
+				builtin = true
+				break
+			}
+		}
+		if builtin {
+			continue
+		}
+		if _, ok := r.getGroupFunc(attrName); ok {
+			names = append(names, attrName)
+		}
+	}
+	sort.Strings(names)
+	return names
+}

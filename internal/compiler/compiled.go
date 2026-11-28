@@ -437,7 +437,7 @@ func (c *Compiler) CompileTemplate(tmpl *parser.Template) (*CompiledTemplate, er
 	// Analyze streamability for all top-level groups (and their descendants),
 	// then compute the template-level Streamable flag.
 	for _, g := range compiled.Groups {
-		analyzeStreamabilityRecursive(g)
+		analyzeStreamabilityRecursive(g, compiled.Vars)
 	}
 	computeTemplateStreamable(compiled)
 
