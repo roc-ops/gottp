@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 // Cached compiled regexes for performance
@@ -44,6 +45,8 @@ func (r *Registry) registerBuiltins() {
 	r.Register("upper", upper)
 	r.Register("lower", lower)
 	r.Register("strip", strip)
+	r.Register("lstrip", lstrip)
+	r.Register("rstrip", rstrip)
 	r.Register("split", split)
 	r.Register("join", join)
 	r.Register("replace", replace)
@@ -69,10 +72,32 @@ func lower(value interface{}, args []string, kwargs map[string]interface{}) (int
 	return strings.ToLower(str), nil
 }
 
-// strip removes leading and trailing whitespace
+// strip, lstrip and rstrip follow Python's str.strip/lstrip/rstrip(chars):
+// with an argument they remove any of its characters (a set, not a
+// substring) from both ends, the start or the end; without one they remove
+// whitespace.
 func strip(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
 	str := fmt.Sprintf("%v", value)
+	if len(args) > 0 {
+		return strings.Trim(str, args[0]), nil
+	}
 	return strings.TrimSpace(str), nil
+}
+
+func lstrip(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
+	str := fmt.Sprintf("%v", value)
+	if len(args) > 0 {
+		return strings.TrimLeft(str, args[0]), nil
+	}
+	return strings.TrimLeftFunc(str, unicode.IsSpace), nil
+}
+
+func rstrip(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
+	str := fmt.Sprintf("%v", value)
+	if len(args) > 0 {
+		return strings.TrimRight(str, args[0]), nil
+	}
+	return strings.TrimRightFunc(str, unicode.IsSpace), nil
 }
 
 // split splits a string by delimiter

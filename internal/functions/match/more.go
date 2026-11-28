@@ -1880,8 +1880,11 @@ func applyChainFunction(value interface{}, funcName string, args []string, kwarg
 		str := fmt.Sprintf("%v", value)
 		return strings.ToLower(str), nil
 	case "strip":
-		str := fmt.Sprintf("%v", value)
-		return strings.TrimSpace(str), nil
+		return strip(value, args, kwargs)
+	case "lstrip":
+		return lstrip(value, args, kwargs)
+	case "rstrip":
+		return rstrip(value, args, kwargs)
 	case "split":
 		str := fmt.Sprintf("%v", value)
 		delimiter := ","
