@@ -108,3 +108,37 @@ ip {{ ip }}
 		t.Errorf("groupPath %q should strip trailing star, got with star or wrong path", got)
 	}
 }
+
+// A template without group tags gets an implicit group named "_anonymous_"
+// (Python TTP's name for it, #62). Like an unnamed <group>, it streams with
+// an empty groupPath.
+func TestParseStream_ImplicitGroupHasEmptyGroupPath(t *testing.T) {
+	for _, tmpl := range []string{
+		"interface {{ name }}",
+		"<group>\ninterface {{ name }}\n</group>",
+	} {
+		c, err := CompileTemplate(tmpl)
+		if err != nil {
+			t.Fatalf("compile %q: %v", tmpl, err)
+		}
+		var paths []string
+		var records []map[string]interface{}
+		err = c.ParseStream(Inputs{"Default_Input": "interface A\ninterface B\n"}, nil, nil,
+			func(m map[string]interface{}, sr [2]int, gp string) error {
+				paths = append(paths, gp)
+				records = append(records, m)
+				return nil
+			})
+		if err != nil {
+			t.Fatalf("ParseStream %q: %v", tmpl, err)
+		}
+		if len(records) != 2 || records[0]["name"] != "A" || records[1]["name"] != "B" {
+			t.Errorf("%q: records = %v, want A and B", tmpl, records)
+		}
+		for _, gp := range paths {
+			if gp != "" {
+				t.Errorf("%q: groupPath = %q, want empty", tmpl, gp)
+			}
+		}
+	}
+}

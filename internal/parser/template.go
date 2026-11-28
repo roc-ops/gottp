@@ -347,8 +347,11 @@ doneParsingRoot:
 	if len(tmpl.Groups) == 0 && strings.TrimSpace(root.Content) != "" {
 		content := strings.TrimSpace(root.Content)
 		// Create an implicit anonymous group
+		// Python TTP wraps such a template as <group name="_anonymous_">
+		// (ttp/ttp.py:1388-1394), not as an unnamed <group>: the path has
+		// no "*", so one match gives a dict and several give a list (#62).
 		implicitGroup := &Group{
-			Name:       "", // Empty name = anonymous group
+			Name:       "_anonymous_",
 			Pattern:    content,
 			Groups:     []*Group{},
 			Attributes: make(map[string]string),
@@ -746,7 +749,7 @@ func parseChildTemplate(elem xmlElement) (*Template, error) {
 	if len(childTmpl.Groups) == 0 && strings.TrimSpace(elem.Content) != "" {
 		content := strings.TrimSpace(elem.Content)
 		implicitGroup := &Group{
-			Name:       "",
+			Name:       "_anonymous_", // as above: Python TTP's implicit group name
 			Pattern:    content,
 			Groups:     []*Group{},
 			Attributes: make(map[string]string),

@@ -45,14 +45,6 @@
    "issue": 70,
    "reason": "several inline <input> tags with the same name: only one is parsed"
   },
-  "test_anonymous_group/test_anonymous_group_with_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$.len\", 3, 2]"
-  },
-  "test_anonymous_group/test_simple_anonymous_template": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
   "test_answers_and_docs/test_answer_hpe_bgp": {
    "issue": 87,
    "reason": "group path with several {{var}} segments written without spaces is not substituted"
@@ -69,8 +61,8 @@
    "reason": "design: python macro (uses _ttp_[\"match\"][\"to_ip\"] and the ipaddress object API)"
   },
   "test_answers_and_docs/test_faq_multiline_output_matching": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].peer_system_description.sys_description\", \"Cisco IOS Software, Catalyst 1234 L3 Switch Software (cat1234e-ENTSERVICESK9-M), Version 1"
+   "issue": 79,
+   "reason": "_line_ with joinmatches also captures the _start_ and _end_ lines"
   },
   "test_answers_and_docs/test_fortigate_intf_parsing": {
    "issue": 28,
@@ -140,17 +132,13 @@
    "issue": 63,
    "reason": "set(True)/set(False) gives a string"
   },
-  "test_answers_and_docs/test_issue_47_answer": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
   "test_answers_and_docs/test_issue_48_answer": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"In this course, we examine the economics of personnel management in organizations.\\nUsing mainstream microeconomic and"
+   "issue": 112,
+   "reason": "chain(var) naming a <vars> list is ignored"
   },
   "test_answers_and_docs/test_issue_48_answer_more": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"This course is the first part of the two-semester course IBIO*4521/2. This course is\\na two-semester (F,W) undergradua"
+   "issue": 112,
+   "reason": "chain(var) naming a <vars> list is ignored"
   },
   "test_answers_and_docs/test_issue_50": {
    "issue": 35,
@@ -215,24 +203,13 @@
    "issue": 100,
    "reason": "vprn records nest an extra id level; root cause not isolated"
   },
-  "test_answers_and_docs/test_stackoverflow_62421344_python_parse_text": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
   "test_answers_and_docs/test_start_with_set": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].inactive\", false, \"False\"]",
-   "also": [
-    63
-   ]
+   "issue": 63,
+   "reason": "set(True)/set(False) gives a string"
   },
   "test_answers_and_docs/test_vlans_parsing": {
    "issue": 28,
    "reason": "parent group whose _start_ line has no variables drops its child groups"
-  },
-  "test_extend_tag/test_extend_tag_from_file_anonymous": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
   },
   "test_extend_tag/test_extend_tag_from_file_group_index_filter": {
    "issue": 93,
@@ -251,8 +228,8 @@
    "reason": "<extend> inside a <group> is ignored"
   },
   "test_extend_tag/test_extend_tag_from_file_output_filter": {
-   "issue": 62,
-   "reason": "csv output renders one row per match (anonymous group list level); after that: [\"$[0]\", \"\\\"name\\\",\\\"vlan\\\"\\n\\\"some_vlan\\\",\\\"1234\\\"\\n\\\"one_more\\\",\\\"910\\\"\", \"\\\"name\\\",\\\"vlan\\\"\\n\\\"some_vlan\\\",\\\"1234\\\"\"]"
+   "issue": 98,
+   "reason": "csv formatter output gets an extra list level"
   },
   "test_extend_tag/test_extend_tag_from_file_vars_and_lookup": {
    "issue": 93,
@@ -290,20 +267,23 @@
    "reason": "<extend> inside a <group> is ignored"
   },
   "test_group_chain_attribute/test_group_chain_attribute_list": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"test loopback0\", \"<missing>\"]"
+   "issue": 112,
+   "reason": "group chain= naming a <vars> list is ignored"
   },
   "test_group_chain_attribute/test_group_chain_attribute_list_multi_func": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"test loopback0\", \"<missing>\"]"
+   "issue": 112,
+   "reason": "group chain= naming a <vars> list is ignored",
+   "also": [
+    113
+   ]
   },
   "test_group_chain_attribute/test_group_chain_attribute_string_inline": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].test_macro\", \"DONE\", \"<missing>\"]"
+   "issue": 113,
+   "reason": "macro() inside a group chain= is not run"
   },
   "test_group_chain_attribute/test_group_chain_attribute_string_var": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].test_macro\", \"DONE\", \"<missing>\"]"
+   "issue": 113,
+   "reason": "macro() inside a group chain= is not run"
   },
   "test_group_functions/test_child_group_default_referencing_variable": {
    "issue": 70,
@@ -326,53 +306,28 @@
    "reason": "group macro that returns None: the next macro gets None"
   },
   "test_group_functions/test_group_macro_returns_false": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"this interface has description\", \"<missing>\"]",
-   "also": [
-    97
-   ]
-  },
-  "test_group_functions/test_group_macro_returns_none": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_group_functions/test_group_macro_returns_true": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
+   "issue": 97,
+   "reason": "group macro that returns False keeps the record (macro return handling, triaged with #97)"
   },
   "test_group_functions/test_group_set_function_source_from_global_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0]\", [{\"hostname\": \"router_1\"}], {\"hostname\": \"router_1\"}]"
+   "issue": 99,
+   "reason": "set= of a value recorded by another group gives the variable name, not the recorded value"
   },
   "test_group_functions/test_group_to_int_for_non_integer": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[1].mtu\", 8000, \"8000\"]",
-   "also": [
-    72
-   ]
+   "issue": 72,
+   "reason": "group to_int has no float fallback"
   },
   "test_group_functions/test_group_to_int_missing_key_issue_109": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[2].mtu\", 9200.0, \"9200.0\"]",
-   "also": [
-    72
-   ]
-  },
-  "test_group_functions/test_group_to_int_with_intlist_false_issue_109": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_group_functions/test_group_to_int_with_intlist_true_issue_109": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_group_functions/test_group_to_int_with_intlist_with_not_all_integers": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
+   "issue": 72,
+   "reason": "group to_int has no float fallback"
   },
   "test_group_functions/test_group_validate_function": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0]\", [{\"interface\": \"Lo0\", \"hostname\": \"device-1\", \"validation_result\": false, \"info\": \"Lo0 has description\", \"err_details\": {\"descripti"
+   "issue": 114,
+   "reason": "group validate= attribute is not applied",
+   "also": [
+    70,
+    73
+   ]
   },
   "test_group_functions/test_itemize": {
    "issue": 88,
@@ -478,31 +433,13 @@
    "issue": 96,
    "reason": "<lookup load=\"csv\" include=...> is not loaded"
   },
-  "test_match_condition_fun/test_contains_from_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_match_condition_fun/test_contains_inline": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_match_condition_fun/test_contains_multi": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
   "test_match_condition_fun/test_contains_re_from_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
-   "also": [
-    63
-   ]
+   "issue": 63,
+   "reason": "set(True)/set(False) gives a string"
   },
   "test_match_condition_fun/test_contains_re_inline": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"<missing>\", \"RID\"]",
-   "also": [
-    69
-   ]
+   "issue": 69,
+   "reason": "a _start_ line rejected by a condition doesn't close the previous record"
   },
   "test_match_condition_fun/test_endswith_re_from_vars": {
    "issue": 67,
@@ -512,148 +449,81 @@
    "issue": 67,
    "reason": "raw-string argument endswith_re(r\"Channel\\d+\") matches nothing"
   },
-  "test_match_condition_fun/test_equal_from_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_match_condition_fun/test_equal_inline": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
   "test_match_condition_fun/test_exclude_from_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"<missing>\", \"RID\"]",
-   "also": [
-    69
-   ]
+   "issue": 69,
+   "reason": "a _start_ line rejected by a condition doesn't close the previous record"
   },
   "test_match_condition_fun/test_exclude_inline": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description\", \"<missing>\", \"RID\"]",
-   "also": [
-    69
-   ]
+   "issue": 69,
+   "reason": "a _start_ line rejected by a condition doesn't close the previous record"
   },
   "test_match_condition_fun/test_exclude_re_from_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$.len\", 1, 2]"
+   "issue": 67,
+   "reason": "raw-string argument r\"…\" matches nothing"
   },
   "test_match_condition_fun/test_exclude_re_inline": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[1].description\", \"Management\", \"RID\"]"
+   "issue": 67,
+   "reason": "raw-string argument r\"…\" matches nothing"
   },
   "test_match_condition_fun/test_notendswith_re_from_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
-   "also": [
-    63
-   ]
+   "issue": 63,
+   "reason": "set(True)/set(False) gives a string"
   },
   "test_match_condition_fun/test_notendswith_re_inline": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
-   "also": [
-    63
-   ]
-  },
-  "test_match_condition_fun/test_notequal_from_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_match_condition_fun/test_notequal_inline": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
+   "issue": 63,
+   "reason": "set(True)/set(False) gives a string"
   },
   "test_match_condition_fun/test_notstartswith_re_from_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
-   "also": [
-    63
-   ]
+   "issue": 63,
+   "reason": "set(True)/set(False) gives a string"
   },
   "test_match_condition_fun/test_notstartswith_re_inline": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
-   "also": [
-    63
-   ]
+   "issue": 63,
+   "reason": "set(True)/set(False) gives a string"
   },
   "test_match_condition_fun/test_startswith_re_from_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].is_lag\", true, \"True\"]",
-   "also": [
-    63
-   ]
+   "issue": 63,
+   "reason": "set(True)/set(False) gives a string"
   },
   "test_match_condition_fun/test_startswith_re_inline": {
    "issue": 67,
    "reason": "raw-string argument startswith_re(r\"Por\\S\") matches nothing"
   },
   "test_match_functions/test_copy": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ip_address\", \"1.1.1.123\", \"<missing>\"]",
-   "also": [
-    66
-   ]
+   "issue": 66,
+   "reason": "copy() is a stub"
   },
   "test_match_functions/test_joinmatches_with_ignore": {
    "issue": 73,
    "reason": "gethostname not resolved"
   },
   "test_match_functions/test_let_and_set": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].admin-status\", \"down\", \"up\"]",
-   "also": [
-    71
-   ]
+   "issue": 71,
+   "reason": "let() on a matched line is overridden by a later set()"
   },
   "test_match_functions/test_line_with_joinmatches": {
    "issue": 79,
    "reason": "_line_ with joinmatches also captures lines matched by another template line"
   },
   "test_match_functions/test_match_variable_default_set_to_dictionary": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ip\", \"1.1.1.1/24\", \" 1.1.1.1/24\"]",
-   "also": [
-    64
-   ]
+   "issue": 64,
+   "reason": "default() variable captures the leading space"
   },
   "test_match_functions/test_match_variable_default_set_to_list": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ip\", \"1.1.1.1/24\", \" 1.1.1.1/24\"]",
-   "also": [
-    64
-   ]
+   "issue": 64,
+   "reason": "default() variable captures the leading space"
   },
   "test_match_functions/test_match_variable_default_set_to_string": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ip\", \"1.1.1.1/24\", \" 1.1.1.1/24\"]",
-   "also": [
-    64
-   ]
+   "issue": 64,
+   "reason": "default() variable captures the leading space"
   },
   "test_match_functions/test_match_variable_set_and_let_for_same_variable_with_special_chars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ip\", \"1.1.1.1/24\", \" 1.1.1.1/24\"]",
-   "also": [
-    64
-   ]
+   "issue": 64,
+   "reason": "default() variable captures the leading space"
   },
   "test_match_functions/test_multiple_joinmatches": {
    "issue": 73,
    "reason": "gethostname not resolved"
-  },
-  "test_match_functions/test_sformat_from_vars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_match_functions/test_sformat_inline": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_match_functions/test_to_list_with_joinmatches": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
   },
   "test_misc/test_asterisk_issue_97": {
    "issue": 76,
@@ -668,8 +538,8 @@
    "reason": "record()/set= across groups: recorded value not set"
   },
   "test_misc/test_groups_with_defaults_only_and_with_children_with_defaults_only": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].ntp-1.another_child_grp_with_default\", {\"val2\": \"None\", \"deeper_child_with_defaults\": {\"val5\": \"something\", \"val4\": \"something\"}}, \"<",
+   "issue": 110,
+   "reason": "group-specific output= results are merged into the main result instead of added as a separate item",
    "also": [
     91
    ]
@@ -685,28 +555,9 @@
    "issue": 97,
    "reason": "group macro that changes data in place and returns None: the change is lost"
   },
-  "test_misc/test_match_vars_multiple_non_alpha_chars": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
   "test_misc/test_match_vars_set_with_hyphen": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].description-bla\", \"Storage\", \" Storage\"]",
-   "also": [
-    64
-   ]
-  },
-  "test_misc/test_match_vars_starts_with_digit": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_misc/test_match_vars_with_dot": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_misc/test_match_vars_with_hyphen": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
+   "issue": 64,
+   "reason": "default() variable captures the leading space"
   },
   "test_misc/test_tail_match_no_group_functions_processing": {
    "issue": 64,
@@ -717,16 +568,19 @@
    "reason": "template given as a file name is not loaded from TTP_TEMPLATES_DIR"
   },
   "test_output_formatters/test_csv_formatter_simple": {
-   "issue": 62,
-   "reason": "csv output renders one row per match (anonymous group list level); after that: [\"$[0]\", \"\\\"interface\\\",\\\"vlan\\\"\\n\\\"Port-Chanel11\\\",\\\"10\\\"\\n\\\"Loopback0\\\",\\\"20\\\"\", \"\\\"interface\\\",\\\"vlan\\\"\\n\\\"Port-Chanel11\\\",\\\"10\\\"\"]"
+   "issue": 98,
+   "reason": "csv formatter output gets an extra list level"
   },
   "test_output_formatters/test_csv_formatter_simple_empty_tag": {
-   "issue": 62,
-   "reason": "csv output renders one row per match (anonymous group list level); after that: [\"$[0]\", \"\\\"interface\\\",\\\"vlan\\\"\\n\\\"Port-Chanel11\\\",\\\"10\\\"\\n\\\"Loopback0\\\",\\\"20\\\"\", \"\\\"interface\\\",\\\"vlan\\\"\\n\\\"Port-Chanel11\\\",\\\"10\\\"\"]"
+   "issue": 98,
+   "reason": "csv formatter output gets an extra list level"
   },
   "test_output_formatters/test_csv_formatter_with_is_equal": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].interfaces2\", \"<missing>\", {\"trunks2\": [{\"description\": \"some description\", \"interface\": \"GigabitEthernet3/3\", \"trunk_vlans\": \"138,16"
+   "issue": 110,
+   "reason": "group-specific output= results are merged into the main result instead of added as a separate item",
+   "also": [
+    101
+   ]
   },
   "test_output_formatters/test_jinja2_formatter": {
    "issue": 80,
@@ -761,12 +615,18 @@
    "reason": "output function deepdiff is not registered"
   },
   "test_output_functions/test_group_specific_output_deepdiff_with_var_before": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].interfaces\", \"<missing>\", [{\"description\": \"some info\", \"interface\": \"GigabitEthernet1\", \"ip\": \"10.123.89.56\", \"mask\": \"255.255.255.0"
+   "issue": 110,
+   "reason": "group-specific output= results are merged into the main result instead of added as a separate item",
+   "also": [
+    80
+   ]
   },
   "test_output_functions/test_group_specific_output_deepdiff_with_var_before_with_add_field": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0].interfaces\", \"<missing>\", [{\"description\": \"some info\", \"interface\": \"GigabitEthernet1\", \"ip\": \"10.123.89.56\", \"mask\": \"255.255.255.0"
+   "issue": 110,
+   "reason": "group-specific output= results are merged into the main result instead of added as a separate item",
+   "also": [
+    80
+   ]
   },
   "test_output_functions/test_yangson_validate": {
    "issue": 80,
@@ -793,20 +653,12 @@
    "reason": "raw-string argument re(r\"\\d+\") matches nothing"
   },
   "test_structure/test_list_structure": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level; after that: [\"$[0]\", [{\"ip\": \"192.168.0.1\", \"mask\": \"32\", \"interface\": \"Lo0\"}, {\"ip\": \"1.1.1.1\", \"mask\": \"32\", \"interface\": \"Lo1\"}], {\"interface\": \"Lo0\""
+   "issue": 70,
+   "reason": "several inline <input> tags without names: only the first is parsed"
   },
   "test_template_variables/test_include_attribute_with_yaml_loader": {
    "issue": 96,
    "reason": "<vars load=\"yaml\" include=...> is not loaded"
-  },
-  "test_ttp_parser_methods/test_quick_parse_function": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
-  },
-  "test_ttp_parser_methods/test_quick_parse_function_template_only": {
-   "issue": 62,
-   "reason": "top-level anonymous group loses one list level"
   }
  }
 }

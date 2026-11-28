@@ -189,9 +189,11 @@ func runGoTTP(template, data string, vars map[string]interface{}, lookups map[st
 	return result, nil
 }
 
-// normalizeJSON normalizes JSON for comparison
-// Handles differences between Python TTP and GoTTP result structures
-func normalizeJSON(data interface{}) interface{} {
+// normalizeJSON normalizes JSON for comparison: map keys sorted, numbers as
+// float64. With unwrapSingleLists it also replaces every one-item list that
+// holds a list with that inner list. That loose mode hides list-level bugs
+// (it hid #62), so only the tests in looseListLevels use it.
+func normalizeJSON(data interface{}, unwrapSingleLists bool) interface{} {
 	switch v := data.(type) {
 	case map[string]interface{}:
 		normalized := make(map[string]interface{})
@@ -202,7 +204,7 @@ func normalizeJSON(data interface{}) interface{} {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			normalized[k] = normalizeJSON(v[k])
+			normalized[k] = normalizeJSON(v[k], unwrapSingleLists)
 		}
 		return normalized
 
@@ -210,13 +212,10 @@ func normalizeJSON(data interface{}) interface{} {
 		// Normalize each item first
 		normalized := make([]interface{}, len(v))
 		for i, item := range v {
-			normalized[i] = normalizeJSON(item)
+			normalized[i] = normalizeJSON(item, unwrapSingleLists)
 		}
 
-		// Python TTP uses "per_input" method by default which wraps results in [[...]]
-		// GoTTP may use "per_template" by default which returns [...]
-		// Try to normalize this difference
-		if len(normalized) == 1 {
+		if unwrapSingleLists && len(normalized) == 1 {
 			if innerList, ok := normalized[0].([]interface{}); ok {
 				// Unwrap one level if inner list is the actual result
 				return innerList
@@ -230,7 +229,7 @@ func normalizeJSON(data interface{}) interface{} {
 		// This handles cases where GoTTP returns []map[string]interface{} but Python returns []interface{}
 		normalized := make([]interface{}, len(v))
 		for i, item := range v {
-			normalized[i] = normalizeJSON(item)
+			normalized[i] = normalizeJSON(item, unwrapSingleLists)
 		}
 		return normalized
 
@@ -266,10 +265,10 @@ func roundFloat(f float64, decimals int) float64 {
 }
 
 // compareResults compares two results and returns true if they match
-func compareResults(pythonResult, goResult interface{}) (bool, string) {
+func compareResults(pythonResult, goResult interface{}, unwrapSingleLists bool) (bool, string) {
 	// Normalize both results
-	normalizedPython := normalizeJSON(pythonResult)
-	normalizedGo := normalizeJSON(goResult)
+	normalizedPython := normalizeJSON(pythonResult, unwrapSingleLists)
+	normalizedGo := normalizeJSON(goResult, unwrapSingleLists)
 
 	// Deep equality check
 	if reflect.DeepEqual(normalizedPython, normalizedGo) {
@@ -397,11 +396,44 @@ func RunComparison(t *testing.T, testName, template, data string, vars map[strin
 		t.Fatalf("GoTTP failed: %v", err)
 	}
 
-	// Compare results
-	equal, diff := compareResults(pythonResult, goResult)
-	if !equal {
-		t.Errorf("Test %s failed:\n%s", testName, diff)
+	// python_runner.py prints parser.result(), which has one item per
+	// template; CompiledTemplate.Parse returns that one template's result.
+	goResult = []interface{}{goResult}
+
+	// Compare strictly, list levels included.
+	equal, diff := compareResults(pythonResult, goResult, false)
+	issue, loose := looseListLevels[testName]
+	if !loose {
+		if !equal {
+			t.Errorf("Test %s failed:\n%s", testName, diff)
+		}
+		return
 	}
+	if equal {
+		t.Errorf("Test %s now matches Python TTP strictly: remove it from looseListLevels (was: %s)", testName, issue)
+		return
+	}
+	// Known list-level difference: compare the rest with lists unwrapped.
+	equal, diff = compareResults(pythonResult, goResult, true)
+	if !equal {
+		t.Errorf("Test %s failed (single-item lists unwrapped for %s):\n%s", testName, issue, diff)
+	}
+}
+
+// looseListLevels lists the comparison tests whose result matches Python TTP
+// only after normalizeJSON unwraps one-item lists, with the issue that causes
+// the list-level difference. Every other test is compared strictly. A listed
+// test that matches strictly fails, so fixing the issue forces its entries out.
+var looseListLevels = map[string]string{
+	"csv_formatter":                   "#98: formatter output gets an extra list level",
+	"json_formatter":                  "#98: formatter output gets an extra list level",
+	"pprint_formatter":                "#98: formatter output gets an extra list level",
+	"output_formatter_table_example1": "#98: formatter output gets an extra list level",
+	"output_formatter_table_example2": "#98: formatter output gets an extra list level",
+	"formatter_with_functions":        "#98: formatter output gets an extra list level",
+	"formatter_with_path":             "#98: formatter output gets an extra list level",
+	"template_input_output":           "#98: formatter output gets an extra list level",
+	"itemize":                         "#111: functions=\"itemize(...)\" flattens a list-valued key",
 }
 
 // RunComparisonWithFile is a helper to run comparison with template/data from files
