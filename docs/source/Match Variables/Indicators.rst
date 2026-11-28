@@ -34,7 +34,7 @@ Special Indicators
    Matches a specific line number (0-indexed).
 
 **ignore**
-   Ignores a pattern (doesn't extract it). Can take an argument: ``ignore("pattern")`` or ``ignore(pattern_var)``.
+   Ignores a pattern (doesn't extract it). Can take an argument: ``ignore("pattern")``, or the name of a template variable, ``ignore("pattern_var")``, whose value is the regex. The variable form suits regexes with ``|``, which would split the match variable. The argument is a Python string, so ``ignore("\\d+")`` is the regex ``\d+``.
 
 Usage Examples
 --------------

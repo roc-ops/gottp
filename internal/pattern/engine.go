@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	pyvars "github.com/roc-ops/gottp/internal/variable"
 )
 
 // Built-in pattern constants
@@ -66,10 +68,9 @@ func IsNonCapturingVar(name string) bool {
 
 // MatchVariable represents a parsed match variable
 type MatchVariable struct {
-	Name                  string
-	Functions             []string // function pipeline
-	Pattern               string   // regex pattern for this variable
-	IgnoreUsesTemplateVar bool     // true if ignore() uses a template variable (Python TTP quirk: returns empty result)
+	Name      string
+	Functions []string // function pipeline
+	Pattern   string   // regex pattern for this variable
 
 	// Compile-time cached function flags. Populated by CompiledPattern.PopulateFlags
 	// to avoid per-match scans of Functions in the runtime hot path.
@@ -91,7 +92,6 @@ type CompiledPattern struct {
 	// PopulateFlags after Variables and Regex are assigned.
 	HasAnchors               bool // regex contains ^ or $ -> match line-by-line
 	HasOnlySpecialIndicators bool // every variable is ignore/_start_/_end_/_line_/_exact_/_exact_space_
-	IgnoreUsesTemplateVar    bool // any "ignore" variable has IgnoreUsesTemplateVar=true
 	HasJoinMatches           bool // any variable has a joinmatches function
 }
 
@@ -106,15 +106,11 @@ func (cp *CompiledPattern) PopulateFlags() {
 	cp.HasAnchors = strings.Contains(regexStr, "^") || strings.Contains(regexStr, "$")
 
 	hasOnlySpecial := true
-	ignoreUsesTemplateVar := false
 	patternHasJoinMatches := false
 	for _, v := range cp.Variables {
 		if v.Name != "ignore" && v.Name != "_start_" && v.Name != "_end_" &&
 			v.Name != "_line_" && v.Name != "_exact_" && v.Name != "_exact_space_" {
 			hasOnlySpecial = false
-		}
-		if v.Name == "ignore" && v.IgnoreUsesTemplateVar {
-			ignoreUsesTemplateVar = true
 		}
 
 		varHasSet := false
@@ -137,7 +133,6 @@ func (cp *CompiledPattern) PopulateFlags() {
 		}
 	}
 	cp.HasOnlySpecialIndicators = hasOnlySpecial
-	cp.IgnoreUsesTemplateVar = ignoreUsesTemplateVar
 	cp.HasJoinMatches = patternHasJoinMatches
 }
 
@@ -221,8 +216,13 @@ func (e *Engine) parseVariableWithVars(variableStr string, vars map[string]inter
 		// Extract the pattern argument
 		argStr := varName[7 : len(varName)-1] // Remove "ignore(" and ")"
 		argStr = strings.TrimSpace(argStr)
-		// Remove quotes if present
-		argStr = strings.Trim(argStr, `"'`)
+		// Python TTP evaluates the argument as a Python string, so
+		// ignore("\\d+") is the regex \d+.
+		if decoded, ok := pyvars.PythonStringLiteral(argStr); ok {
+			argStr = decoded
+		} else {
+			argStr = strings.Trim(argStr, `"'`)
+		}
 		variable.Name = "ignore"
 		// Store the pattern in Functions for now (we'll use it in getPatternForVariable)
 		if argStr != "" {
@@ -356,8 +356,6 @@ func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]
 				if vars != nil {
 					if varValue, ok := vars[patternName]; ok {
 						// It's a template variable - use its value as the pattern
-						// Python TTP quirk: when ignore uses a template variable, it returns empty result
-						variable.IgnoreUsesTemplateVar = true
 						pattern = fmt.Sprintf("%v", varValue)
 					} else {
 						// Check if it's a built-in pattern name (like ORPHRASE)
@@ -377,8 +375,9 @@ func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]
 						pattern = patternName
 					}
 				}
-				// Convert Python-style regex to RE2 format
-				return e.convertPythonRegexToRE2(pattern)
+				// The regex is used as written, as re() does: RE2 knows
+				// \d, \s, \w and their negations, inside classes too.
+				return pattern
 			}
 		}
 		// Default pattern for ignore is \S+ (non-space characters)
@@ -812,37 +811,6 @@ func (e *Engine) validatePattern(pattern string) error {
 	}
 
 	return nil
-}
-
-// convertPythonRegexToRE2 converts Python-style regex patterns to Go RE2 patterns
-// RE2 doesn't support \d, \w, \s, \D, \W, \S - need to convert to character classes
-func (e *Engine) convertPythonRegexToRE2(pattern string) string {
-	// First, handle escaped backslashes - if we have \\d, convert to \d
-	// This handles cases where the pattern string has double backslashes
-	// But also handle cases where the pattern already has single backslashes
-	// We need to normalize both cases to single backslashes first
-	pattern = strings.ReplaceAll(pattern, `\\d`, `\d`)
-	pattern = strings.ReplaceAll(pattern, `\\D`, `\D`)
-	pattern = strings.ReplaceAll(pattern, `\\w`, `\w`)
-	pattern = strings.ReplaceAll(pattern, `\\W`, `\W`)
-	pattern = strings.ReplaceAll(pattern, `\\s`, `\s`)
-	pattern = strings.ReplaceAll(pattern, `\\S`, `\S`)
-
-	// Now replace common Python regex shortcuts with RE2 equivalents
-	// \d -> [0-9]
-	pattern = strings.ReplaceAll(pattern, `\d`, `[0-9]`)
-	// \D -> [^0-9]
-	pattern = strings.ReplaceAll(pattern, `\D`, `[^0-9]`)
-	// \w -> [0-9A-Za-z_]
-	pattern = strings.ReplaceAll(pattern, `\w`, `[0-9A-Za-z_]`)
-	// \W -> [^0-9A-Za-z_]
-	pattern = strings.ReplaceAll(pattern, `\W`, `[^0-9A-Za-z_]`)
-	// \s -> [\t\n\f\r ]
-	pattern = strings.ReplaceAll(pattern, `\s`, `[\t\n\f\r ]`)
-	// \S -> [^\t\n\f\r ]
-	pattern = strings.ReplaceAll(pattern, `\S`, `[^\t\n\f\r ]`)
-
-	return pattern
 }
 
 // GetBuiltinPattern returns a built-in pattern by name

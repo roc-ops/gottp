@@ -52,12 +52,6 @@ b {{ y }}
 	{"dynamic path", `<group name="devices.{{ host }}">
 {{ host }} {{ intf }}
 </group>`, "r1 gi0\n", "dynamic path"},
-	{"ignore with template var", `<vars>
-st = "UP|DOWN"
-</vars>
-<group name="e*">
-{{ n }} {{ ignore("st") }} {{ w }}
-</group>`, "a UP 1\n", "ignore() with a template variable"},
 }
 
 func TestParseStreamGate_RejectsUnimplementedFeatures(t *testing.T) {
@@ -140,6 +134,13 @@ interface {{ name | _start_ }}
 		{"record emptied by del is dropped", `<group name="e*" chain="del('name')">
 interface {{ name }}
 </group>`, "interface a\ninterface b\n"},
+		// ignore("<vars name>") is an ordinary ignore of the var's regex (#31).
+		{"ignore with template var", `<vars>
+st = "UP|DOWN"
+</vars>
+<group name="e*">
+{{ n }} {{ ignore("st") }} {{ w }}
+</group>`, "a UP 1\nb DOWN 2\nc X 3\n"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

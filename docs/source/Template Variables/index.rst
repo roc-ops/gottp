@@ -28,6 +28,10 @@ Examples
    default_vrf = "default"
    </vars>
 
+Values are read as Python literals written on one line (plus multi-line dicts and lists). In a string, an escape Python doesn't know, such as ``\s`` or ``\d``, stays as written, ``\\`` becomes ``\``, and ``r"..."`` keeps every backslash. So ``"\s+\d+"``, ``"\\s+\\d+"`` and ``r"\s+\d+"`` are the same regex for ``re("NAME")`` and ``ignore("NAME")``.
+
+Not supported, unlike Python TTP: triple-quoted strings or tuples spread over several lines, ``\N{...}`` escapes, ``b"..."`` bytes, expressions such as ``1 + 2``, and errors for invalid literals (TTP drops the whole ``<vars>`` block; gottp keeps the value as written).
+
 **YAML Format**
 
 .. code-block:: xml

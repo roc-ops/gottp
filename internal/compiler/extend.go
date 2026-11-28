@@ -97,40 +97,101 @@ func (r *ExtendResolver) resolveExtendsRecursive(tmpl *parser.Template, top bool
 		}
 
 		// Process top-level extends
+		var extendedText []string // text of extended templates that are only text
+		addedTags := false
 		for _, ext := range tmpl.Extends {
-			extended, err := r.loadAndProcessExtend(ext, top)
+			extended, text, err := r.loadAndProcessExtend(ext, top)
 			if err != nil {
 				return nil, err
 			}
+			if extended == nil {
+				// Python TTP appends the text of an extended template that
+				// is only text to the template's text (handle_extend).
+				extendedText = append(extendedText, text)
+				continue
+			}
+			tmpl.Warnings = append(tmpl.Warnings, extended.Warnings...)
+			if hasTags(extended) {
+				addedTags = true
+			}
 
 			// Merge extended template content
-			if extended != nil {
-				// Merge groups
-				newGroups = append(newGroups, extended.Groups...)
-				// Merge inputs
-				tmpl.Inputs = append(tmpl.Inputs, extended.Inputs...)
-				// Merge outputs
-				tmpl.Outputs = append(tmpl.Outputs, extended.Outputs...)
-				// Merge lookups
-				tmpl.Lookups = append(tmpl.Lookups, extended.Lookups...)
-				// Merge vars
-				if extended.Vars != nil {
-					if tmpl.Vars == nil {
-						tmpl.Vars = make(map[string]interface{})
-					}
-					for k, v := range extended.Vars {
-						tmpl.Vars[k] = v
-					}
+			// Merge groups
+			newGroups = append(newGroups, extended.Groups...)
+			// Merge inputs
+			tmpl.Inputs = append(tmpl.Inputs, extended.Inputs...)
+			// Merge outputs
+			tmpl.Outputs = append(tmpl.Outputs, extended.Outputs...)
+			// Merge lookups
+			tmpl.Lookups = append(tmpl.Lookups, extended.Lookups...)
+			// Merge vars
+			if extended.Vars != nil {
+				if tmpl.Vars == nil {
+					tmpl.Vars = make(map[string]interface{})
 				}
-				// Merge macros
-				tmpl.Macros = append(tmpl.Macros, extended.Macros...)
+				for k, v := range extended.Vars {
+					tmpl.Vars[k] = v
+				}
 			}
+			// Merge macros
+			tmpl.Macros = append(tmpl.Macros, extended.Macros...)
 		}
 
 		tmpl.Groups = newGroups
+		applyExtendedTopText(tmpl, extendedText, addedTags)
 	}
 
 	return tmpl, nil
+}
+
+// applyExtendedTopText finishes Python TTP's rule for text outside any
+// <group> once the top-level extends are resolved (see
+// parser.Template.applyTopText): the template's text, with the text of the
+// extended templates that are only text appended, becomes an implicit
+// _anonymous_ group if the template's only tags were <extend> tags whose
+// templates were only text. Otherwise that text is ignored.
+func applyExtendedTopText(tmpl *parser.Template, extendedText []string, addedTags bool) {
+	var text string
+	if tmpl.TopTextPending {
+		text = tmpl.TopText
+		tmpl.TopText, tmpl.TopTextPending = "", false
+	} else if len(extendedText) == 0 {
+		return
+	}
+	text = strings.Join(append([]string{text}, extendedText...), "\n")
+	line := parser.FirstTextLine(text)
+	switch {
+	case line == "":
+	case !addedTags && len(tmpl.Groups) == 0 && onlyExtends(tmpl):
+		tmpl.Groups = append(tmpl.Groups, parser.NewImplicitAnonymousGroup(text))
+	default:
+		tmpl.Warnings = append(tmpl.Warnings, parser.TopTextIgnoredWarning(line))
+	}
+}
+
+// onlyExtends reports whether the template has nothing but extends (and
+// the groups they added).
+func onlyExtends(tmpl *parser.Template) bool {
+	return len(tmpl.Inputs) == 0 && len(tmpl.Outputs) == 0 && len(tmpl.Lookups) == 0 &&
+		len(tmpl.Macros) == 0 && len(tmpl.Templates) == 0 && len(tmpl.VarsWithName) == 0 &&
+		len(tmpl.Vars) == 0 && tmpl.Doc == ""
+}
+
+// hasTags reports whether an extended template adds any tag to the
+// template extending it.
+func hasTags(tmpl *parser.Template) bool {
+	return len(tmpl.Groups) > 0 || !onlyExtends(tmpl)
+}
+
+// textOnlyTemplate returns the text of a template whose only tag is an
+// _anonymous_ group, which Python TTP's handle_extend appends to the text
+// of the template extending it.
+func textOnlyTemplate(tmpl *parser.Template) (string, bool) {
+	if len(tmpl.Groups) != 1 || tmpl.Groups[0].Name != "_anonymous_" ||
+		len(tmpl.Groups[0].Groups) > 0 || len(tmpl.Extends) > 0 || !onlyExtends(tmpl) {
+		return "", false
+	}
+	return tmpl.Groups[0].Pattern, true
 }
 
 // resolveGroupExtends resolves extend tags within a group
@@ -156,11 +217,13 @@ func (r *ExtendResolver) resolveGroupExtends(group *parser.Group) ([]*parser.Gro
 }
 
 // loadAndProcessExtend loads and processes an extend tag
-func (r *ExtendResolver) loadAndProcessExtend(ext *parser.Extend, top bool) (*parser.Template, error) {
+// When the extended template is only text (an _anonymous_ group), it
+// returns a nil template and that text.
+func (r *ExtendResolver) loadAndProcessExtend(ext *parser.Extend, top bool) (*parser.Template, string, error) {
 	// Load template content
 	content, err := r.loader.LoadTemplate(ext.Template)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load extended template %s: %w", ext.Template, err)
+		return nil, "", fmt.Errorf("failed to load extended template %s: %w", ext.Template, err)
 	}
 
 	// Apply macro if specified
@@ -174,14 +237,20 @@ func (r *ExtendResolver) loadAndProcessExtend(ext *parser.Extend, top bool) (*pa
 	// Parse the extended template
 	extended, err := parser.ParseTemplate(content)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse extended template %s: %w", ext.Template, err)
+		return nil, "", fmt.Errorf("failed to parse extended template %s: %w", ext.Template, err)
+	}
+	if text, ok := textOnlyTemplate(extended); ok {
+		return nil, text, nil
 	}
 
 	// Apply filters
 	filtered := r.filterExtendedTemplate(extended, ext, top)
+	filtered.Warnings = extended.Warnings
+	filtered.TopText, filtered.TopTextPending = extended.TopText, extended.TopTextPending
 
 	// Recursively resolve extends in the extended template
-	return r.resolveExtendsRecursive(filtered, top)
+	resolved, err := r.resolveExtendsRecursive(filtered, top)
+	return resolved, "", err
 }
 
 // filterExtendedTemplate filters the extended template based on extend tag attributes

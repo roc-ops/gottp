@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 )
 
@@ -23,6 +24,20 @@ type Template struct {
 	Macros        []*Macro
 	Templates     []*Template // child templates
 	Extends       []*Extend
+
+	// TopText is the template's text outside any child tag, kept while the
+	// template's only child tags are <extend>: Python TTP appends the text
+	// of an extended template that is only text to it, and makes it an
+	// implicit _anonymous_ group only if no tag is left (see
+	// TopTextPending and applyTopText).
+	TopText string
+	// TopTextPending reports that the template's only child tags are
+	// <extend>, so whether TopText becomes an implicit _anonymous_ group is
+	// decided when the extends are resolved.
+	TopTextPending bool
+	// Warnings lists non-fatal issues found while parsing, such as text
+	// outside any <group> that is ignored.
+	Warnings []string
 }
 
 // VarsWithName represents a vars tag with a name attribute
@@ -220,6 +235,7 @@ func ParseTemplate(templateText string) (*Template, error) {
 	decoder.Strict = false
 
 	var topLevelElements []xmlElement
+	var strayText strings.Builder // text beside the top-level elements
 	for {
 		tok, err := decoder.Token()
 		if err == io.EOF {
@@ -267,6 +283,8 @@ func ParseTemplate(templateText string) (*Template, error) {
 					switch it := innerTok.(type) {
 					case xml.StartElement:
 						topLevelElements = append(topLevelElements, parseXMLElement(it, decoder))
+					case xml.CharData:
+						strayText.Write(it)
 					case xml.EndElement:
 						if it.Name.Local == "_root_" {
 							goto doneParsingRoot
@@ -358,25 +376,121 @@ doneParsingRoot:
 		return nil, err
 	}
 
-	// If no groups were parsed but there is content in root.Content, create an implicit anonymous group
-	// This handles templates like "description {{ description | join('.') }}" without explicit <group> tags
-	if len(tmpl.Groups) == 0 && strings.TrimSpace(root.Content) != "" {
-		content := strings.TrimSpace(root.Content)
-		// Create an implicit anonymous group
-		// Python TTP wraps such a template as <group name="_anonymous_">
-		// (ttp/ttp.py:1388-1394), not as an unnamed <group>: the path has
-		// no "*", so one match gives a dict and several give a list (#62).
-		implicitGroup := &Group{
-			Name:       "_anonymous_",
-			Pattern:    content,
-			TailStart:  -1,
-			Groups:     []*Group{},
-			Attributes: make(map[string]string),
-		}
-		tmpl.Groups = append(tmpl.Groups, implicitGroup)
+	tmpl.applyTopText(root.Content, root.Children, false)
+	// Text beside the top-level tags (e.g. after a top-level <group> or
+	// <template>): Python TTP wraps the template in <template>, where that
+	// text sits beside tags, so it is ignored.
+	if line := FirstTextLine(strayText.String()); line != "" {
+		tmpl.Warnings = append(tmpl.Warnings, TopTextIgnoredWarning(line))
 	}
 
 	return tmpl, nil
+}
+
+// TopTextIgnoredWarning is the compile warning for text outside any
+// <group> that is ignored because the template has XML tags; line is the
+// first ignored line.
+func TopTextIgnoredWarning(line string) string {
+	return fmt.Sprintf("top-level text outside any <group> is ignored because the template has XML tags (as in Python TTP): %q", line)
+}
+
+// nestedTopTextIgnoredWarning is the compile warning for text outside any
+// <group> in a nested <template>, which Python TTP never parses.
+func nestedTopTextIgnoredWarning(line string) string {
+	return fmt.Sprintf("text outside any <group> in a nested <template> is ignored (as in Python TTP): %q", line)
+}
+
+// FirstTextLine returns the first non-blank line of text, trimmed, or "".
+func FirstTextLine(text string) string {
+	for _, line := range strings.Split(text, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			return line
+		}
+	}
+	return ""
+}
+
+// NewImplicitAnonymousGroup returns the group Python TTP makes of a
+// template's text when the template has no child tags.
+func NewImplicitAnonymousGroup(text string) *Group {
+	// Python TTP wraps such a template as <group name="_anonymous_">
+	// (ttp/ttp.py:1396-1401), not as an unnamed <group>: the path has no
+	// "*", so one match gives a dict and several give a list (#62).
+	return &Group{
+		Name:       "_anonymous_",
+		Pattern:    strings.TrimSpace(text),
+		TailStart:  -1,
+		Groups:     []*Group{},
+		Attributes: make(map[string]string),
+	}
+}
+
+// applyTopText ports Python TTP's rule for a template's text outside any
+// child tag (ttp/ttp.py construct_etree, "if not list(template_ET)"): it
+// becomes an implicit _anonymous_ group only when the template has no
+// child tags at all. With any tag present (<vars>, <macro>, <doc>,
+// <input>, <group>, ...) the text is ignored, and a warning says so.
+//
+// When the only child tags are <extend>, the decision waits for extend
+// resolution: TTP appends the text of an extended template that is only
+// text to this text and removes the tag, and other extended templates add
+// tags.
+//
+// A nested <template> never gets an implicit group: TTP builds it from
+// ET.tostring(element, encoding="UTF-8"), bytes that construct_etree
+// formats as "b'...'" when it wraps them, so its text never parses.
+func (t *Template) applyTopText(text string, children []xmlElement, nested bool) {
+	line := FirstTextLine(text)
+	if line == "" {
+		return
+	}
+	switch {
+	case nested:
+		t.Warnings = append(t.Warnings, nestedTopTextIgnoredWarning(line))
+	case len(children) == 0 && unknownTag(text) != "":
+		// gottp reads an unknown tag as text, but Python TTP parses it as
+		// an (invalid) child element, so the template has a tag and the
+		// text is not an implicit group.
+		tag := unknownTag(text)
+		t.Warnings = append(t.Warnings, fmt.Sprintf("unknown tag <%s> is ignored (Python TTP logs \"invalid tag\")", tag))
+		t.Warnings = append(t.Warnings, TopTextIgnoredWarning(line))
+	case len(children) == 0:
+		t.Groups = append(t.Groups, NewImplicitAnonymousGroup(text))
+	case onlyExtendTags(children):
+		t.TopText = text
+		t.TopTextPending = true
+	default:
+		t.Warnings = append(t.Warnings, TopTextIgnoredWarning(line))
+	}
+}
+
+// unknownTagRe finds a well-formed element with an unknown tag name at the
+// start of a line: <name ...>...</name> or <name .../>. gottp escapes such
+// tags into text (see escapeContentBlocks), while Python TTP's XML parser
+// sees them as child elements. Bare '<' in template text (for example
+// "for <{{ vr }}>") doesn't match, because a tag name starts with a letter
+// or '_' and needs a closing tag or "/>".
+var unknownTagRe = regexp.MustCompile(`(?m)^[ \t]*<([A-Za-z_][\w.-]*)(?:\s[^<>]*)?(/>|>[\s\S]*?</([A-Za-z_][\w.-]*)\s*>)`)
+
+// unknownTag returns the name of the first well-formed unknown element in
+// text (see unknownTagRe), or "" if there is none.
+func unknownTag(text string) string {
+	for _, m := range unknownTagRe.FindAllStringSubmatch(text, -1) {
+		if m[2] == "/>" || m[3] == m[1] {
+			return m[1]
+		}
+	}
+	return ""
+}
+
+// onlyExtendTags reports whether every element is an <extend> tag.
+func onlyExtendTags(elements []xmlElement) bool {
+	for _, elem := range elements {
+		if strings.ToLower(elem.XMLName.Local) != "extend" {
+			return false
+		}
+	}
+	return true
 }
 
 // parseElements parses child XML elements
@@ -391,6 +505,7 @@ func (t *Template) parseElements(elements []xmlElement) error {
 				return err
 			}
 			t.Templates = append(t.Templates, childTmpl)
+			t.Warnings = append(t.Warnings, childTmpl.Warnings...)
 
 		case "v", "vars", "variables":
 			if err := t.parseVars(elem); err != nil {
@@ -778,18 +893,7 @@ func parseChildTemplate(elem xmlElement) (*Template, error) {
 		return nil, err
 	}
 
-	// If no groups were parsed but there is content, create an implicit anonymous group
-	if len(childTmpl.Groups) == 0 && strings.TrimSpace(elem.Content) != "" {
-		content := strings.TrimSpace(elem.Content)
-		implicitGroup := &Group{
-			Name:       "_anonymous_", // as above: Python TTP's implicit group name
-			Pattern:    content,
-			TailStart:  -1,
-			Groups:     []*Group{},
-			Attributes: make(map[string]string),
-		}
-		childTmpl.Groups = append(childTmpl.Groups, implicitGroup)
-	}
+	childTmpl.applyTopText(elem.Content, elem.Children, true)
 
 	return childTmpl, nil
 }

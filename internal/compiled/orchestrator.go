@@ -116,19 +116,6 @@ func groupInputNames(group *compiler.CompiledGroup, inputOrder []string) []strin
 	return names
 }
 
-// hasIgnoreWithTemplateVar reports whether a pattern of group uses
-// ignore("<template variable>").
-func hasIgnoreWithTemplateVar(group *compiler.CompiledGroup) bool {
-	for _, compiledPattern := range group.Patterns {
-		for _, variable := range compiledPattern.Variables {
-			if variable.Name == "ignore" && variable.IgnoreUsesTemplateVar {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // isVoidGroup reports whether group has the void attribute (present and
 // empty, or "true" in any of its usual spellings).
 func isVoidGroup(group *compiler.CompiledGroup) bool {
@@ -188,7 +175,6 @@ func (r *Runtime) parse(inputs map[string]string, vars map[string]interface{}, o
 		// Collect key fields from keys= attribute (recursively includes nested groups)
 		r.collectGroupKeys(group)
 
-		ignoreQuirk := hasIgnoreWithTemplateVar(group)
 		void := isVoidGroup(group)
 
 		for _, inputName := range groupInputNames(group, inputOrder) {
@@ -216,14 +202,6 @@ func (r *Runtime) parse(inputs map[string]string, vars map[string]interface{}, o
 			var recs []*smRecord // source map: the records behind groupResults
 			if obs != nil {
 				recs = obs.takeNodes()
-			}
-
-			// Python TTP quirk: when ignore() uses a template variable, return one empty result
-			if ignoreQuirk {
-				groupResults = []map[string]interface{}{{}}
-				if obs != nil {
-					recs = []*smRecord{obs.smCollapse(group, recs)}
-				}
 			}
 
 			if groupResults != nil && !void {

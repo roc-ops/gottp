@@ -132,6 +132,10 @@ The comparison test suite includes:
 - **Python TTP 0.10.1:** both raise `TypeError`, because `macro=` becomes the call `macro(data, "a", "b")` and TTP's output `macro()` takes one name. Use `functions="macro('a') | macro('b')"` in templates that must run in both.
 - **Test status:** no comparison case; covered by `TestOutputMacro_SeveralNamesRunInOrder` in `test/output_macro_test.go`.
 
+### Several text-only `<extend>` tags (deliberate)
+- **gottp:** `<extend template="a.txt"/>` followed by `<extend template="b.txt"/>`, where both files are plain text, gives the implicit group with both files' text.
+- **Python TTP 0.10.1:** gives `{}`. Its `handle_extend` removes children while iterating over them, so it skips the second extend, which leaves a tag in the template, so no implicit group is made. gottp keeps the sensible result.
+
 ## Recent Fixes and Improvements
 
 ### Fixed During Testing (2024)

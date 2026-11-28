@@ -293,15 +293,6 @@ func analyzeStreamability(g *CompiledGroup, vars map[string]interface{}) {
 	// A start line with default() makes a record of defaults when the group
 	// matches nothing; parseGroupStream gives that record too.
 
-	// Rule 13: ignore("<template variable>") turns the result into one
-	// empty record.
-	for _, p := range g.Patterns {
-		if p.IgnoreUsesTemplateVar {
-			reasons = append(reasons, fmt.Sprintf("group %q uses ignore() with a template variable, which streaming does not implement", g.Name))
-			break
-		}
-	}
-
 	g.NonStreamableReasons = reasons
 	g.Streamable = len(reasons) == 0
 }

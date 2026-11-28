@@ -216,7 +216,7 @@ func smDrop(recs []*smRecord) {
 
 // smCollapse merges recs into one record without an identity of its own
 // (the group's result is not a list of these records any more, e.g.
-// itemize or the ignore("<vars name>") quirk). Its path falls back to rel.
+// itemize). Its path falls back to rel.
 func (o *smObserver) smCollapse(group *compiler.CompiledGroup, recs []*smRecord) *smRecord {
 	one := o.newRecord(group)
 	for _, rec := range recs {
