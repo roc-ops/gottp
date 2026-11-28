@@ -2,7 +2,7 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (refactor E1, #60):
+Current result (refactor F0, #60):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
@@ -10,9 +10,9 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 
 ```
 TTP 0.10.1 suite: pass 84 / skipped-by-issue 111 / design 5 of 200
-gottp repros: pass 96 / skipped-by-issue 4 / design 0 of 100
-source-map parity: same 303 / diverge 0 of 303
-stream snapshots: 121 streamable of 303 cases
+gottp repros: pass 106 / skipped-by-issue 20 / design 0 of 126
+source-map parity: same 329 / diverge 0 of 329
+stream snapshots: 147 streamable of 329 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -148,6 +148,37 @@ Fixes from the review of E1 (#153), each recorded from TTP 0.10.1; all pass:
 | `issue149_starlark_macro_false_drops_in_chain` | the same for `macro()` in `chain=` |
 | `issue149_sformat_keywords_in_functions` | `functions="sformat(string='{name}-{vrf}', add_field='nv')"` saves under `nv` |
 | `issue149_items2dict_missing_key_drops` | `items2dict=` drops a record without one of its keys |
+
+Function-call pins for refactor F (#36), recorded from TTP 0.10.1. F1 gives match, group, input and output functions one call module, with a quote-aware call parser; F2 ports the type-method fallback of TTP's `check_matches` (`ttp.py:2464`). When a match function isn't a TTP function, TTP runs `getattr(value, name)`: a callable is called with the arguments, `True`/`False` keeps or drops the match, and any other result replaces the value. The *Today* column says which ones fail on F0; those are in `known_failures.json`. `issue36_unknown_function_falls_back_to_str_method` (`swapcase`, above) belongs to this set too. What TTP only logs (unknown-name warnings, #144's hang and #146's `TypeError`) is pinned by skipped Go tests in `test/function_calls_test.go`.
+
+| Repro | Rule | Today |
+|---|---|---|
+| `issue36_str_title` | `title` gives `Hello-World` | fails |
+| `issue36_str_zfill` | `zfill(9)` gives `000000123` | fails |
+| `issue36_str_center` | `center(12, "*")` gives `****abc*****` | fails |
+| `issue36_str_casefold` | `casefold` gives `strasse` | fails |
+| `issue36_str_removesuffix` | `removesuffix(",")` | fails |
+| `issue36_str_partition_returns_tuple` | `partition(",")` returns a tuple, saved as the list `["a", ",", "b,c"]` | fails |
+| `issue36_str_find_returns_int` | `find("2")` saves the int `2` | fails |
+| `issue36_str_isalpha_filters` | `isalpha` returning `False` drops the match | fails |
+| `issue36_str_isupper_filters` | `isupper` returning `False` drops the match | fails |
+| `issue36_str_isdigit_filters` | `isdigit` filters the same way (gottp's built-in already does) | passes |
+| `issue36_int_bit_length` | `to_int \| bit_length` gives `8` | fails |
+| `issue36_int_imag_attribute` | `to_int \| imag`, an attribute that isn't callable, gives `0` | fails |
+| `issue36_list_index` | `split(",") \| index("b")` gives `1` (TTP's own `count` shadows `list.count`) | fails |
+| `issue36_unknown_name_keeps_value` | `nosuchfn`, a method on nothing, keeps the value | passes |
+| `issue36_builtin_upper` | built-in `upper` | passes |
+| `issue36_builtin_strip_characters` | built-in `strip("x")` | passes |
+| `issue36_builtin_replace` | built-in `replace("a", "b")` | passes |
+| `issue36_builtin_split` | built-in `split(",")` | passes |
+| `issue36_builtin_join` | built-in `join("-")` after `split` | passes |
+| `issue23_re_pipe_splits_chain` | `re("UP\|DOWN")` is split at the `\|` as TTP splits it, so `--` matches too (decision on #23: keep the result, add a warning) | passes |
+| `issue23_re_noncapturing_pipe_splits_chain` | the same for `re("(?:UP\|DOWN)")` | passes |
+| `issue23_sformat_pipe_in_quotes` | `sformat("a\|{}")`: both halves fail in TTP, so the value is kept | fails |
+| `issue23_sformat_comma_in_quotes` | `sformat("{}, x")`: a comma inside quotes | passes |
+| `issue23_sformat_equals_in_quotes` | `sformat("v={}")`: an `=` inside quotes isn't a keyword argument | fails |
+| `issue151_re_double_backslash_argument` | inline `re("\\d+")` is a Python string, so it matches `\d+` | fails |
+| `issue151_re_raw_string_argument` | inline `re(r"\d+")` is a Python raw string (also #67) | fails |
 
 ## Source-map parity
 

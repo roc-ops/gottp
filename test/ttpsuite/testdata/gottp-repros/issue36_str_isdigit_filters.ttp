@@ -1,0 +1,3 @@
+<group name="r">
+x {{ v | isdigit }}
+</group>
