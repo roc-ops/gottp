@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync/atomic"
 
 	"github.com/roc-ops/gottp/internal/parser"
 	"github.com/roc-ops/gottp/internal/pattern"
@@ -88,6 +89,32 @@ type CompiledGroup struct {
 	Streamable           bool
 	NonStreamableReasons []string
 	NormalizedPath       string
+
+	// profile is the group's indicator profile (start/end/line patterns).
+	// It is derived from Patterns and Method, never serialized: the compiler
+	// builds it, LoadCompiledTemplate rebuilds it, and Profile builds it on
+	// first use for groups assembled by hand.
+	profile atomic.Pointer[IndicatorProfile]
+}
+
+// Profile returns the group's indicator profile, building it if needed.
+func (g *CompiledGroup) Profile() *IndicatorProfile {
+	if p := g.profile.Load(); p != nil {
+		return p
+	}
+	p := BuildIndicatorProfile(g.Method, g.Patterns)
+	if g.profile.CompareAndSwap(nil, p) {
+		return p
+	}
+	return g.profile.Load()
+}
+
+// RebuildProfile recomputes the indicator profile of g and its nested groups.
+func (g *CompiledGroup) RebuildProfile() {
+	g.profile.Store(BuildIndicatorProfile(g.Method, g.Patterns))
+	for _, child := range g.Groups {
+		child.RebuildProfile()
+	}
 }
 
 // CompiledInput represents a compiled input configuration
@@ -440,7 +467,12 @@ func (c *Compiler) compileGroup(group *parser.Group, templateVars map[string]int
 	// Compile patterns from group pattern text
 	if group.Pattern != "" {
 		lines := splitLines(group.Pattern)
+		lineStart := 0
 		for _, line := range lines {
+			// A line that starts at or after the first child group is a tail
+			// line (Python TTP parses it with get_regexes(tail=True)).
+			isTail := len(group.Groups) > 0 && group.TailStart >= 0 && lineStart >= group.TailStart
+			lineStart += len(line) + 1
 			if line == "" {
 				continue
 			}
@@ -507,6 +539,7 @@ func (c *Compiler) compileGroup(group *parser.Group, templateVars map[string]int
 			if err != nil {
 				return nil, err
 			}
+			pattern.Tail = isTail
 			compiled.Patterns = append(compiled.Patterns, pattern)
 		}
 	}
@@ -525,6 +558,7 @@ func (c *Compiler) compileGroup(group *parser.Group, templateVars map[string]int
 		compiled.Groups = append(compiled.Groups, compiledNested)
 	}
 
+	compiled.profile.Store(BuildIndicatorProfile(compiled.Method, compiled.Patterns))
 	return compiled, nil
 }
 

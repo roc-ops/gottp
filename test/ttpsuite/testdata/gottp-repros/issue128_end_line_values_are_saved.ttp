@@ -1,0 +1,7 @@
+<group name="vrf">
+vrf {{ name }}
+ <group name="rt">
+ rt {{ rt }}
+ </group>
+ exit {{ e | _end_ }}
+</group>

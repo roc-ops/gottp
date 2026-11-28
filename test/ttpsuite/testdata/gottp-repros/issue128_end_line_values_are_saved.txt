@@ -1,0 +1,8 @@
+vrf A
+ rt 1
+ rt 2
+ exit now
+ rt 99
+vrf B
+ rt 3
+ exit now

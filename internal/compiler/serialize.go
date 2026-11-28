@@ -62,6 +62,9 @@ func LoadCompiledTemplate(r io.Reader, format SerializationFormat) (*CompiledTem
 		return nil, fmt.Errorf("unsupported format: %s", format)
 	}
 
+	// The indicator profile is derived, not saved: rebuild it so a template
+	// saved under older rules also gets the current (Python TTP) ones.
+	compiled.rebuildProfiles()
 	return compiled, nil
 }
 
@@ -79,3 +82,14 @@ func LoadCompiledTemplateFromBytes(data []byte, format SerializationFormat) (*Co
 	return LoadCompiledTemplate(bytes.NewReader(data), format)
 }
 
+
+// rebuildProfiles recomputes the indicator profile of every group, including
+// nested groups and child templates' groups.
+func (t *CompiledTemplate) rebuildProfiles() {
+	for _, g := range t.Groups {
+		g.RebuildProfile()
+	}
+	for _, child := range t.Templates {
+		child.rebuildProfiles()
+	}
+}

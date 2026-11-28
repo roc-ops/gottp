@@ -1,0 +1,5 @@
+<group name="g">
+no variables here
+interface {{ name }}
+ ip {{ ip }}
+</group>

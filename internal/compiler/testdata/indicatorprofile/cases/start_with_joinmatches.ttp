@@ -1,0 +1,5 @@
+<group name="g">
+interface {{ name }}
+ tag {{ t | _start_ | joinmatches }}
+ member {{ m | joinmatches(",") }}
+</group>

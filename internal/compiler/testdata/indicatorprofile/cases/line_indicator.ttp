@@ -1,0 +1,4 @@
+<group name="cfg">
+interface {{ name }}
+{{ config | _line_ | joinmatches }}
+</group>

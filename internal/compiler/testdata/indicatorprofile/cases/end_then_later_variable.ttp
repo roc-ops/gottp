@@ -1,0 +1,4 @@
+<group name="g">
+interface {{ name }}
+stop {{ a | _end_ }} more {{ b }}
+</group>

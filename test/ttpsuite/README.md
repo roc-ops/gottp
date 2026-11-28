@@ -10,8 +10,8 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:'
 
 ```
 TTP 0.10.1 suite: pass 49 / skipped-by-issue 147 / design 4 of 200
-gottp repros: pass 3 / skipped-by-issue 7 / design 0 of 10
-source-map parity: same 199 / diverge 11 of 210
+gottp repros: pass 6 / skipped-by-issue 8 / design 0 of 14
+source-map parity: same 203 / diverge 11 of 214
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are three:
@@ -44,6 +44,10 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue35_strip_characters_argument` | #35 |
 | `issue36_unknown_function_falls_back_to_str_method` | #36 |
 | `sourcemap_void_group` | passes; covers `void` for source-map parity (#108) |
+| `issue60_first_line_starts_record_after_start_indicator` | passes; the first line starts a record even after a `_start_` line (refactor B, #60) |
+| `issue60_table_tail_line_is_ordinary` | passes; a `method="table"` line after a child group is not a start pattern (#60) |
+| `issue60_tail_start_line_starts_own_record` | passes; a `_start_` line after a child group starts its own record (#60) |
+| `issue128_end_line_values_are_saved` | #128 |
 
 ## Source-map parity
 

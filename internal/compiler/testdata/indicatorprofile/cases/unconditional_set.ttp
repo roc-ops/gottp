@@ -1,0 +1,5 @@
+<group name="g">
+{{ role | set("leaf") }}
+interface {{ name }}
+ ip {{ ip }}
+</group>
