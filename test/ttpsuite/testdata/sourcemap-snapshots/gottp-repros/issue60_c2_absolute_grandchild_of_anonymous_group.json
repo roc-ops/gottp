@@ -1,0 +1,19 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":13}},"ResultPath":"_anonymous_[0]"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"","PatternIndex":1,"Variables":{"desc":{"StartCol":13,"EndCol":19}},"ResultPath":"_anonymous_[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"vlans","PatternIndex":0,"Variables":{"vlan":{"StartCol":6,"EndCol":8}},"ResultPath":"_anonymous_[0].vlans[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"/names","PatternIndex":0,"Variables":{"vname":{"StartCol":6,"EndCol":9}},"ResultPath":"names[0]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"vlans","PatternIndex":0,"Variables":{"vlan":{"StartCol":6,"EndCol":8}},"ResultPath":"_anonymous_[0].vlans[1]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"/names","PatternIndex":0,"Variables":{"vname":{"StartCol":6,"EndCol":12}},"ResultPath":"names[1]"}]},
+   {"LineNumber":6,"Matched":false,"Matches":[]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":13,"GroupName":"","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":13}},"ResultPath":"_anonymous_[1]"}]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"","PatternIndex":1,"Variables":{"desc":{"StartCol":13,"EndCol":17}},"ResultPath":"_anonymous_[1]"}]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"vlans","PatternIndex":0,"Variables":{"vlan":{"StartCol":6,"EndCol":8}},"ResultPath":"_anonymous_[1].vlans"}]},
+   {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"/names","PatternIndex":0,"Variables":{"vname":{"StartCol":6,"EndCol":12}},"ResultPath":"names[2]"}]},
+   {"LineNumber":11,"Matched":false,"Matches":[]},
+   {"LineNumber":12,"Matched":false,"Matches":[]}
+  ]
+ }
+}

@@ -1,0 +1,38 @@
+[
+ [
+  [
+   {
+    "desc": "uplink",
+    "name": "Gi1",
+    "vlans": [
+     {
+      "vlan": "10"
+     },
+     {
+      "vlan": "20"
+     }
+    ]
+   },
+   {
+    "desc": "down",
+    "name": "Gi2",
+    "vlans": {
+     "vlan": "30"
+    }
+   },
+   {
+    "names": [
+     {
+      "vname": "ten"
+     },
+     {
+      "vname": "twenty"
+     },
+     {
+      "vname": "thirty"
+     }
+    ]
+   }
+  ]
+ ]
+]

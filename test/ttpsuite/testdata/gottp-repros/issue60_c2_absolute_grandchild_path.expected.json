@@ -1,0 +1,42 @@
+[
+ [
+  {
+   "intf": [
+    {
+     "desc": "uplink",
+     "name": "Gi1",
+     "vlans": [
+      {
+       "vlan": "10"
+      },
+      {
+       "vlan": "20"
+      }
+     ],
+     "ip": "1.1.1.1",
+     "mask": "255.255.255.0"
+    },
+    {
+     "desc": "down",
+     "name": "Gi2",
+     "vlans": {
+      "vlan": "30"
+     },
+     "ip": "2.2.2.2",
+     "mask": "255.255.255.0"
+    }
+   ],
+   "names": [
+    {
+     "vname": "ten"
+    },
+    {
+     "vname": "twenty"
+    },
+    {
+     "vname": "thirty"
+    }
+   ]
+  }
+ ]
+]

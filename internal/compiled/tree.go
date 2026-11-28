@@ -31,7 +31,10 @@ import (
 //     result, and a descendant's record goes to its PATH below the top
 //     group's, under the last record there (dict_by_path follows the last
 //     item of every list on the way). A record of a group whose PATH is the
-//     top group's (an anonymous child) is one more top-level record.
+//     top group's (an anonymous child) is one more top-level record. A group
+//     whose PATH is outside the top group's (an absolute name such as
+//     "/vlans", or "/", which is "_anonymous_*") saves its records from the
+//     input's results, as save_curelements saves into TTP's self.results.
 //
 // The top group's result then goes through the orchestrator like any other
 // group's (storeGroupResults), which resolves its dynamic path.
@@ -43,9 +46,12 @@ type treeGroup struct {
 	parent   *treeGroup
 	children []*treeGroup
 	// path is TTP's group.path: the result path's segments, with their
-	// formatters, unresolved. rel is the part below the top group's path.
+	// formatters, unresolved. rel is the part below the top group's path,
+	// or, for an outside group (abs), the whole path: abs groups save from
+	// the input's results instead of the top group's last record.
 	path []string
 	rel  []string
+	abs  bool
 	// start, end and ordinary are the pattern indices of TTP's start_re,
 	// end_re and re, in template order; ordinary also holds the lines TTP
 	// has no regex for (unconditional set() lines), after the others.
@@ -73,18 +79,33 @@ func buildTree(top *compiler.CompiledGroup) (*treeGroup, []*treeGroup) {
 		case anonymous:
 			tg.path = parent.path
 		case strings.HasPrefix(cg.Name, "/"):
-			tg.path = strings.Split(strings.TrimPrefix(cg.Name, "/"), ".")
+			// TTP's extract_name: under a parent whose path has an
+			// "_anonymous_" segment the path goes below "_anonymous_*", and
+			// "/" alone is "_anonymous_*".
+			abs := strings.Split(strings.TrimPrefix(cg.Name, "/"), ".")
+			switch {
+			case containsSegment(parent.path, "_anonymous_"):
+				tg.path = append([]string{"_anonymous_*"}, abs...)
+			case cg.Name == "/":
+				tg.path = []string{"_anonymous_*"}
+			default:
+				tg.path = abs
+			}
 		default:
 			tg.path = append(append([]string(nil), parent.path...), strings.Split(cg.Name, ".")...)
 		}
 		if parent != nil {
 			// dict_by_path ignores formatters, so "/interfaces*" saves at the
 			// top group "interfaces" path.
+			// A void top group saves nothing, so its descendants save from
+			// the input's results, as in TTP, where processgrp drops only
+			// the void group's own records.
 			topPath := groups[0].path
-			if len(tg.path) >= len(topPath) && samePathKeys(tg.path[:len(topPath)], topPath) {
+			if !groups[0].void && len(tg.path) >= len(topPath) && samePathKeys(tg.path[:len(topPath)], topPath) {
 				tg.rel = tg.path[len(topPath):]
 			} else {
 				tg.rel = tg.path
+				tg.abs = true
 			}
 		}
 		name := strings.Join(tg.path, ".")
@@ -126,6 +147,15 @@ func buildTree(top *compiler.CompiledGroup) (*treeGroup, []*treeGroup) {
 	}
 	root := build(top, nil)
 	return root, groups
+}
+
+func containsSegment(path []string, seg string) bool {
+	for _, p := range path {
+		if p == seg {
+			return true
+		}
+	}
+	return false
 }
 
 // samePathKeys reports whether two paths name the same keys, formatters
@@ -225,6 +255,9 @@ type treeRun struct {
 	in     *inputLines
 	vars   map[string]interface{}
 	obs    *smObserver
+	// results is the input's results map, where abs groups save their
+	// records (TTP's self.results, shared by the template's top groups).
+	results map[string]interface{}
 
 	matches []patternMatch
 	nextDef int // position of the next default start, past the input
@@ -241,11 +274,10 @@ type treeRun struct {
 	itemized   []interface{}
 	isItemized bool
 
-	last    map[*treeGroup]map[string]interface{} // each group's last saved record
-	count   map[*treeGroup]int                    // records saved per group
-	dyn     map[string]interface{}                // TTP's dyn_path_cache
-	smByMap map[uintptr]*smRecord                 // the smRecord of each saved record map
-	lastSM  map[*treeGroup]*smRecord              // the smRecord of each group's last record
+	count   map[*treeGroup]int       // records saved per group
+	dyn     map[string]interface{}   // TTP's dyn_path_cache
+	smByMap map[uintptr]*smRecord    // the smRecord of each saved record map
+	lastSM  map[*treeGroup]*smRecord // the smRecord of each group's last record
 
 	// yangOrder and yangLists collect each nested group's records per
 	// parent record, for YANG validation once the tree is complete.
@@ -269,9 +301,12 @@ func (r *Runtime) parseTree(top *compiler.CompiledGroup, inputData string, vars 
 		vars:    vars,
 		obs:     r.smObs,
 		nextDef: len(inputData) + 10000000,
-		last:    make(map[*treeGroup]map[string]interface{}),
 		count:   make(map[*treeGroup]int),
 		dyn:     make(map[string]interface{}),
+		results: r.treeResults,
+	}
+	if t.results == nil {
+		t.results = make(map[string]interface{})
 	}
 	if t.obs != nil {
 		t.obs.lastNodes = nil
@@ -491,7 +526,7 @@ func (t *treeRun) saveRecord(tg *treeGroup, m map[string]interface{}, smr *smRec
 				// A map no record was saved as (one dict_by_path made):
 				// the source map finds it in the results.
 				smr.final = target
-				if len(t.topRecs) > 0 {
+				if len(t.topRecs) > 0 && !tg.abs {
 					smr.parent = t.topRecs[len(t.topRecs)-1]
 				}
 			}
@@ -502,7 +537,7 @@ func (t *treeRun) saveRecord(tg *treeGroup, m map[string]interface{}, smr *smRec
 		t.saveTop(tg, m, smr)
 		return
 	}
-	root := t.topElement()
+	root := t.rootFor(tg)
 	parts, ok := t.formPath(tg, m)
 	if !ok {
 		if smr != nil {
@@ -517,7 +552,9 @@ func (t *treeRun) saveRecord(tg *treeGroup, m map[string]interface{}, smr *smRec
 			smr.dropped = true
 			return
 		}
-		smr.parent = t.topRecs[len(t.topRecs)-1]
+		if !tg.abs {
+			smr.parent = t.topRecs[len(t.topRecs)-1]
+		}
 		if saved == saveStored {
 			smr.final = m
 			t.smByMap[mapID(m)] = smr
@@ -590,7 +627,7 @@ func (t *treeRun) saveItem(tg *treeGroup, item interface{}, smr *smRecord) {
 		}
 		return
 	}
-	root := t.topElement()
+	root := t.rootFor(tg)
 	parts, ok := t.formPath(tg, nil)
 	if !ok {
 		return
@@ -599,14 +636,16 @@ func (t *treeRun) saveItem(tg *treeGroup, item interface{}, smr *smRecord) {
 	last.formatter = "*"
 	saveCurElements(root, parts, item)
 	if smr != nil {
-		smr.parent = t.topRecs[len(t.topRecs)-1]
+		if !tg.abs {
+			smr.parent = t.topRecs[len(t.topRecs)-1]
+		}
 		smr.rel = strings.Join(segmentKeys(parts), ".")
 	}
 }
 
-// noteSaved records m as tg's last saved record.
+// noteSaved counts m as one more saved record of tg (and collects it for
+// YANG validation).
 func (t *treeRun) noteSaved(tg *treeGroup, m map[string]interface{}) {
-	t.last[tg] = m
 	t.count[tg]++
 	if tg.yang != "" && tg.parent != nil && t.r.yangValidator != nil {
 		parentIdx := 0
@@ -625,6 +664,15 @@ func (t *treeRun) noteSaved(tg *treeGroup, m map[string]interface{}) {
 		}
 		t.yangLists[key] = append(t.yangLists[key], m)
 	}
+}
+
+// rootFor is the map tg's path starts from: the input's results for an abs
+// group, else the top group's last record.
+func (t *treeRun) rootFor(tg *treeGroup) map[string]interface{} {
+	if tg.abs {
+		return t.results
+	}
+	return t.topElement()
 }
 
 // topElement is the last item at the top group's path, created (as
@@ -646,17 +694,21 @@ func (t *treeRun) topElement() map[string]interface{} {
 // lastElement is the record a merge_with_last record of tg merges into: the
 // last item at tg's path, or nil.
 func (t *treeRun) lastElement(tg *treeGroup) map[string]interface{} {
-	if len(t.top0) == 0 {
+	var cur interface{}
+	switch {
+	case tg.abs:
+		cur = t.results
+	case len(t.top0) == 0:
 		return nil
-	}
-	if len(tg.rel) == 0 {
+	case len(tg.rel) == 0:
 		return t.top0[len(t.top0)-1]
+	default:
+		cur = t.top0[len(t.top0)-1]
 	}
 	parts, ok := t.formPath(tg, nil)
 	if !ok {
 		return nil
 	}
-	var cur interface{} = t.top0[len(t.top0)-1]
 	for _, p := range parts {
 		if p.key == "_" {
 			continue
@@ -687,24 +739,15 @@ func lastMap(v interface{}) (map[string]interface{}, bool) {
 }
 
 // varsFor returns the variables tg's group functions and paths see: the
-// parse's vars, the values of the last record of its nearest ancestor with
-// one, and the recorded vars.
+// parse's vars and the recorded vars (record() and the record= attribute).
+// As in TTP, an ancestor's record is not among them: a child's default=,
+// contains_val= or macro= name resolves only against template variables.
 func (t *treeRun) varsFor(tg *treeGroup) map[string]interface{} {
-	var parentRec map[string]interface{}
-	for p := tg.parent; p != nil; p = p.parent {
-		if m := t.last[p]; m != nil {
-			parentRec = m
-			break
-		}
-	}
-	if parentRec == nil && len(t.r.recordedVars) == 0 {
+	if len(t.r.recordedVars) == 0 {
 		return t.vars
 	}
-	out := make(map[string]interface{}, len(t.vars)+len(parentRec)+len(t.r.recordedVars))
+	out := make(map[string]interface{}, len(t.vars)+len(t.r.recordedVars))
 	for k, v := range t.vars {
-		out[k] = v
-	}
-	for k, v := range parentRec {
 		out[k] = v
 	}
 	for k, v := range t.r.recordedVars {

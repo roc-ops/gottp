@@ -227,10 +227,6 @@
    "issue": 97,
    "reason": "group macro that returns False keeps the record (macro return handling, triaged with #97)"
   },
-  "test_group_functions/test_group_set_function_source_from_global_vars": {
-   "issue": 99,
-   "reason": "set= of a value recorded by another group gives the variable name, not the recorded value"
-  },
   "test_group_functions/test_group_to_int_for_non_integer": {
    "issue": 72,
    "reason": "group to_int has no float fallback"

@@ -9,10 +9,10 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 72 / skipped-by-issue 124 / design 4 of 200
-gottp repros: pass 49 / skipped-by-issue 6 / design 0 of 55
-source-map parity: same 258 / diverge 0 of 258
-stream snapshots: 114 streamable of 258 cases
+TTP 0.10.1 suite: pass 73 / skipped-by-issue 123 / design 4 of 200
+gottp repros: pass 60 / skipped-by-issue 6 / design 0 of 66
+source-map parity: same 269 / diverge 0 of 269
+stream snapshots: 114 streamable of 269 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -88,6 +88,22 @@ Record-assembly pins for refactor C (#60). Each is a minimal template for one ru
 | `issue60_asm_line_condition_skips_line` | a `_line_` line rejected by a condition is skipped, not the rest |
 
 Related issues with nested groups (refactor C2), each a minimal repro from the issue; all pass since C2 except `issue88_itemize_path_argument` (the path argument): `issue88_itemize_child_group`, `issue88_itemize_path_argument`, `issue89_group_with_only_child_groups`, `issue89_anonymous_child_groups`, `issue91_child_group_defaults_without_match`, `issue99_record_and_set_across_groups`, `issue100_void_sibling_startempty_joinmatches` (a reduction of `test_same_config_different_contexts`), `issue118_joinmatches_stops_at_sibling_start`, `issue119_second_start_line_stays_in_own_section`, `issue120_sibling_groups_same_name`.
+
+Fixes on top of C2, each recorded from TTP 0.10.1; all pass:
+
+| Repro | Rule |
+|---|---|
+| `issue60_c2_child_macro_runs_on_last_record` | a child `macro=` runs on every record, also once the parent record holds a key named like the macro |
+| `issue60_c2_child_vars_exclude_parent_record_contains_val` | a child's `contains_val=` compares with template variables, not the parent record's values |
+| `issue60_c2_child_vars_exclude_parent_record_default` | a child's `default="desc"` is the string, not the parent's `desc` |
+| `issue60_c2_absolute_child_path` | `name="/vlans_abs"` saves at the results root, one list for every parent record |
+| `issue60_c2_absolute_grandchild_path` | the same for a grandchild |
+| `issue60_c2_absolute_child_of_anonymous_group` | under an anonymous top group, `{"vl": [...]}` is one more item of the result list |
+| `issue60_c2_absolute_grandchild_of_anonymous_group` | the same for a grandchild |
+| `issue60_c2_root_child_path` | `name="/"` saves at `_anonymous_*`: the records are items of the result list |
+| `issue60_c2_absolute_dynamic_child_path` | an absolute path with a `{{ variable }}` |
+| `issue60_c2_absolute_child_with_relative_child` | a relative child of an absolute group goes below it |
+| `issue60_c2_void_top_keeps_children` | the children of a `void` top group are kept |
 
 ## Source-map parity
 
@@ -169,7 +185,6 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 | #90 | 1 |  | A multi-line <vars> dict with a trailing comma is not parsed |
 | #92 | 1 |  | to_ip does not accept "address netmask" |
 | #95 | 1 |  | A template given as a file name is not loaded from TTP_TEMPLATES_DIR |
-| #99 | 1 |  | record()/set= across groups: the recorded value is not set and the first child record is lost |
 | #102 | 1 |  | format_attributes is ignored (tabulate tablefmt) |
 | #114 | 1 |  | Group validate= attribute is not applied |
 

@@ -204,6 +204,97 @@ u {{ u }}
 	}
 }
 
+// TestBuildTreeAbsolutePaths pins TTP's extract_name for absolute child
+// names, and which groups save from the input's results (abs).
+func TestBuildTreeAbsolutePaths(t *testing.T) {
+	type want struct {
+		path []string
+		abs  bool
+	}
+	cases := []struct {
+		name  string
+		tmpl  string
+		wants []want
+	}{
+		{"outside the top group", `<group name="intf">
+a {{ a }}
+<group name="/vlans">
+b {{ b }}
+<group name="names">
+c {{ c }}
+</group>
+<group name="/top.n*">
+d {{ d }}
+</group>
+</group>
+</group>`, []want{
+			{path: []string{"intf"}},
+			{path: []string{"vlans"}, abs: true},
+			{path: []string{"vlans", "names"}, abs: true},
+			{path: []string{"top", "n*"}, abs: true},
+		}},
+		{"slash alone", `<group name="intf">
+a {{ a }}
+<group name="/">
+b {{ b }}
+</group>
+</group>`, []want{
+			{path: []string{"intf"}},
+			{path: []string{"_anonymous_*"}, abs: true},
+		}},
+		// "_anonymous_*" is not the segment "_anonymous_", so an anonymous
+		// top group's absolute child is not prefixed (TTP compares list items).
+		{"anonymous top group", `<group>
+a {{ a }}
+<group name="/vl">
+b {{ b }}
+</group>
+<group name="/">
+c {{ c }}
+</group>
+</group>`, []want{
+			{path: []string{"_anonymous_*"}},
+			{path: []string{"vl"}, abs: true},
+			{path: []string{"_anonymous_*"}},
+		}},
+		{"parent path with an _anonymous_ segment", `<group name="_anonymous_">
+a {{ a }}
+<group name="/vl">
+b {{ b }}
+</group>
+</group>`, []want{
+			{path: []string{"_anonymous_"}},
+			{path: []string{"_anonymous_*", "vl"}},
+		}},
+		{"void top group", `<group name="intf" void="">
+a {{ a }}
+<group name="ips">
+b {{ b }}
+</group>
+</group>`, []want{
+			{path: []string{"intf"}},
+			{path: []string{"intf", "ips"}, abs: true},
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, groups := buildTree(compileTop(t, "<template>\n"+c.tmpl+"\n</template>"))
+			if len(groups) != len(c.wants) {
+				t.Fatalf("got %d groups, want %d", len(groups), len(c.wants))
+			}
+			for i, w := range c.wants {
+				g := groups[i]
+				if !reflect.DeepEqual(g.path, w.path) || g.abs != w.abs {
+					t.Errorf("group %d: path %v abs %v, want %v %v", i, g.path, g.abs, w.path, w.abs)
+				}
+				if g.abs && !reflect.DeepEqual(g.rel, g.path) {
+					t.Errorf("group %d: an abs group's rel %v must be its path %v", i, g.rel, g.path)
+				}
+			}
+		})
+	}
+}
+
 // treeAsm builds an assembler over a parent group (id 0, patterns: start,
 // ordinary, end) and a child group (id 1, patterns: start, ordinary).
 func treeAsm(t *testing.T, childPath string) (*assembler, *[]asmRecord) {

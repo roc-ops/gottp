@@ -1,0 +1,7 @@
+<group name="intf" void="">
+interface {{ interface }}
+ description {{ description | ORPHRASE }}
+ <group name="ips">
+ ip address {{ ip }} {{ mask }}
+ </group>
+</group>

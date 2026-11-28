@@ -5,7 +5,7 @@
    {"LineNumber":1,"Matched":false,"Matches":[]},
    {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":26}},"ResultPath":""}]},
    {"LineNumber":3,"Matched":false,"Matches":[]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":38,"GroupName":"/","PatternIndex":0,"Variables":{"ip":{"StartCol":12,"EndCol":24},"mask":{"StartCol":25,"EndCol":38}},"ResultPath":""}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":38,"GroupName":"/","PatternIndex":0,"Variables":{"ip":{"StartCol":12,"EndCol":24},"mask":{"StartCol":25,"EndCol":38}},"ResultPath":"_anonymous_[0]"}]},
    {"LineNumber":5,"Matched":false,"Matches":[]}
   ]
  }

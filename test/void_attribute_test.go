@@ -96,27 +96,14 @@ interface Vlan100
 	jsonData, _ := json.MarshalIndent(result, "", "  ")
 	t.Logf("Result: %s", string(jsonData))
 
-	// Parent group has void, so its results should be skipped
-	// But nested group should still be saved if it has a name
-	resultList, ok := result.([]interface{})
-	if !ok {
-		t.Fatalf("Expected list result, got %T", result)
-	}
-
-	if len(resultList) == 0 {
-		t.Fatal("Expected at least one result entry")
-	}
-
-	resultMap, ok := resultList[0].(map[string]interface{})
-	if !ok {
-		t.Fatalf("Expected map result, got %T", resultList[0])
-	}
-
-	// Parent group results should be empty, but nested group might have results
-	// Actually, if parent is void, nested groups are also skipped
-	// Let's check if ip_config is present (it shouldn't be if void works correctly)
-	if _, hasIPConfig := resultMap["ip_config"]; hasIPConfig {
-		t.Logf("Note: Nested group results are present even with void parent - this may be expected behavior")
+	// Python TTP 0.10.1: void drops only the parent's own records; the
+	// child's records are saved from the results root. The anonymous void
+	// parent's child path is "_anonymous_*.ip_config", so they form one
+	// item of the input's result list (Parse returns one result per input).
+	want := `[[{"ip_config":[{"ip":"192.168.0.1","mask":"24"},{"ip":"10.0.0.1","mask":"24"}]}]]`
+	got, _ := json.Marshal(result)
+	if string(got) != want {
+		t.Errorf("got  %s\nwant %s", got, want)
 	}
 }
 

@@ -206,7 +206,9 @@ func (r *Runtime) parse(inputs map[string]string, vars map[string]interface{}, o
 			if obs != nil {
 				obs.beginInput(inputName, processedInputData)
 			}
+			r.treeResults = getResultsMap(inputName)
 			groupResults, err := r.parseGroup(group, processedInputData, vars)
+			r.treeResults = nil
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse group %s: %w", group.Name, err)
 			}

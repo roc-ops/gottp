@@ -1,0 +1,12 @@
+<macro name="fan">
+def fan(data):
+    data.pop("_t", None)
+    data["ok"] = True
+    return data
+</macro>
+<group name="top">
+State: {{ state }}
+<group name="fan*" macro="fan">
+{{ idx | DIGIT }}  {{ rpm | DIGIT }}{{ _t | re("\s*") }}
+</group>
+</group>

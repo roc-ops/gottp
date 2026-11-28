@@ -40,6 +40,10 @@ type Runtime struct {
 	runtimeFunctions  *RuntimeFunctions                 // per-parse custom function overrides from ParseOptions
 	compileFunctions  *RuntimeFunctions                 // compile-time custom function overrides from CompileOptions
 	smObs             *smObserver                       // source-map observer for this parse; nil when source maps are off
+	// treeResults is the results map of the input being parsed, where a
+	// child group with an absolute path outside its top group's saves its
+	// records (tree.go); set by the orchestrator before each parseGroup.
+	treeResults map[string]interface{}
 }
 
 // NewRuntime creates a new runtime for a compiled template
@@ -706,6 +710,23 @@ func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map
 		// Replace mergedMatches with grouped matches
 		mergedMatches = groupedMatches
 		recs = groupedRecs
+
+		// TTP's group record function: record="source[, target]" records the
+		// record's source value as the variable target, which later groups
+		// (a child's set=, say) and paths see.
+		if r.recordedVars != nil {
+			args := strings.Split(recordVar, ",")
+			source := strings.TrimSpace(args[0])
+			target := source
+			if len(args) > 1 {
+				target = strings.Trim(strings.TrimSpace(args[1]), `"'`)
+			}
+			for _, match := range mergedMatches {
+				if v, ok := match[source]; ok {
+					r.recordedVars[target] = v
+				}
+			}
+		}
 	}
 
 	// Process group function attributes (containsall, contains, del, exclude, excludeall, etc.)
