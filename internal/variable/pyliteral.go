@@ -27,6 +27,12 @@ func parsePythonLiteral(s string) (interface{}, bool) {
 	return v, true
 }
 
+// PythonLiteral evaluates s as a Python literal (see parsePythonLiteral).
+// It reports false if s is not one.
+func PythonLiteral(s string) (interface{}, bool) {
+	return parsePythonLiteral(s)
+}
+
 // PythonStringLiteral evaluates s as a Python string literal (quotes,
 // escapes, an r or u prefix, adjacent literals). It reports false if s is
 // not one.

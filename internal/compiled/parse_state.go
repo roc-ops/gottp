@@ -55,6 +55,7 @@ func (r *Runtime) beginParse() *Runtime {
 	run.pathResolver = NewPathResolver()
 	run.matchCollector = NewMatchCollector()
 	run.smObs = nil
+	run.pipelines = nil
 	return &run
 }
 

@@ -2,9 +2,9 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":14,"GroupName":"o","PatternIndex":0,"Variables":{"n":{"StartCol":13,"EndCol":14}},"ResultPath":"o"}]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"objs","PatternIndex":0,"Variables":{"name":{"StartCol":16,"EndCol":17}},"ResultPath":"o.objs"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"objs","PatternIndex":0,"Variables":{"name":{"StartCol":16,"EndCol":17}},"ResultPath":"o.objs"}]},
-   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"objs","PatternIndex":0,"Variables":{"name":{"StartCol":16,"EndCol":17}},"ResultPath":"o.objs"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"objs","PatternIndex":0,"Variables":{"name":{"StartCol":16,"EndCol":17}},"ResultPath":""}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"objs","PatternIndex":0,"Variables":{"name":{"StartCol":16,"EndCol":17}},"ResultPath":""}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"objs","PatternIndex":0,"Variables":{"name":{"StartCol":16,"EndCol":17}},"ResultPath":""}]},
    {"LineNumber":4,"Matched":false,"Matches":[]}
   ]
  }

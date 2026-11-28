@@ -2,15 +2,15 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (refactor E0, #60):
+Current result (refactor E1, #60):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 76 / skipped-by-issue 119 / design 5 of 200
-gottp repros: pass 71 / skipped-by-issue 20 / design 0 of 91
+TTP 0.10.1 suite: pass 83 / skipped-by-issue 112 / design 5 of 200
+gottp repros: pass 87 / skipped-by-issue 4 / design 0 of 91
 source-map parity: same 294 / diverge 0 of 294
 stream snapshots: 116 streamable of 294 cases
 ```
@@ -87,7 +87,7 @@ Record-assembly pins for refactor C (#60). Each is a minimal template for one ru
 | `issue60_asm_bare_line_variable` | a `{{ _line_ }}` variable keeps its joined lines |
 | `issue60_asm_line_condition_skips_line` | a `_line_` line rejected by a condition is skipped, not the rest |
 
-Related issues with nested groups (refactor C2), each a minimal repro from the issue; all pass since C2 except `issue88_itemize_path_argument` (the path argument): `issue88_itemize_child_group`, `issue88_itemize_path_argument`, `issue89_group_with_only_child_groups`, `issue89_anonymous_child_groups`, `issue91_child_group_defaults_without_match`, `issue99_record_and_set_across_groups`, `issue100_void_sibling_startempty_joinmatches` (a reduction of `test_same_config_different_contexts`), `issue118_joinmatches_stops_at_sibling_start`, `issue119_second_start_line_stays_in_own_section`, `issue120_sibling_groups_same_name`.
+Related issues with nested groups (refactor C2), each a minimal repro from the issue; all pass (`issue88_itemize_path_argument`, the path argument, since E1): `issue88_itemize_child_group`, `issue88_itemize_path_argument`, `issue89_group_with_only_child_groups`, `issue89_anonymous_child_groups`, `issue91_child_group_defaults_without_match`, `issue99_record_and_set_across_groups`, `issue100_void_sibling_startempty_joinmatches` (a reduction of `test_same_config_different_contexts`), `issue118_joinmatches_stops_at_sibling_start`, `issue119_second_start_line_stays_in_own_section`, `issue120_sibling_groups_same_name`.
 
 Fixes on top of C2, each recorded from TTP 0.10.1; all pass:
 
@@ -110,9 +110,9 @@ Fixes on top of C2, each recorded from TTP 0.10.1; all pass:
 | `issue60_c2_child_record_after_contains` | the same in a child group |
 | `issue60_c2_group_functions_attribute_order` | group function attributes run in template order: `del="z" contains="z"` drops every record |
 
-Group-function order pins for refactor E (#149), recorded from TTP 0.10.1. TTP's `processgrp` (`ttp.py:3240`) runs per record, when the record is saved: it fills in the defaults, then runs every group function in attribute order (`macro=`, `void=` and `functions=`/`chain=` included, each at its own position), and the first rejection drops the record. E1 ports that pipeline. Those marked *fails* are in `known_failures.json` under their issue; the others pass today and pin behaviour E1 must keep.
+Group-function order pins for refactor E (#149), recorded from TTP 0.10.1. TTP's `processgrp` (`ttp.py:3240`) runs per record, when the record is saved: it fills in the defaults, then runs every group function in attribute order (`macro=`, `void=` and `functions=`/`chain=` included, each at its own position), and the first rejection drops the record. E1 ports that pipeline (`internal/compiled/pipeline.go`), and every one of these now passes. The *Before E1* column records which ones failed on E0.
 
-| Repro | Rule | Today |
+| Repro | Rule | Before E1 |
 |---|---|---|
 | `issue149_macro_runs_before_contains` | `macro="m" contains="mk"`, where `m` adds `mk`: the records are kept | fails |
 | `issue149_macro_runs_before_record` | `macro="m" record="desc, rd"`: a later group's `set="rd, seen"` gets the macro's value | fails |

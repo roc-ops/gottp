@@ -12,9 +12,9 @@ import (
 // function not in this set makes the group non-streamable, so unknown
 // functions fail closed rather than open.
 //
-// macro is per-record: Python TTP runs a chain macro() on each result, and
-// gottp's processGroupFunctions does not run it at all yet (#113), so Parse
-// and the stream path agree either way.
+// macro is per-record: Python TTP runs a chain macro() on each record, and
+// Parse and the stream path run the same per-record steps
+// (internal/compiled/pipeline.go), so they agree.
 //
 // Aggregating functions deliberately excluded:
 //   - itemize: builds a dict of records keyed by a field, needs the full set
@@ -51,15 +51,15 @@ var attributeGroupFunctions = []string{
 
 // parseGroupFunctionNames extracts function names from a group's
 // functions= or chain= attribute. Functions are separated by "|" (what
-// processGroupFunctions splits on) or ",", e.g.
+// the group pipeline splits on) or ",", e.g.
 // "containsall('mac-address', 'us-intf') | to_int". Returns the bare names
 // ("containsall", "to_int") with arguments stripped.
 //
 // Argument lists and quoted text are removed before splitting, so commas
 // and pipes inside them don't make names. A token that is not a function
 // name afterwards (for example the "[" of a list literal kept as a string)
-// is skipped: processGroupFunctions finds no function by that name and
-// skips it too.
+// is skipped: the group pipeline finds no function by that name and skips
+// it too.
 func parseGroupFunctionNames(functions string) []string {
 	if functions == "" {
 		return nil
@@ -113,7 +113,7 @@ func isFunctionName(s string) bool {
 }
 
 // ResolveGroupChain returns the function strings a group's chain= (or
-// functions=) attribute names, resolved the way processGroupFunctions
+// functions=) attribute names, resolved the way the group pipeline
 // resolves them at parse time: if the attribute is the name of a variable in
 // vars, a string value is the chain and a list value is one function per
 // string item; otherwise the attribute text is the chain. Each returned
@@ -248,7 +248,7 @@ func analyzeStreamability(g *CompiledGroup, vars map[string]interface{}) {
 	// Rule 5: group functions (functions= or chain=; parseGroup uses chain
 	// when both are set) must all be in the streamable allowlist. A chain
 	// naming a template variable is resolved against the template's <vars>
-	// first, as processGroupFunctions does; ParseStream repeats the check
+	// first, as the group pipeline does; ParseStream repeats the check
 	// with the parse's vars, which can override them.
 	reasons = append(reasons, NonStreamableChainReasons(g, vars)...)
 

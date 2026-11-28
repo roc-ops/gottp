@@ -2,18 +2,18 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"interfaces","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":19}},"ResultPath":"interfaces"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interfaces","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":29}},"ResultPath":"interfaces"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"interfaces","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":19}},"ResultPath":"interfaces[2]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interfaces","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":29}},"ResultPath":"interfaces[2]"}]},
    {"LineNumber":3,"Matched":false,"Matches":[]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"interfaces","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":17}},"ResultPath":"interfaces"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"interfaces","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":17}},"ResultPath":"interfaces[0]"}]},
    {"LineNumber":5,"Matched":false,"Matches":[]},
-   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"interfaces","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":19}},"ResultPath":"interfaces"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"interfaces","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":19}},"ResultPath":"interfaces[3]"}]},
    {"LineNumber":7,"Matched":false,"Matches":[]},
-   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":27,"GroupName":"interfaces","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":27}},"ResultPath":"interfaces"}]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":27,"GroupName":"interfaces","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":27}},"ResultPath":"interfaces[3]"}]},
    {"LineNumber":9,"Matched":false,"Matches":[]},
-   {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"interfaces","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":17}},"ResultPath":"interfaces"}]},
+   {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"interfaces","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":17}},"ResultPath":"interfaces[1]"}]},
    {"LineNumber":11,"Matched":false,"Matches":[]},
-   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interfaces","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":29}},"ResultPath":"interfaces"}]},
+   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interfaces","PatternIndex":1,"Variables":{"ip":{"StartCol":12,"EndCol":29}},"ResultPath":"interfaces[1]"}]},
    {"LineNumber":13,"Matched":false,"Matches":[]},
    {"LineNumber":14,"Matched":false,"Matches":[]}
   ]

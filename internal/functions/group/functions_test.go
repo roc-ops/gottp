@@ -367,3 +367,35 @@ func TestItemize(t *testing.T) {
 	}
 }
 
+
+// contains, containsall, exclude and excludeall don't count a value that is
+// only the group's default (kwargs["_defaults"]), as in TTP 0.10.1.
+func TestFilterFunctionsSkipDefaults(t *testing.T) {
+	defaults := map[string]interface{}{"desc": "none"}
+	kw := map[string]interface{}{"_defaults": defaults}
+	cases := []struct {
+		name string
+		fn   Function
+		data map[string]interface{}
+		args []string
+		want bool
+	}{
+		{"contains default value", contains, map[string]interface{}{"desc": "none"}, []string{"desc"}, false},
+		{"contains real value", contains, map[string]interface{}{"desc": "uplink"}, []string{"desc"}, true},
+		{"containsall default value", containsall, map[string]interface{}{"desc": "none", "ip": "1"}, []string{"ip", "desc"}, false},
+		{"containsall real values", containsall, map[string]interface{}{"desc": "x", "ip": "1"}, []string{"ip", "desc"}, true},
+		{"exclude key with a default", exclude, map[string]interface{}{"desc": "uplink"}, []string{"desc"}, true},
+		{"exclude key without a default", exclude, map[string]interface{}{"ip": "1"}, []string{"ip"}, false},
+		{"excludeall key with a default", excludeall, map[string]interface{}{"desc": "x", "ip": "1"}, []string{"ip", "desc"}, true},
+		{"excludeall keys without defaults", excludeall, map[string]interface{}{"mtu": "1", "ip": "1"}, []string{"ip", "mtu"}, false},
+	}
+	for _, c := range cases {
+		_, keep, err := c.fn(c.data, c.args, kw)
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if keep != c.want {
+			t.Errorf("%s: keep = %v, want %v", c.name, keep, c.want)
+		}
+	}
+}
