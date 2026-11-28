@@ -7,6 +7,7 @@ import (
 	"syscall/js"
 
 	"github.com/roc-ops/gottp"
+	"github.com/roc-ops/gottp/editor/internal/yangcheck"
 	"github.com/roc-ops/gottp/internal/formatters"
 )
 
@@ -376,7 +377,11 @@ func formatCSV(this js.Value, args []js.Value) interface{} {
 	}
 }
 
-// loadYANGModule loads a YANG module from string content
+// loadYANGModule validates a YANG module and returns it as YANGModules JSON.
+// Args: moduleName, moduleContent, and optionally loadedModulesJSON (a JSON
+// object of module name -> content for the modules already loaded) so that
+// imports resolve against them. A module that fails to parse or resolve is
+// reported as an error.
 func loadYANGModule(this js.Value, args []js.Value) interface{} {
 	if len(args) < 2 {
 		return map[string]interface{}{
@@ -386,6 +391,21 @@ func loadYANGModule(this js.Value, args []js.Value) interface{} {
 
 	moduleName := args[0].String()
 	moduleContent := args[1].String()
+
+	var loaded map[string]string
+	if len(args) >= 3 && args[2].Type() == js.TypeString && args[2].String() != "" && args[2].String() != "null" {
+		if err := json.Unmarshal([]byte(args[2].String()), &loaded); err != nil {
+			return map[string]interface{}{
+				"error": fmt.Sprintf("failed to parse loaded modules: %v", err),
+			}
+		}
+	}
+
+	if err := yangcheck.Check(moduleName, moduleContent, loaded); err != nil {
+		return map[string]interface{}{
+			"error": err.Error(),
+		}
+	}
 
 	// Create YANGModules structure
 	yangModules := &gottp.YANGModules{

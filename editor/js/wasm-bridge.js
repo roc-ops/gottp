@@ -282,15 +282,19 @@ class GottpWasmBridge {
      * Load a YANG module from string content
      * @param {string} moduleName - Name of the YANG module
      * @param {string} moduleContent - YANG module content
+     * @param {Object|null} loadedModules - Already-loaded modules (name -> content),
+     *     used to resolve the module's imports (optional)
      * @returns {Promise<string>} JSON string of YANGModules structure
+     * @throws {Error} if the module has a syntax error or unresolved import
      */
-    async loadYANGModule(moduleName, moduleContent) {
+    async loadYANGModule(moduleName, moduleContent, loadedModules = null) {
         if (!this.initialized) {
             await this.init();
         }
 
         try {
-            const result = this.gottp.loadYANGModule(moduleName, moduleContent);
+            const loadedJSON = loadedModules ? JSON.stringify(loadedModules) : 'null';
+            const result = this.gottp.loadYANGModule(moduleName, moduleContent, loadedJSON);
             const resultObj = this.jsValueToObject(result);
             
             if (resultObj.error) {
