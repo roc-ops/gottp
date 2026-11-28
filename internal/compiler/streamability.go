@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/roc-ops/gottp/internal/pattern"
 )
 
 // streamableGroupFunctions lists the group-level functions (the ones in
@@ -13,6 +11,10 @@ import (
 // in streaming mode. The allowlist approach is conservative — any group
 // function not in this set makes the group non-streamable, so unknown
 // functions fail closed rather than open.
+//
+// macro is per-record: Python TTP runs a chain macro() on each result, and
+// gottp's processGroupFunctions does not run it at all yet (#113), so Parse
+// and the stream path agree either way.
 //
 // Aggregating functions deliberately excluded:
 //   - itemize: builds a dict of records keyed by a field, needs the full set
@@ -34,6 +36,7 @@ var streamableGroupFunctions = map[string]bool{
 	"validate":     true,
 	"delete":       true,
 	"del":          true,
+	"macro":        true,
 }
 
 // attributeGroupFunctions are the group functions parseGroup applies when
@@ -52,39 +55,107 @@ var attributeGroupFunctions = []string{
 // "containsall('mac-address', 'us-intf') | to_int". Returns the bare names
 // ("containsall", "to_int") with arguments stripped.
 //
-// Commas inside argument lists are handled by skipping any token that
-// does not begin with a valid identifier character (letter or '_').
-// Argument fragments produced by splitting on commas inside a call — e.g.
-// "'us-intf'" or "ds-intf')" — start with a quote or closing paren and
-// are therefore discarded.
+// Argument lists and quoted text are removed before splitting, so commas
+// and pipes inside them don't make names. A token that is not a function
+// name afterwards (for example the "[" of a list literal kept as a string)
+// is skipped: processGroupFunctions finds no function by that name and
+// skips it too.
 func parseGroupFunctionNames(functions string) []string {
 	if functions == "" {
 		return nil
 	}
-	var names []string
-	for _, part := range strings.FieldsFunc(functions, func(r rune) bool { return r == ',' || r == '|' }) {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		// Skip tokens that are argument fragments (start with quote or ')').
-		// Real function names always begin with a letter or underscore.
-		if len(part) > 0 {
-			first := part[0]
-			if first == '\'' || first == '"' || first == ')' {
-				continue
+	var b strings.Builder
+	depth := 0
+	var quote rune
+	for _, r := range functions {
+		switch {
+		case quote != 0:
+			if r == quote {
+				quote = 0
 			}
+		case r == '\'' || r == '"':
+			quote = r
+		case r == '(':
+			depth++
+		case r == ')':
+			if depth > 0 {
+				depth--
+			}
+		case depth == 0:
+			b.WriteRune(r)
 		}
-		// Strip arguments: "containsall('x')" -> "containsall"
-		if idx := strings.IndexByte(part, '('); idx >= 0 {
-			part = part[:idx]
-		}
+	}
+	var names []string
+	for _, part := range strings.FieldsFunc(b.String(), func(r rune) bool { return r == ',' || r == '|' }) {
 		part = strings.TrimSpace(part)
-		if part != "" {
+		if isFunctionName(part) {
 			names = append(names, part)
 		}
 	}
 	return names
+}
+
+// isFunctionName reports whether s can name a group function: a letter or
+// '_' followed by letters, digits, '_', '-' or '.'.
+func isFunctionName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		switch {
+		case r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z'):
+		case i > 0 && (r == '-' || r == '.' || (r >= '0' && r <= '9')):
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// ResolveGroupChain returns the function strings a group's chain= (or
+// functions=) attribute names, resolved the way processGroupFunctions
+// resolves them at parse time: if the attribute is the name of a variable in
+// vars, a string value is the chain and a list value is one function per
+// string item; otherwise the attribute text is the chain. Each returned
+// string may still hold several "|"-separated functions.
+func ResolveGroupChain(g *CompiledGroup, vars map[string]interface{}) []string {
+	chain := g.Chain
+	if chain == "" {
+		chain = g.Functions
+	}
+	if chain == "" {
+		return nil
+	}
+	if v, ok := vars[chain]; ok {
+		switch val := v.(type) {
+		case string:
+			return []string{val}
+		case []interface{}:
+			var items []string
+			for _, item := range val {
+				if s, ok := item.(string); ok {
+					items = append(items, s)
+				}
+			}
+			return items
+		}
+	}
+	return []string{chain}
+}
+
+// NonStreamableChainReasons returns one reason for each function in the
+// group's resolved chain (see ResolveGroupChain) that is not in the
+// streamable allowlist.
+func NonStreamableChainReasons(g *CompiledGroup, vars map[string]interface{}) []string {
+	var reasons []string
+	for _, item := range ResolveGroupChain(g, vars) {
+		for _, fn := range parseGroupFunctionNames(item) {
+			if !streamableGroupFunctions[fn] {
+				reasons = append(reasons, fmt.Sprintf("group %q uses group function %q which is not in the streamable allowlist", g.Name, fn))
+			}
+		}
+	}
+	return reasons
 }
 
 // hasStartIndicator returns true if some line of the group asks to start a
@@ -107,22 +178,6 @@ func allPatternsAnchored(g *CompiledGroup) bool {
 	return true
 }
 
-// hasDefaultFunction reports whether a non-indicator variable of p has a
-// default() function.
-func hasDefaultFunction(p *pattern.CompiledPattern) bool {
-	for name, v := range p.Variables {
-		if pattern.IsIndicatorVar(name) {
-			continue
-		}
-		for _, fn := range v.Functions {
-			if strings.HasPrefix(fn, "default(") {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // hasAnyJoinMatches returns true if any variable in any pattern uses
 // the joinmatches function (which aggregates across records).
 func hasAnyJoinMatches(g *CompiledGroup) bool {
@@ -142,7 +197,10 @@ func hasAnyJoinMatches(g *CompiledGroup) bool {
 //
 // Each failed rule contributes one reason. Order matches the spec for
 // reviewability.
-func analyzeStreamability(g *CompiledGroup) {
+//
+// vars are the template's <vars>, used to resolve a chain= or functions=
+// attribute that names a template variable.
+func analyzeStreamability(g *CompiledGroup, vars map[string]interface{}) {
 	g.NormalizedPath = strings.TrimSuffix(g.Name, "*")
 	if g.NormalizedPath == "_anonymous_" {
 		// The implicit group of a template without group tags is named
@@ -188,16 +246,11 @@ func analyzeStreamability(g *CompiledGroup) {
 	}
 
 	// Rule 5: group functions (functions= or chain=; parseGroup uses chain
-	// when both are set) must all be in the streamable allowlist.
-	chain := g.Chain
-	if chain == "" {
-		chain = g.Functions
-	}
-	for _, fn := range parseGroupFunctionNames(chain) {
-		if !streamableGroupFunctions[fn] {
-			reasons = append(reasons, fmt.Sprintf("group %q uses group function %q which is not in the streamable allowlist", g.Name, fn))
-		}
-	}
+	// when both are set) must all be in the streamable allowlist. A chain
+	// naming a template variable is resolved against the template's <vars>
+	// first, as processGroupFunctions does; ParseStream repeats the check
+	// with the parse's vars, which can override them.
+	reasons = append(reasons, NonStreamableChainReasons(g, vars)...)
 
 	// Rules 6-13 reject the group features parseGroup applies and
 	// parseGroupStream does not (#130), so a template either streams with
@@ -237,11 +290,8 @@ func analyzeStreamability(g *CompiledGroup) {
 		reasons = append(reasons, fmt.Sprintf("group %q has a dynamic path, which streaming does not resolve", g.Name))
 	}
 
-	// Rule 12: a start line with default() makes a record of defaults when
-	// the group matches nothing.
-	if len(g.Patterns) > 0 && hasDefaultFunction(g.Patterns[0]) {
-		reasons = append(reasons, fmt.Sprintf("group %q has default() on its start line (a record of defaults when nothing matches), which streaming does not implement", g.Name))
-	}
+	// A start line with default() makes a record of defaults when the group
+	// matches nothing; parseGroupStream gives that record too.
 
 	// Rule 13: ignore("<template variable>") turns the result into one
 	// empty record.
@@ -258,10 +308,10 @@ func analyzeStreamability(g *CompiledGroup) {
 
 // analyzeStreamabilityRecursive runs analyzeStreamability on a group and
 // all its descendants. Called by the compiler after group assembly.
-func analyzeStreamabilityRecursive(g *CompiledGroup) {
-	analyzeStreamability(g)
+func analyzeStreamabilityRecursive(g *CompiledGroup, vars map[string]interface{}) {
+	analyzeStreamability(g, vars)
 	for _, child := range g.Groups {
-		analyzeStreamabilityRecursive(child)
+		analyzeStreamabilityRecursive(child, vars)
 	}
 }
 

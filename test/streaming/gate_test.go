@@ -52,10 +52,6 @@ b {{ y }}
 	{"dynamic path", `<group name="devices.{{ host }}">
 {{ host }} {{ intf }}
 </group>`, "r1 gi0\n", "dynamic path"},
-	{"start-line default", `<group name="e*">
-interface {{ name | default("x") }}
- ip {{ ip }}
-</group>`, "nothing here\n", "default() on its start line"},
 	{"ignore with template var", `<vars>
 st = "UP|DOWN"
 </vars>
