@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/openconfig/goyang/pkg/yang"
 )
@@ -149,30 +150,98 @@ func (v *Validator) validateSingleItem(data map[string]interface{}, schemaEntry 
 	return result
 }
 
-// validateRequiredFields checks for required fields in the schema
+// validateRequiredFields checks the mandatory nodes of schemaEntry that the
+// data tree must hold (RFC 7950 7.6.5, 7.9.4). A choice is not a data node:
+// it is satisfied by a node from any one of its cases, nodes from two cases
+// are an error, and the mandatory nodes of a case apply only when that case
+// is present (yangson behaves the same).
 func (v *Validator) validateRequiredFields(data map[string]interface{}, schemaEntry *yang.Entry, yangPath, groupName string, index int, result *ValidationResult) {
 	if schemaEntry == nil || schemaEntry.Dir == nil {
 		return
 	}
+	inItem := ""
+	if index >= 0 {
+		inItem = fmt.Sprintf(" in item %d", index)
+	}
+	fail := func(field, msg string) {
+		result.Valid = false
+		result.Errors = append(result.Errors, &ValidationError{
+			GroupName: groupName,
+			Path:      yangPath,
+			Field:     field,
+			Message:   msg + inItem,
+		})
+	}
 
-	for name, childEntry := range schemaEntry.Dir {
-		// Check if field is mandatory (not optional and not config false)
-		if childEntry.Mandatory == yang.TSTrue {
-			if _, exists := data[name]; !exists {
-				result.Valid = false
-				msg := fmt.Sprintf("Required field '%s' is missing", name)
-				if index >= 0 {
-					msg = fmt.Sprintf("Required field '%s' is missing in item %d", name, index)
+	var check func(entry *yang.Entry)
+	check = func(entry *yang.Entry) {
+		for _, name := range sortedChildNames(entry) {
+			child := entry.Dir[name]
+			if !child.IsChoice() {
+				if child.Mandatory == yang.TSTrue {
+					if _, exists := data[name]; !exists {
+						fail(name, fmt.Sprintf("Required field '%s' is missing", name))
+					}
 				}
-				result.Errors = append(result.Errors, &ValidationError{
-					GroupName: groupName,
-					Path:      yangPath,
-					Field:     name,
-					Message:   msg,
-				})
+				continue
+			}
+			var active []*yang.Entry
+			var present [][]string
+			for _, caseName := range sortedChildNames(child) {
+				c := child.Dir[caseName]
+				if nodes := presentDataNodes(c, data); len(nodes) > 0 {
+					active = append(active, c)
+					present = append(present, nodes)
+				}
+			}
+			switch len(active) {
+			case 0:
+				if child.Mandatory == yang.TSTrue {
+					fail(name, fmt.Sprintf("Required choice '%s' is missing: no node from any of its cases (%s) is present",
+						name, strings.Join(sortedChildNames(child), ", ")))
+				}
+			case 1:
+				if active[0].IsCase() {
+					check(active[0])
+				}
+			default:
+				var cases []string
+				for i, c := range active {
+					cases = append(cases, fmt.Sprintf("%s (%s)", c.Name, strings.Join(present[i], ", ")))
+				}
+				fail(name, fmt.Sprintf("Fields of choice '%s' come from more than one case: %s", name, strings.Join(cases, ", ")))
 			}
 		}
 	}
+	check(schemaEntry)
+}
+
+// presentDataNodes returns the names of the data nodes of entry that data
+// holds: entry itself when it is a data node, else the data nodes under it
+// (entry being a case, or a node of a case).
+func presentDataNodes(entry *yang.Entry, data map[string]interface{}) []string {
+	if !entry.IsChoice() && !entry.IsCase() {
+		if _, ok := data[entry.Name]; ok {
+			return []string{entry.Name}
+		}
+		return nil
+	}
+	var names []string
+	for _, name := range sortedChildNames(entry) {
+		names = append(names, presentDataNodes(entry.Dir[name], data)...)
+	}
+	return names
+}
+
+// sortedChildNames returns the names in entry.Dir, sorted, so errors come
+// in a stable order.
+func sortedChildNames(entry *yang.Entry) []string {
+	names := make([]string, 0, len(entry.Dir))
+	for name := range entry.Dir {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // validateFieldTypes validates field types against the schema
@@ -534,7 +603,8 @@ func (v *Validator) validateRange(value interface{}, ranges yang.YangRange) bool
 
 // validateLength validates a string length against a YANG length constraint
 func (v *Validator) validateLength(value string, lengths yang.YangRange) bool {
-	length := float64(len(value))
+	// RFC 7950 9.4.4: the length of a string is its number of characters.
+	length := float64(utf8.RuneCountInString(value))
 	for _, l := range lengths {
 		// Convert Number to float64 via string parsing
 		minStr := l.Min.String()

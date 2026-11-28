@@ -4,6 +4,12 @@ All notable changes to GoTTP will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed: YANG paths under a choice, and choice semantics (baseline cluster 7, #124, #122)
+- **A `yang=` path names data nodes (#124).** choice and case are not data nodes (RFC 7950 7.9), so `yang="p:c/bc"` now resolves `container bc` inside `choice ch { case b { container bc } }`; it failed with `YANG path not found`. At each step a data node is looked up first, descending through choices and cases; the schema-node form `p:c/ch/b/bc` still works. A path that ends on a choice or case (`p:c/ch`) is an error that lists the data nodes under it. A "not found" error now lists the data-node children, sorted, rather than the raw schema children.
+- **Choice semantics, as yangson (TTP's `validate_yangson`) applies them (#122).** A `mandatory true` choice is satisfied by a node from any one of its cases; it was reported missing (`Required field 'ch' is missing`) for every item. With no case present the error is `Required choice 'ch' is missing: ...`. Mandatory nodes inside the case that is present are now checked (they weren't checked at all), including nested choices. Data from more than one case of a choice is an error (`Fields of choice 'ch' come from more than one case: ...`), as yangson's `member-not-allowed`. **This can reject data that validated before**: a record with nodes from two cases, or one that lacks a mandatory leaf of its case.
+- **`length` counts characters, not bytes (#122)**, as RFC 7950 9.4.4 and yangson do: `"ééé"` meets `length "1..3"`.
+- Required-field errors now come in sorted order.
+
 ### Fixed: blank data lines and `default()` captures (baseline cluster 1, #162, #64, #65, #91)
 - **Blank data lines are matched, as in TTP (#162).** A data line that is empty or holds only spaces and tabs was skipped before matching unless the template line was a start or end indicator. Now it is skipped only for a template line whose regex can't match it (worked out once, when the template compiles), so `{{ x | _line_ }}`, `re(".*")` and `re("[ ]+")` match it, and `_line_ | joinmatches` keeps it: `desc a  \n  \nmore `. `Parse` and `ParseStream` agree.
 - **A blank line is matched as it is.** A start or end indicator line used to see a blank line as `""`. Now it sees the spaces too, so an indented `  {{ _start_ }}` matches a line of at least two spaces but not an empty line, and a standalone `{{ _start_ }}`/`{{ _end_ }}` line keeps its indent in the regex, as TTP's `\n  [\t ]*` does.

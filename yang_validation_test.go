@@ -231,3 +231,39 @@ interface {{ name | default("none") }}
 		t.Fatalf("validation results differ with source maps on (defaults-only group)\noff: %v\non:  %v", off, on)
 	}
 }
+
+// Issues #124 and #122: a yang= path names a list under a choice/case by
+// its data-node path, and a mandatory choice is satisfied by any one case.
+func TestYANGPathUnderChoiceAndMandatoryChoice(t *testing.T) {
+	module := `module t-ch {
+  namespace "urn:t:ch"; prefix tch;
+  container show {
+    choice kind { mandatory true;
+      case ports { list port { key name;
+        leaf name { type string; }
+        choice speed { mandatory true;
+          case fixed { leaf mbps { type uint32; } }
+          case auto { leaf auto { type string; } leaf max { type uint32; mandatory true; } }
+        }
+      } }
+    }
+  }
+}`
+	for _, path := range []string{"t-ch:show/port", "t-ch:show/kind/ports/port"} {
+		tmpl := `<group name="port*" yang="` + path + `">
+port {{ name | _start_ }} speed {{ mbps | to_int }}
+port {{ name | _start_ }} auto {{ auto }}
+</group>`
+		valid, errs, warns := parseWithYANG(t, tmpl, "port e1 speed 1000\nport e2 speed 100\n", module, "port*")
+		requireYANGValid(t, valid, errs, warns)
+
+		valid, errs, warns = parseWithYANG(t, tmpl, "port e1 speed 1000\nport e3 auto on\n", module, "port*")
+		requireYANGError(t, valid, errs, warns, "Required field 'max' is missing in item 1")
+	}
+
+	tmpl := `<group name="port*" yang="t-ch:show/kind">
+port {{ name }} speed {{ mbps | to_int }}
+</group>`
+	valid, errs, warns := parseWithYANG(t, tmpl, "port e1 speed 1000\n", module, "port*")
+	requireYANGError(t, valid, errs, warns, "names a choice ('kind')")
+}
