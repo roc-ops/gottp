@@ -1,11 +1,11 @@
 {
  "inputs": {
   "Default_Input": [
-   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":6,"GroupName":"lsa*","PatternIndex":0,"Variables":{"area":{"StartCol":5,"EndCol":6}},"ResultPath":"lsa[0]"}]},
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":6,"GroupName":"lsa*","PatternIndex":0,"Variables":{"area":{"StartCol":5,"EndCol":6}},"ResultPath":""}]},
    {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":7,"GroupName":"","PatternIndex":0,"Variables":{"age":{"StartCol":6,"EndCol":7}},"ResultPath":"lsa[0]"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":7,"GroupName":"","PatternIndex":0,"Variables":{"age":{"StartCol":6,"EndCol":7}},"ResultPath":"lsa[0]"}]},
-   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":6,"GroupName":"lsa*","PatternIndex":0,"Variables":{"area":{"StartCol":5,"EndCol":6}},"ResultPath":"lsa[1]"}]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":7,"GroupName":"","PatternIndex":0,"Variables":{"age":{"StartCol":6,"EndCol":7}},"ResultPath":"lsa[1]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":7,"GroupName":"","PatternIndex":0,"Variables":{"age":{"StartCol":6,"EndCol":7}},"ResultPath":"lsa[1]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":6,"GroupName":"lsa*","PatternIndex":0,"Variables":{"area":{"StartCol":5,"EndCol":6}},"ResultPath":""}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":7,"GroupName":"","PatternIndex":0,"Variables":{"age":{"StartCol":6,"EndCol":7}},"ResultPath":"lsa[2]"}]},
    {"LineNumber":5,"Matched":false,"Matches":[]}
   ]
  }

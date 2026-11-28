@@ -2,17 +2,17 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (refactor C1, #60):
+Current result (refactor C2, #60):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 54 / skipped-by-issue 142 / design 4 of 200
-gottp repros: pass 37 / skipped-by-issue 18 / design 0 of 55
-source-map parity: same 258 / diverge 0 of 258
-stream snapshots: 114 streamable of 258 cases
+TTP 0.10.1 suite: pass 73 / skipped-by-issue 123 / design 4 of 200
+gottp repros: pass 65 / skipped-by-issue 6 / design 0 of 71
+source-map parity: same 274 / diverge 0 of 274
+stream snapshots: 114 streamable of 274 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -37,7 +37,7 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 
 | Repro | Issue |
 |---|---|
-| `issue28_parent_start_line_without_variables` | #28 |
+| `issue28_parent_start_line_without_variables` | passes; #28 is fixed |
 | `issue29_joinmatches_on_start_line` | #29 |
 | `issue30_indented_line_matches_any_indentation` | passes; #30 is fixed |
 | `issue31_ignore_vars_name` | #31 |
@@ -50,10 +50,10 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue60_first_line_starts_record_after_start_indicator` | passes; the first line starts a record even after a `_start_` line (refactor B, #60) |
 | `issue60_table_tail_line_is_ordinary` | passes; a `method="table"` line after a child group is not a start pattern (#60) |
 | `issue60_tail_start_line_starts_own_record` | passes; a `_start_` line after a child group starts its own record (#60) |
-| `issue128_end_line_values_are_saved` | #128 |
-| `issue128_end_line_values_no_children` | #128, in a group without children |
+| `issue128_end_line_values_are_saved` | passes; #128 is fixed |
+| `issue128_end_line_values_no_children` | passes; #128 in a group without children |
 
-Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Since refactor C1 gottp assembles a group without children with a port of `_results_class` (`internal/compiled/assembler.go`), and most of them pass. Those gottp still gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
+Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Since refactor C1 gottp assembles records with a port of `_results_class` (`internal/compiled/assembler.go`), and since C2 a group with children and all its descendants go through one assembler (`internal/compiled/tree.go`), so most of them pass. Those gottp still gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
 
 | Repro | Rule |
 |---|---|
@@ -87,7 +87,28 @@ Record-assembly pins for refactor C (#60). Each is a minimal template for one ru
 | `issue60_asm_bare_line_variable` | a `{{ _line_ }}` variable keeps its joined lines |
 | `issue60_asm_line_condition_skips_line` | a `_line_` line rejected by a condition is skipped, not the rest |
 
-Related issues with nested groups (refactor C2), each a minimal repro from the issue: `issue88_itemize_child_group`, `issue88_itemize_path_argument`, `issue89_group_with_only_child_groups`, `issue89_anonymous_child_groups`, `issue91_child_group_defaults_without_match`, `issue99_record_and_set_across_groups`, `issue100_void_sibling_startempty_joinmatches` (a reduction of `test_same_config_different_contexts`), `issue118_joinmatches_stops_at_sibling_start`, `issue119_second_start_line_stays_in_own_section`, `issue120_sibling_groups_same_name`.
+Related issues with nested groups (refactor C2), each a minimal repro from the issue; all pass since C2 except `issue88_itemize_path_argument` (the path argument): `issue88_itemize_child_group`, `issue88_itemize_path_argument`, `issue89_group_with_only_child_groups`, `issue89_anonymous_child_groups`, `issue91_child_group_defaults_without_match`, `issue99_record_and_set_across_groups`, `issue100_void_sibling_startempty_joinmatches` (a reduction of `test_same_config_different_contexts`), `issue118_joinmatches_stops_at_sibling_start`, `issue119_second_start_line_stays_in_own_section`, `issue120_sibling_groups_same_name`.
+
+Fixes on top of C2, each recorded from TTP 0.10.1; all pass:
+
+| Repro | Rule |
+|---|---|
+| `issue60_c2_child_macro_runs_on_last_record` | a child `macro=` runs on every record, also once the parent record holds a key named like the macro |
+| `issue60_c2_child_vars_exclude_parent_record_contains_val` | a child's `contains_val=` compares with template variables, not the parent record's values |
+| `issue60_c2_child_vars_exclude_parent_record_default` | a child's `default="desc"` is the string, not the parent's `desc` |
+| `issue60_c2_absolute_child_path` | `name="/vlans_abs"` saves at the results root, one list for every parent record |
+| `issue60_c2_absolute_grandchild_path` | the same for a grandchild |
+| `issue60_c2_absolute_child_of_anonymous_group` | under an anonymous top group, `{"vl": [...]}` is one more item of the result list |
+| `issue60_c2_absolute_grandchild_of_anonymous_group` | the same for a grandchild |
+| `issue60_c2_root_child_path` | `name="/"` saves at `_anonymous_*`: the records are items of the result list |
+| `issue60_c2_absolute_dynamic_child_path` | an absolute path with a `{{ variable }}` |
+| `issue60_c2_absolute_child_with_relative_child` | a relative child of an absolute group goes below it |
+| `issue60_c2_void_top_keeps_children` | the children of a `void` top group are kept |
+| `issue60_c2_record_target_no_merge` | `record="x, tgt"` records `x` as `tgt` and merges no records |
+| `issue60_c2_record_same_value_no_merge` | two records with the same `record=` value stay two records |
+| `issue60_c2_record_after_contains` | `contains="z" record="x"`: a record `contains=` drops records nothing |
+| `issue60_c2_child_record_after_contains` | the same in a child group |
+| `issue60_c2_group_functions_attribute_order` | group function attributes run in template order: `del="z" contains="z"` drops every record |
 
 ## Source-map parity
 
@@ -138,9 +159,8 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 | Issue | Cases | Also | Title |
 |---|---|---|---|
 | #68 | 13 |  | _headers_ (and columns) indicator is unimplemented |
-| #28 | 12 |  | Parent group whose _start_ line has no variables drops its child groups |
-| #67 | 10 |  | Raw-string arguments r"…" silently match nothing |
-| #63 | 10 |  | set(True) / set(False) (and any literal argument) is a string |
+| #67 | 12 |  | Raw-string arguments r"…" silently match nothing |
+| #63 | 10 | 1 | set(True) / set(False) (and any literal argument) is a string |
 | #80 | 9 | 2 | Missing output features |
 | #64 | 6 |  | A variable with default() captures the leading space |
 | #74 | 6 |  | <extend> inside a <group> is ignored |
@@ -148,33 +168,30 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 | #98 | 6 |  | Formatter output from <output> gets an extra list level |
 | #75 | 5 |  | Group-level lookup= attribute is ignored (replace, add_field, update) |
 | #70 | 4 | 1 | Several inline <input load="text"> tags without names: only the first is parsed |
-| #88 | 4 |  | itemize on a child group drops its values, and the path argument is ignored |
 | #97 | 4 |  | A group macro that returns None loses its in-place changes, and the next chained macro gets None |
 | #110 | 4 |  | Group-specific output= results are merged into the main result instead of added as a separate item |
 | #112 | 4 |  | A chain stored in <vars> as a list is ignored (group chain= and chain()) |
 | #73 | 3 | 1 | Getters: gethostname through set(), and get_date/get_time/getfilename/get_timestamp* missing |
-| #91 | 3 | 1 | A group with no matching lines does not emit its default values |
+| #88 | 3 |  | itemize on a child group drops its values, and the path argument is ignored |
 | #94 | 3 |  | <input url=...> pointing at a directory loads nothing |
-| #99 | 3 |  | record()/set= across groups: the recorded value is not set and the first child record is lost |
-| #100 | 3 |  | Nested-section templates from TTP answers diverge; root cause not isolated |
+| #91 | 2 | 1 | A group with no matching lines does not emit its default values |
+| #113 | 2 | 1 | macro() inside a group chain= is not run |
 | #72 | 2 |  | Group to_int has no float fallback |
 | #76 | 2 |  | A dynamic-path value containing . is split into path segments |
 | #77 | 2 |  | Nested <template> children are merged into one result |
-| #89 | 2 |  | A group that holds only child groups returns nothing |
 | #96 | 2 |  | include= on <vars> and on a CSV <lookup> does not load the file |
-| #113 | 2 | 1 | macro() inside a group chain= is not run |
+| #100 | 2 |  | Nested-section templates from TTP answers diverge; root cause not isolated |
+| #65 | 1 | 2 | The default() value isn't filled in when the line is absent |
+| #101 | 1 | 1 | <output> with its settings in the tag body is ignored |
+| #27 | 1 |  | Without a <template> wrapper, only the first top-level group's results are returned |
 | #66 | 1 |  | copy() is a stub |
 | #71 | 1 |  | let() on a matched line is overridden by a later set() |
 | #87 | 1 |  | Group path with several {{var}} segments written without spaces is not substituted |
 | #90 | 1 |  | A multi-line <vars> dict with a trailing comma is not parsed |
 | #92 | 1 |  | to_ip does not accept "address netmask" |
 | #95 | 1 |  | A template given as a file name is not loaded from TTP_TEMPLATES_DIR |
-| #101 | 1 | 1 | <output> with its settings in the tag body is ignored |
 | #102 | 1 |  | format_attributes is ignored (tabulate tablefmt) |
 | #114 | 1 |  | Group validate= attribute is not applied |
-| #118 | 1 | 1 | A joinmatches line keeps collecting after a sibling group's _start_ |
-| #119 | 1 |  | A group's second _start_ line matches lines that belong to a sibling group |
-| #120 | 1 |  | Sibling groups with the same name: the second replaces the first instead of forming a list |
 
 #62 (top-level anonymous group loses one list level) was the first difference in 65 cases. Its fix made 26 of them pass; the other 39 are listed under the issue they hit next, which for 11 of them is one of four new issues (#110, #112, #113, #114).
 

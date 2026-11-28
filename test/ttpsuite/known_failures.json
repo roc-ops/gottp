@@ -1,26 +1,6 @@
 {
  "_comment": "TTP 0.10.1 suite cases that don't match yet. issue = the issue the first strict difference belongs to; also = issues hit after it. A reason starting with 'design:' marks a deliberate difference. A case listed here that passes fails the test, so remove it when its issue is fixed.",
  "cases": {
-  "gottp-repros/issue100_void_sibling_startempty_joinmatches": {
-   "issue": 100,
-   "reason": "a parent joinmatches line also collects lines inside a void child group started by {{ _start_ }}"
-  },
-  "gottp-repros/issue118_joinmatches_stops_at_sibling_start": {
-   "issue": 118,
-   "reason": "a joinmatches line keeps collecting after a sibling group's _start_"
-  },
-  "gottp-repros/issue119_second_start_line_stays_in_own_section": {
-   "issue": 119,
-   "reason": "a child group's second _start_ line matches lines that belong to a sibling group"
-  },
-  "gottp-repros/issue120_sibling_groups_same_name": {
-   "issue": 120,
-   "reason": "sibling groups with the same name: the second replaces the first"
-  },
-  "gottp-repros/issue128_end_line_values_are_saved": {
-   "issue": 128,
-   "reason": "values captured on an _end_ line are saved into the record"
-  },
   "gottp-repros/issue136_start_only_line_matches_trailing_text": {
    "issue": 136,
    "reason": "a \"text {{ _start_ }}\" line also matches lines with more text after it"
@@ -28,14 +8,6 @@
   "gottp-repros/issue136_startempty_tie_with_start_pattern": {
    "issue": 136,
    "reason": "a \"text {{ _start_ }}\" line also matches lines with more text after it, so it splits the record"
-  },
-  "gottp-repros/issue28_empty_record_after_saved_record": {
-   "issue": 28,
-   "reason": "a record with no values is never emitted (TTP saves it once the path holds a record)"
-  },
-  "gottp-repros/issue28_parent_start_line_without_variables": {
-   "issue": 28,
-   "reason": "parent group whose _start_ line has no variables drops its child groups"
   },
   "gottp-repros/issue31_ignore_vars_name": {
    "issue": 31,
@@ -49,29 +21,9 @@
    "issue": 36,
    "reason": "swapcase (str method fallback) is silently skipped"
   },
-  "gottp-repros/issue88_itemize_child_group": {
-   "issue": 88,
-   "reason": "itemize on a child group drops its values"
-  },
   "gottp-repros/issue88_itemize_path_argument": {
    "issue": 88,
    "reason": "itemize ignores its path argument"
-  },
-  "gottp-repros/issue89_anonymous_child_groups": {
-   "issue": 89,
-   "reason": "anonymous child groups of a group without lines collapse into one record"
-  },
-  "gottp-repros/issue89_group_with_only_child_groups": {
-   "issue": 89,
-   "reason": "a group that holds only child groups returns nothing"
-  },
-  "gottp-repros/issue91_child_group_defaults_without_match": {
-   "issue": 91,
-   "reason": "a group with no matching lines does not emit its default values"
-  },
-  "gottp-repros/issue99_record_and_set_across_groups": {
-   "issue": 99,
-   "reason": "record()/set=: the recorded value is not set and the first child record is lost"
   },
   "test_N2G_formatter/test_n2g_formatter": {
    "issue": 80,
@@ -85,20 +37,12 @@
    "issue": 87,
    "reason": "group path with several {{var}} segments written without spaces is not substituted"
   },
-  "test_answers_and_docs/test_asa_acls_issue_55": {
-   "issue": 88,
-   "reason": "itemize on a child group drops its values"
-  },
   "test_answers_and_docs/test_asa_acls_issue_55_uses_itemize_with_dynamic_path": {
    "issue": 88,
    "reason": "itemize on a child group drops its values"
   },
   "test_answers_and_docs/test_docs_ttp_dictionary_usage_example": {
    "reason": "design: python macro (uses _ttp_[\"match\"][\"to_ip\"] and the ipaddress object API)"
-  },
-  "test_answers_and_docs/test_fortigate_intf_parsing": {
-   "issue": 28,
-   "reason": "parent group whose _start_ line has no variables drops its child groups"
   },
   "test_answers_and_docs/test_github_issue_22": {
    "issue": 67,
@@ -113,55 +57,26 @@
    "reason": "group with no matching lines does not emit its default() values"
   },
   "test_answers_and_docs/test_github_issue_37_cleaned_data_template": {
-   "issue": 28,
-   "reason": "parent group whose start line is \"service {{ ignore }}\" drops its child groups"
-  },
-  "test_answers_and_docs/test_github_issue_37_cleaned_up_data": {
-   "issue": 28,
-   "reason": "parent group whose start line is \"service {{ ignore }}\" drops its child groups"
+   "issue": 67,
+   "also": [
+    65
+   ],
+   "reason": "resub(r\"\\*\", \"qinq\") is a raw-string argument, so the sap path keeps the '*'; then ingress/egress lack their default() values"
   },
   "test_answers_and_docs/test_github_issue_37_original_data_template": {
-   "issue": 28,
-   "reason": "parent group whose start line is \"service {{ ignore }}\" drops its child groups (the macro also uses Python \"import re\")"
-  },
-  "test_answers_and_docs/test_github_issue_42": {
-   "issue": 120,
+   "issue": 67,
    "also": [
-    118
+    65
    ],
-   "reason": "sibling groups named route-targets: the second replaces the first instead of forming a list"
-  },
-  "test_answers_and_docs/test_github_issue_42_answer": {
-   "issue": 119,
-   "reason": "export_rts's second _start_ line also matches the import route-target lines"
-  },
-  "test_answers_and_docs/test_interface_template_not_collecting_all_data_reduced": {
-   "issue": 89,
-   "reason": "group holding only child groups: sibling anonymous children collapse into one record"
+   "reason": "resub(r\"\\*\", \"qinq\") is a raw-string argument, so the sap path keeps the '*'; then ingress/egress lack their default() values (the macro also uses Python \"import re\")"
   },
   "test_answers_and_docs/test_interface_template_not_collecting_all_data_solution": {
    "issue": 90,
    "reason": "multi-line <vars> dict with a trailing comma is not parsed, so group default= fills the variable name"
   },
-  "test_answers_and_docs/test_ios_bgp_pers_pars": {
-   "issue": 89,
-   "reason": "group holding only child groups (no lines of its own) returns nothing"
-  },
   "test_answers_and_docs/test_ip_address_parsing": {
    "issue": 92,
    "reason": "to_ip does not accept \"address netmask\""
-  },
-  "test_answers_and_docs/test_issue_45": {
-   "issue": 28,
-   "reason": "forwarding-options { {{ _start_ }} has no variables, so its child groups are dropped"
-  },
-  "test_answers_and_docs/test_issue_45_1": {
-   "issue": 28,
-   "reason": "forwarding-options { {{ _start_ }} has no variables, so its child groups are dropped"
-  },
-  "test_answers_and_docs/test_issue_45_filtering_fix": {
-   "issue": 28,
-   "reason": "forwarding-options { {{ _start_ }} has no variables, so its child groups are dropped"
   },
   "test_answers_and_docs/test_issue_45_for_junos_cfg": {
    "issue": 63,
@@ -183,14 +98,6 @@
    "issue": 68,
    "reason": "_headers_ indicator unimplemented"
   },
-  "test_answers_and_docs/test_issue_57_one_more": {
-   "issue": 28,
-   "reason": "parent group whose _start_ line (\"Local: {{_start_}}\") has no variables drops its child groups"
-  },
-  "test_answers_and_docs/test_issue_57_one_more_empty_dict_in_res": {
-   "issue": 28,
-   "reason": "parent group whose _start_ line (\"Local: {{_start_}}\") has no variables drops its child groups"
-  },
   "test_answers_and_docs/test_issue_62": {
    "issue": 67,
    "reason": "raw-string argument ignore(r'\\s+') matches nothing"
@@ -199,24 +106,12 @@
    "issue": 76,
    "reason": "dynamic-path value \"Bundle-Ether801.101\" is split on the dot"
   },
-  "test_answers_and_docs/test_issue_94": {
-   "issue": 28,
-   "reason": "parent group whose _start_ line has no variables drops its child groups"
-  },
-  "test_answers_and_docs/test_issue_94_1": {
-   "issue": 28,
-   "reason": "parent group whose _start_ line has no variables drops its child groups"
-  },
   "test_answers_and_docs/test_reddit_answer_1": {
    "issue": 101,
    "reason": "<output> with its settings in the tag body (format = \"csv\") is ignored"
   },
   "test_answers_and_docs/test_reddit_answer_2": {
    "reason": "design: python macro (the macro block uses \"import ipaddress\")"
-  },
-  "test_answers_and_docs/test_same_config_different_contexts": {
-   "issue": 100,
-   "reason": "lines owned by a void child group are also collected by the parent; root cause not isolated"
   },
   "test_answers_and_docs/test_slack_answer_2": {
    "issue": 63,
@@ -235,8 +130,8 @@
    "reason": "set(True)/set(False) gives a string"
   },
   "test_answers_and_docs/test_vlans_parsing": {
-   "issue": 28,
-   "reason": "parent group whose _start_ line has no variables drops its child groups"
+   "issue": 27,
+   "reason": "without a <template> wrapper only the first top group is compiled, so vlans_active and vlans_forwarding are missing"
   },
   "test_extend_tag/test_extend_tag_from_file_group_index_filter": {
    "issue": 93,
@@ -316,10 +211,6 @@
    "issue": 70,
    "reason": "several inline <input> tags without names: only the first is parsed"
   },
-  "test_group_functions/test_group_default_referencing_variable_parent_group_no_re_one_input": {
-   "issue": 91,
-   "reason": "group with no matching lines does not emit its default= values"
-  },
   "test_group_functions/test_group_default_referencing_variable_parent_group_no_re_two_inputs": {
    "issue": 91,
    "reason": "group with no matching lines does not emit its default= values"
@@ -335,10 +226,6 @@
   "test_group_functions/test_group_macro_returns_false": {
    "issue": 97,
    "reason": "group macro that returns False keeps the record (macro return handling, triaged with #97)"
-  },
-  "test_group_functions/test_group_set_function_source_from_global_vars": {
-   "issue": 99,
-   "reason": "set= of a value recorded by another group gives the variable name, not the recorded value"
   },
   "test_group_functions/test_group_to_int_for_non_integer": {
    "issue": 72,
@@ -395,10 +282,6 @@
   "test_group_lookup/test_group_lookup_using_lookup_table_action_update": {
    "issue": 75,
    "reason": "group-level lookup= attribute is ignored"
-  },
-  "test_group_name_attribute/test_group_same_null_path_for_several_groups": {
-   "issue": 118,
-   "reason": "the import joinmatches line keeps collecting after the export group starts"
   },
   "test_headers_indicator/test_headers_docs_example": {
    "issue": 68,
@@ -544,13 +427,12 @@
    "issue": 76,
    "reason": "dynamic-path value containing \".*\" is split into path segments"
   },
-  "test_misc/test_child_group_do_not_start_if_no_parent_started": {
-   "issue": 99,
-   "reason": "record()/set= across groups: first child record lost, recorded value not set"
-  },
   "test_misc/test_group_end_indicator_when_last_start_is_bigger_than_last_end": {
-   "issue": 99,
-   "reason": "record()/set= across groups: recorded value not set"
+   "issue": 65,
+   "also": [
+    63
+   ],
+   "reason": "asbr's default(False) is not filled in when the line is absent (and would be the string \"False\")"
   },
   "test_misc/test_groups_with_defaults_only_and_with_children_with_defaults_only": {
    "issue": 110,

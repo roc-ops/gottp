@@ -1,0 +1,9 @@
+<group name="intf">
+interface {{ name }}
+<group name="/vl">
+ vlan {{ vlan }}
+<group name="nm">
+ name {{ vname }}
+</group>
+</group>
+</group>

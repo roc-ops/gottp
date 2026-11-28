@@ -1,0 +1,9 @@
+<template>
+<group name="a" contains="z" record="x">
+a {{ x }}
+z {{ z }}
+</group>
+<group name="b" set="x">
+b {{ y }}
+</group>
+</template>

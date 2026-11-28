@@ -8,8 +8,9 @@ import (
 )
 
 // The record assembler is a port of Python TTP 0.10.1's _results_class
-// (ttp.py: make_results, start, startempty, add, join, end) for one group.
-// It turns a group's pattern matches, in input order, into records. It does
+// (ttp.py: make_results, start, startempty, add, join, end) for a top group
+// and its descendants. It turns their pattern matches, in input order, into
+// records. It does
 // no post-processing: group functions, chain, macro, defaults, YANG and
 // record= stay with the caller, as TTP's processgrp and the output stage do.
 //
@@ -29,23 +30,24 @@ import (
 // A start line whose condition rejects it (TTP's result False) ends the
 // group too. An ended group takes no more matches until its next start.
 //
-// Children (refactor C2, not implemented yet). TTP runs a top group's child
-// regexes over the parent's region and puts every match in the same
-// position-keyed dict, so one assembler sees the whole tree. To get there:
-//   - asmGroup gets one entry per group of the tree, with TTP's group_id,
-//     parent_group_id and PATH (the record's absolute path, kept unresolved
-//     so two sibling groups with the same name compare equal);
+// Children (refactor C2). TTP runs a top group's child regexes over the
+// parent's region and puts every match in the same position-keyed dict, so
+// one assembler sees the whole tree (tree.go collects the matches). Each
+// asmGroup carries TTP's group_id, parent_group_id and PATH (kept
+// unresolved, so two sibling groups with the same name compare equal):
 //   - candidates at a position are ordered by group (run_re's depth-first
-//     order) before rank, and choose's "children of the current record's
-//     group" and "parent started" branches start to matter;
-//   - startRecord's started-groups tracing already follows TTP's while/else;
-//     add and join need TTP's other branch: a match for a started group whose
-//     PATH differs from the current record's starts a record with
-//     merge_with_last, and end needs its PATH/started_groups[-1] check;
-//   - matches of a group whose parent ended are skipped (make_results'
-//     parent_group_id in ended_groups);
-//   - asmRecord carries the group (and so its PATH) so the caller can place
-//     the record in the results tree.
+//     order) and then by pattern, which is what rank encodes;
+//   - choose prefers the current record's group, then (start tiers) a child
+//     of it or a group whose parent started, then (ordinary tier) a started
+//     group;
+//   - add and join for a started group whose PATH differs from the current
+//     record's start a record marked merge_with_last, which the caller
+//     merges into the group's last saved record; end ignores the end line of
+//     the last started group when the current record has another PATH;
+//   - matches of a group whose parent ended are skipped.
+//
+// Every asmRecord carries its group, so the caller can place the record in
+// the results tree.
 //
 // The assembler takes matches one at a time and keeps only the matches at
 // the current position and the current record, so ParseStream can feed it a
@@ -74,34 +76,41 @@ type asmJoinVar struct {
 
 // asmGroup is one group as the assembler sees it.
 type asmGroup struct {
-	name     string // TTP's group_id[0], for choose's prefix rule
-	id       int    // TTP's group_id
+	name     string // TTP's group_id[0] (the dotted PATH), for choose's prefix rule
+	path     string // TTP's PATH, unresolved: records with equal paths take each other's lines
+	id       int    // TTP's group_id: the group's index in the assembler's groups
 	parentID int    // TTP's parent_group_id; -1 for a top group
 	patterns []asmPattern
 }
 
-// newAsmGroup builds the assembler's view of a group without children. A
-// nested group gets parent ID 1: parseGroup runs it on its parent record's
-// slice, where in TTP the parent group has started (see newAssembler).
+// newAsmGroup builds the assembler's view of a top group without children.
 func newAsmGroup(group *compiler.CompiledGroup) *asmGroup {
+	return buildAsmGroup(group, 0, -1, group.Name, group.Name, 0)
+}
+
+// buildAsmGroup builds the assembler's view of group with TTP's identity:
+// id and parentID, name (group_id[0]) and path (PATH). rankBase orders its
+// patterns after those of the groups before it in run_re's depth-first
+// order. One more pattern, at index len(group.Patterns), stands for TTP's
+// default start (a group that matched nothing but has start-line defaults,
+// or that has no regexes at all); only tree.go feeds it.
+func buildAsmGroup(group *compiler.CompiledGroup, id, parentID int, name, path string, rankBase int) *asmGroup {
 	prof := group.Profile()
-	g := &asmGroup{name: group.Name, id: 0, parentID: -1, patterns: make([]asmPattern, len(group.Patterns))}
-	if group.IsNested {
-		g.parentID = 1
-	}
 	n := len(group.Patterns)
+	g := &asmGroup{name: name, path: path, id: id, parentID: parentID, patterns: make([]asmPattern, n+1)}
+	g.patterns[n] = asmPattern{action: compiler.ActionStart, rank: rankBase + 4*n}
 	for i, cp := range group.Patterns {
 		pp := prof.Pattern(i)
 		ap := asmPattern{action: pp.Action, isLine: pp.IsLine}
 		switch pp.Role {
 		case compiler.RoleStart:
-			ap.rank = i
+			ap.rank = rankBase + i
 		case compiler.RoleEnd:
-			ap.rank = n + i
+			ap.rank = rankBase + n + i
 		case compiler.RoleOrdinary:
-			ap.rank = 2*n + i
+			ap.rank = rankBase + 2*n + i
 		default:
-			ap.rank = 3*n + i
+			ap.rank = rankBase + 3*n + i
 			ap.none = true
 		}
 		for _, name := range cp.VariableOrder {
@@ -123,7 +132,8 @@ func newAsmGroup(group *compiler.CompiledGroup) *asmGroup {
 
 // asmMatch is one pattern match fed to the assembler.
 type asmMatch struct {
-	idx     int // the caller's index for the match, reported in asmRecord.used
+	idx     int // the caller's index for the match, reported in asmRecord.used; -1 for none
+	group   int // the group's id (its index in the assembler's groups)
 	pattern int // pattern index in the group
 	start   int // span start: matches with the same start tie
 	end     int // span end
@@ -134,7 +144,12 @@ type asmMatch struct {
 
 // asmRecord is one finished record.
 type asmRecord struct {
+	group  *asmGroup
 	result map[string]interface{}
+	// mergeWithLast is TTP's merge_with_last: the record holds lines of a
+	// started group that came after another group's record, and belongs to
+	// that group's last saved record.
+	mergeWithLast bool
 	// used holds the idx of every match the record took (start, add, join
 	// and end), in input order; nil unless the assembler tracks them.
 	used []int
@@ -146,18 +161,24 @@ type asmRecord struct {
 
 // asmCurrent is TTP's self.record: the record being assembled.
 type asmCurrent struct {
-	group    *asmGroup
-	result   map[string]interface{}
-	used     []int
-	start    int
-	closedAt int // end of the match that ended the group, or -1
+	group         *asmGroup
+	result        map[string]interface{}
+	used          []int
+	start         int
+	closedAt      int // end of the match that ended the group, or -1
+	mergeWithLast bool
 }
 
-// assembler assembles the records of one group without children.
+// assembler assembles the records of one group and its descendants.
 type assembler struct {
-	group     *asmGroup
+	groups    []*asmGroup // by id
 	trackUsed bool
-	emit      func(asmRecord) error
+	// credit, when set (with trackUsed), takes an end match that ended a
+	// group other than the current record's (a parent's end line while a
+	// child record is open), so the caller can credit it to that group's
+	// last record.
+	credit func(g *asmGroup, idx int)
+	emit   func(asmRecord) error
 
 	pending []asmMatch // matches at the current position, not yet resolved
 
@@ -166,16 +187,21 @@ type assembler struct {
 	ended   map[int]bool
 }
 
-// newAssembler starts an assembler for g. For a nested group the parent is
-// already in started_groups, as it is in TTP when the child's matches come
-// after the parent's start line; that decides choose's tie-breaks for the
-// child's first record.
+// newAssembler starts an assembler for the single group g. If g has a
+// parent ID, the parent counts as started, as it is in TTP when a child's
+// matches come after the parent's start line (the unit tests use this).
 func newAssembler(g *asmGroup, trackUsed bool, emit func(asmRecord) error) *assembler {
-	a := &assembler{group: g, trackUsed: trackUsed, emit: emit, ended: make(map[int]bool)}
+	a := newTreeAssembler([]*asmGroup{g}, trackUsed, emit)
 	if g.parentID >= 0 {
 		a.started = append(a.started, g.parentID)
 	}
 	return a
+}
+
+// newTreeAssembler starts an assembler for a top group and its descendants;
+// groups[i].id must be i.
+func newTreeAssembler(groups []*asmGroup, trackUsed bool, emit func(asmRecord) error) *assembler {
+	return &assembler{groups: groups, trackUsed: trackUsed, emit: emit, ended: make(map[int]bool)}
 }
 
 // add feeds one match. Matches must come in order of start; matches with the
@@ -215,7 +241,7 @@ func (a *assembler) resolve() error {
 	var extra []asmMatch
 	n := 0
 	for _, c := range cands {
-		if a.group.patterns[c.pattern].none {
+		if a.pat(c).none {
 			extra = append(extra, c)
 			continue
 		}
@@ -229,7 +255,7 @@ func (a *assembler) resolve() error {
 	}
 	if err == nil {
 		for _, c := range extra {
-			if c.result != nil && a.openFor(a.group) {
+			if c.result != nil && a.openFor(a.groups[c.group]) {
 				a.addValues(c)
 			}
 		}
@@ -242,7 +268,10 @@ func (a *assembler) resolve() error {
 }
 
 // pat returns the pattern of m.
-func (a *assembler) pat(m asmMatch) asmPattern { return a.group.patterns[m.pattern] }
+func (a *assembler) pat(m asmMatch) asmPattern { return a.groups[m.group].patterns[m.pattern] }
+
+// grp returns the group of m.
+func (a *assembler) grp(m asmMatch) *asmGroup { return a.groups[m.group] }
 
 // choose ports make_results' winner selection for a position matched by
 // several patterns: startempty beats start, start beats ordinary and end
@@ -288,12 +317,12 @@ func (a *assembler) choose(cands []asmMatch) asmMatch {
 	case len(normal) > 0:
 		var w asmMatch
 		for _, i := range normal {
-			if w = cands[i]; a.group == recGroup {
+			if w = cands[i]; a.grp(w) == recGroup {
 				return w
 			}
 		}
 		for _, i := range normal {
-			if w = cands[i]; a.isStarted(a.group.id) {
+			if w = cands[i]; a.isStarted(a.grp(w).id) {
 				return w
 			}
 		}
@@ -301,7 +330,7 @@ func (a *assembler) choose(cands []asmMatch) asmMatch {
 	default:
 		var w asmMatch
 		for _, i := range line {
-			if w = cands[i]; a.group == recGroup {
+			if w = cands[i]; a.grp(w) == recGroup {
 				return w
 			}
 		}
@@ -312,14 +341,13 @@ func (a *assembler) choose(cands []asmMatch) asmMatch {
 // chooseStart is choose for the start and startempty tiers, which skip
 // rejected matches while looking for a preferred one.
 func (a *assembler) chooseStart(cands []asmMatch, idxs []int, recGroup *asmGroup) asmMatch {
-	g := a.group
 	var w asmMatch
 	for _, i := range idxs {
 		w = cands[i]
 		if w.result == nil {
 			continue
 		}
-		if g == recGroup {
+		if a.grp(w) == recGroup {
 			return w
 		}
 	}
@@ -328,6 +356,7 @@ func (a *assembler) chooseStart(cands []asmMatch, idxs []int, recGroup *asmGroup
 		if w.result == nil {
 			continue
 		}
+		g := a.grp(w)
 		if recGroup != nil && strings.HasPrefix(g.name, recGroup.name) {
 			return w
 		}
@@ -354,14 +383,18 @@ func (a *assembler) openFor(g *asmGroup) bool {
 
 // apply is make_results' handling of the winning match.
 func (a *assembler) apply(m asmMatch) error {
-	g := a.group
-	p := g.patterns[m.pattern]
+	g := a.grp(m)
+	p := a.pat(m)
 	if m.result == nil {
 		// A rejected start line ends the group.
 		a.ended[g.id] = true
 		if a.rec != nil && a.rec.group == g && a.rec.closedAt < 0 {
 			a.rec.closedAt = m.start
 		}
+		return nil
+	}
+	// The matches of a group whose parent ended are skipped.
+	if g.parentID >= 0 && a.ended[g.parentID] {
 		return nil
 	}
 	isStart := p.action == compiler.ActionStart || p.action == compiler.ActionStartEmpty
@@ -373,30 +406,50 @@ func (a *assembler) apply(m asmMatch) error {
 	}
 	switch p.action {
 	case compiler.ActionStart:
-		return a.startRecord(g, m, m.result)
+		return a.startRecord(g, m, m.result, false)
 	case compiler.ActionStartEmpty:
-		return a.startRecord(g, m, nil)
+		return a.startRecord(g, m, nil, false)
 	case compiler.ActionAdd:
-		if a.rec != nil && a.rec.group == g {
+		if a.samePath(g) {
 			a.addValues(m)
+		} else if a.isStarted(g.id) {
+			// A line of a started group after another group's record (a
+			// parent's tail line, say): TTP starts a record that it merges
+			// into the group's last saved record.
+			return a.startRecord(g, m, m.result, true)
 		}
 	case compiler.ActionJoin:
-		if a.rec != nil && a.rec.group == g {
+		if a.samePath(g) {
 			a.join(m)
+		} else if a.isStarted(g.id) {
+			return a.startRecord(g, m, m.result, true)
 		}
 	case compiler.ActionEnd:
+		// The end line of the last started group doesn't end anything when
+		// the current record has another PATH.
+		if !a.samePath(g) && len(a.started) > 0 && a.started[len(a.started)-1] == g.id {
+			return nil
+		}
+		a.ended[g.id] = true
 		if a.rec != nil && a.rec.group == g {
-			a.ended[g.id] = true
 			a.use(m)
 			a.rec.closedAt = m.end
+		} else if a.trackUsed && a.credit != nil && m.idx >= 0 {
+			a.credit(g, m.idx)
 		}
 	}
 	return nil
 }
 
+// samePath reports whether the current record has g's PATH (TTP compares
+// self.record["PATH"]; before the first record it is empty).
+func (a *assembler) samePath(g *asmGroup) bool {
+	return a.rec != nil && (a.rec.group == g || a.rec.group.path == g.path)
+}
+
 // startRecord is TTP's start/startempty: trace the started groups, save the
 // current record and start a new one with values (nil for startempty).
-func (a *assembler) startRecord(g *asmGroup, m asmMatch, values map[string]interface{}) error {
+func (a *assembler) startRecord(g *asmGroup, m asmMatch, values map[string]interface{}, mergeWithLast bool) error {
 	traced := false
 	for len(a.started) > 0 {
 		if g.parentID == a.started[len(a.started)-1] {
@@ -404,7 +457,7 @@ func (a *assembler) startRecord(g *asmGroup, m asmMatch, values map[string]inter
 			traced = true
 			break
 		}
-		if g.patterns[m.pattern].isLine {
+		if a.pat(m).isLine {
 			// TTP appends here every time; skipping a repeat keeps the
 			// stack bounded when streaming a _line_ group (nothing reads
 			// the duplicates).
@@ -429,7 +482,7 @@ func (a *assembler) startRecord(g *asmGroup, m asmMatch, values map[string]inter
 	for k, v := range values {
 		result[k] = v
 	}
-	a.rec = &asmCurrent{group: g, result: result, start: m.start, closedAt: -1}
+	a.rec = &asmCurrent{group: g, result: result, start: m.start, closedAt: -1, mergeWithLast: mergeWithLast}
 	a.use(m)
 	return nil
 }
@@ -521,7 +574,7 @@ func (l *asmJoinedList) extend(v interface{}) {
 }
 
 func (a *assembler) use(m asmMatch) {
-	if a.trackUsed {
+	if a.trackUsed && m.idx >= 0 {
 		a.rec.used = append(a.rec.used, m.idx)
 	}
 }
@@ -538,7 +591,7 @@ func (a *assembler) emitRecord(rec *asmCurrent, end int) error {
 	if rec.closedAt >= 0 {
 		end = rec.closedAt
 	}
-	return a.emit(asmRecord{result: rec.result, used: rec.used, srcRange: [2]int{rec.start, end}})
+	return a.emit(asmRecord{group: rec.group, result: rec.result, mergeWithLast: rec.mergeWithLast, used: rec.used, srcRange: [2]int{rec.start, end}})
 }
 
 // functionNameOf returns the name of a match function call such as

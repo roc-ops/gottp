@@ -1,0 +1,7 @@
+r1#show interfaces | inc line protocol:
+interface GigabitEthernet1
+ description some info
+ vrf forwarding MGMT
+ ip address 10.123.89.56 255.255.255.0
+interface GigabitEthernet2
+ ip address 10.123.89.55 255.255.255.0

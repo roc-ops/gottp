@@ -24,19 +24,14 @@ import (
 //   - the results maps, walked once at the end to turn each stored record map
 //     into its path ("interfaces[1].ipv4[0]").
 
-// smObserver collects source-map events during one parse.
+// smObserver collects source-map events during one parse. Match positions
+// are offsets in the input's (processed) data: a top group and all its
+// descendants are matched on the whole input (tree.go).
 type smObserver struct {
-	input       string     // input the current top-level group is parsing
-	lineOffsets []int      // byte offset of each line of that input's (processed) data, plus a sentinel
-	base        int        // offset of the current parseGroup's inputData within the input
-	parent      *smRecord  // record of the parent group while a nested group parses
+	input       string      // input the current top-level group is parsing
+	lineOffsets []int       // byte offset of each line of that input's (processed) data, plus a sentinel
 	lastNodes   []*smRecord // records behind the most recent parseGroup result
 	matches     []*smMatch
-	// submatches holds the current parseGroup's submatch indices by
-	// (spanStart, pattern index), which identifies a match uniquely: a
-	// pattern matches a line once, and an unanchored pattern's matches
-	// don't overlap. Keeping them here leaves patternMatch unchanged.
-	submatches map[[2]int]*smMatchInfo
 }
 
 // smRecord follows one record from the merge phase to the results.
@@ -66,7 +61,7 @@ type smMatch struct {
 }
 
 // smMatchInfo carries a match's submatch indices from the matching phase to
-// the observer. idx is relative to offset base of parseGroup's inputData.
+// the observer. idx is relative to offset base of the input.
 type smMatchInfo struct {
 	idx  []int
 	base int
@@ -84,19 +79,9 @@ func submatchStrings(s string, loc []int) []string {
 	return out
 }
 
-// noteSubmatches keeps a match's submatch indices for recordMatches.
-func (o *smObserver) noteSubmatches(spanStart, patternIdx int, info *smMatchInfo) {
-	if o.submatches == nil {
-		o.submatches = make(map[[2]int]*smMatchInfo)
-	}
-	o.submatches[[2]int{spanStart, patternIdx}] = info
-}
-
 // beginInput starts a top-level group on one input's (processed) data.
 func (o *smObserver) beginInput(input, data string) {
 	o.input = input
-	o.base = 0
-	o.parent = nil
 	o.lastNodes = nil
 	o.lineOffsets = o.lineOffsets[:0]
 	o.lineOffsets = append(o.lineOffsets, 0)
@@ -108,29 +93,6 @@ func (o *smObserver) beginInput(input, data string) {
 	o.lineOffsets = append(o.lineOffsets, len(data)+1)
 }
 
-// smScope is the observer state a nested parseGroup call replaces.
-type smScope struct {
-	base   int
-	parent *smRecord
-}
-
-// enter switches to a nested group parsing the parent record's range, which
-// starts at offset rangeStart of the current inputData.
-func (o *smObserver) enter(rangeStart int, parent *smRecord) smScope {
-	saved := smScope{base: o.base, parent: o.parent}
-	o.base += rangeStart
-	o.parent = parent
-	o.lastNodes = nil
-	return saved
-}
-
-// leave restores the scope saved by enter and returns the nested group's
-// records, aligned with its result.
-func (o *smObserver) leave(saved smScope) []*smRecord {
-	o.base, o.parent = saved.base, saved.parent
-	return o.takeNodes()
-}
-
 // takeNodes returns and clears the records behind the last parseGroup result.
 func (o *smObserver) takeNodes() []*smRecord {
 	nodes := o.lastNodes
@@ -139,13 +101,11 @@ func (o *smObserver) takeNodes() []*smRecord {
 }
 
 func (o *smObserver) newRecord(group *compiler.CompiledGroup) *smRecord {
-	return &smRecord{input: o.input, group: group, parent: o.parent}
+	return &smRecord{input: o.input, group: group}
 }
 
-// position turns an offset of the current inputData into an input line and
-// column.
-func (o *smObserver) position(local int) (line, col int) {
-	abs := o.base + local
+// position turns an offset of the input into a line and column.
+func (o *smObserver) position(abs int) (line, col int) {
 	line = sort.SearchInts(o.lineOffsets, abs+1) - 1
 	if line < 0 {
 		line = 0
@@ -159,27 +119,42 @@ func (o *smObserver) position(local int) (line, col int) {
 func (o *smObserver) recordMatches(group *compiler.CompiledGroup, allMatches []patternMatch, used [][]int) []*smRecord {
 	recs := make([]*smRecord, len(used))
 	for i, idxs := range used {
-		rec := o.newRecord(group)
-		recs[i] = rec
-		for _, mi := range idxs {
-			m := allMatches[mi]
-			line, startCol := o.position(m.spanStart)
-			sm := &smMatch{
-				input:      o.input,
-				line:       line,
-				startCol:   startCol,
-				endCol:     startCol + (m.spanEnd - m.spanStart),
-				group:      group,
-				patternIdx: m.patternIdx,
-				values:     m.result,
-				rec:        rec,
-			}
-			sm.vars = o.varRanges(group.Patterns[m.patternIdx], o.submatches[[2]int{m.spanStart, m.patternIdx}], line)
-			o.matches = append(o.matches, sm)
-		}
+		recs[i] = o.recordTree(group, allMatches, idxs)
 	}
-	clear(o.submatches)
 	return recs
+}
+
+// recordTree creates the smRecord of one record of group and an smMatch for
+// every match it consumed (used holds the indices into allMatches). A
+// default start, which matched no text, has no smMatch.
+func (o *smObserver) recordTree(group *compiler.CompiledGroup, allMatches []patternMatch, used []int) *smRecord {
+	rec := o.newRecord(group)
+	o.addMatches(rec, group, allMatches, used)
+	return rec
+}
+
+// addMatches adds an smMatch to rec for each match of group at the indices
+// used of allMatches.
+func (o *smObserver) addMatches(rec *smRecord, group *compiler.CompiledGroup, allMatches []patternMatch, used []int) {
+	for _, mi := range used {
+		m := &allMatches[mi]
+		if m.patternIdx >= len(group.Patterns) {
+			continue
+		}
+		line, startCol := o.position(m.spanStart)
+		sm := &smMatch{
+			input:      o.input,
+			line:       line,
+			startCol:   startCol,
+			endCol:     startCol + (m.spanEnd - m.spanStart),
+			group:      group,
+			patternIdx: m.patternIdx,
+			values:     m.result,
+			rec:        rec,
+		}
+		sm.vars = o.varRanges(group.Patterns[m.patternIdx], m.sm, line)
+		o.matches = append(o.matches, sm)
+	}
 }
 
 // varRanges returns each captured variable's columns on line, mapping capture
@@ -189,7 +164,7 @@ func (o *smObserver) varRanges(cp *pattern.CompiledPattern, info *smMatchInfo, l
 	if info == nil {
 		return ranges
 	}
-	lineStart := o.lineOffsets[line] - o.base
+	lineStart := o.lineOffsets[line]
 	varIndex := 1
 	for _, varName := range cp.VariableOrder {
 		if _, ok := cp.Variables[varName]; !ok {
@@ -515,14 +490,12 @@ func setStoredRel(results map[string]interface{}, keys []string, recs []*smRecor
 	}
 }
 
-// segmentKeys returns the keys of resolved path segments.
-func segmentKeys(parts []struct {
-	key       string
-	formatter string
-}) []string {
+// segmentKeys returns the keys of resolved path segments. A "_" segment
+// (TTP's null path) names no key: its records live in their parent.
+func segmentKeys(parts []pathPart) []string {
 	keys := make([]string, 0, len(parts))
 	for _, p := range parts {
-		if p.key != "" {
+		if p.key != "" && p.key != "_" {
 			keys = append(keys, p.key)
 		}
 	}

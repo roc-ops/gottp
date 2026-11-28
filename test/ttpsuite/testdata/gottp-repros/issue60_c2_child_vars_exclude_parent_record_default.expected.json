@@ -1,0 +1,14 @@
+[
+ [
+  {
+   "intf": {
+    "desc": "uplink",
+    "name": "Gi1",
+    "vlans": {
+     "vlan": "10",
+     "state": "desc"
+    }
+   }
+  }
+ ]
+]

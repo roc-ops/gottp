@@ -6,7 +6,7 @@
    {"LineNumber":2,"Matched":false,"Matches":[]},
    {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":57,"GroupName":"ospf_processes.{{ pid }}**","PatternIndex":0,"Variables":{"local_rid":{"StartCol":33,"EndCol":41},"pid":{"StartCol":55,"EndCol":56}},"ResultPath":"ospf_processes.1"}]},
    {"LineNumber":4,"Matched":false,"Matches":[]},
-   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":45,"GroupName":"router_lsa*","PatternIndex":0,"Variables":{"area":{"StartCol":41,"EndCol":44}},"ResultPath":"ospf_processes.1.router_lsa[0]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":45,"GroupName":"router_lsa*","PatternIndex":0,"Variables":{"area":{"StartCol":41,"EndCol":44}},"ResultPath":""}]},
    {"LineNumber":6,"Matched":false,"Matches":[]},
    {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"","PatternIndex":0,"Variables":{},"ResultPath":"ospf_processes.1.router_lsa[0]"}]},
    {"LineNumber":8,"Matched":false,"Matches":[]},
@@ -18,15 +18,15 @@
    {"LineNumber":14,"Matched":false,"Matches":[]},
    {"LineNumber":15,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"ptp_peers*","PatternIndex":3,"Variables":{"metric":{"StartCol":22,"EndCol":24}},"ResultPath":"ospf_processes.1.router_lsa[0].ptp_peers[0]"}]},
    {"LineNumber":16,"Matched":true,"Matches":[{"StartCol":0,"EndCol":0,"GroupName":"ptp_peers*","PatternIndex":4,"Variables":{},"ResultPath":"ospf_processes.1.router_lsa[0].ptp_peers[0]"}]},
-   {"LineNumber":17,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"","PatternIndex":0,"Variables":{},"ResultPath":"ospf_processes.1.router_lsa[0]"}]},
+   {"LineNumber":17,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"","PatternIndex":0,"Variables":{},"ResultPath":"ospf_processes.1.router_lsa[1]"}]},
    {"LineNumber":18,"Matched":false,"Matches":[]},
-   {"LineNumber":19,"Matched":true,"Matches":[{"StartCol":0,"EndCol":32,"GroupName":"","PatternIndex":1,"Variables":{"originator_rid":{"StartCol":22,"EndCol":32}},"ResultPath":"ospf_processes.1.router_lsa[0]"}]},
+   {"LineNumber":19,"Matched":true,"Matches":[{"StartCol":0,"EndCol":32,"GroupName":"","PatternIndex":1,"Variables":{"originator_rid":{"StartCol":22,"EndCol":32}},"ResultPath":"ospf_processes.1.router_lsa[1]"}]},
    {"LineNumber":20,"Matched":false,"Matches":[]},
-   {"LineNumber":21,"Matched":true,"Matches":[{"StartCol":0,"EndCol":54,"GroupName":"ptp_peers*","PatternIndex":0,"Variables":{},"ResultPath":"ospf_processes.1.router_lsa[0].ptp_peers[0]"}]},
-   {"LineNumber":22,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"ptp_peers*","PatternIndex":1,"Variables":{"link_id":{"StartCol":38,"EndCol":46}},"ResultPath":"ospf_processes.1.router_lsa[0].ptp_peers[0]"}]},
-   {"LineNumber":23,"Matched":true,"Matches":[{"StartCol":0,"EndCol":52,"GroupName":"ptp_peers*","PatternIndex":2,"Variables":{"link_data":{"StartCol":43,"EndCol":52}},"ResultPath":"ospf_processes.1.router_lsa[0].ptp_peers[0]"}]},
+   {"LineNumber":21,"Matched":true,"Matches":[{"StartCol":0,"EndCol":54,"GroupName":"ptp_peers*","PatternIndex":0,"Variables":{},"ResultPath":"ospf_processes.1.router_lsa[1].ptp_peers[0]"}]},
+   {"LineNumber":22,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"ptp_peers*","PatternIndex":1,"Variables":{"link_id":{"StartCol":38,"EndCol":46}},"ResultPath":"ospf_processes.1.router_lsa[1].ptp_peers[0]"}]},
+   {"LineNumber":23,"Matched":true,"Matches":[{"StartCol":0,"EndCol":52,"GroupName":"ptp_peers*","PatternIndex":2,"Variables":{"link_data":{"StartCol":43,"EndCol":52}},"ResultPath":"ospf_processes.1.router_lsa[1].ptp_peers[0]"}]},
    {"LineNumber":24,"Matched":false,"Matches":[]},
-   {"LineNumber":25,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"ptp_peers*","PatternIndex":3,"Variables":{"metric":{"StartCol":22,"EndCol":24}},"ResultPath":"ospf_processes.1.router_lsa[0].ptp_peers[0]"}]}
+   {"LineNumber":25,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"ptp_peers*","PatternIndex":3,"Variables":{"metric":{"StartCol":22,"EndCol":24}},"ResultPath":"ospf_processes.1.router_lsa[1].ptp_peers[0]"}]}
   ]
  }
 }

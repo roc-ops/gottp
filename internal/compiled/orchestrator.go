@@ -2,6 +2,7 @@ package compiled
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -206,7 +207,9 @@ func (r *Runtime) parse(inputs map[string]string, vars map[string]interface{}, o
 			if obs != nil {
 				obs.beginInput(inputName, processedInputData)
 			}
+			r.treeResults = getResultsMap(inputName)
 			groupResults, err := r.parseGroup(group, processedInputData, vars)
+			r.treeResults = nil
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse group %s: %w", group.Name, err)
 			}
@@ -477,14 +480,50 @@ func initSourceMapInputs(sourceMap *SourceMap, inputs map[string]string, inputOr
 }
 
 // builtinAttrGroupFunctions are the group functions parseGroup applies when
-// given as group attributes (record= is handled separately).
-var builtinAttrGroupFunctions = []string{"containsall", "contains", "del", "delete", "exclude", "excludeall", "equal", "to_int", "contains_val", "exclude_val", "sformat", "itemize", "set", "expand", "items2dict", "to_ip"}
+// given as group attributes. A group whose attribute order is unknown runs
+// them in this order.
+var builtinAttrGroupFunctions = []string{"record", "containsall", "contains", "del", "delete", "exclude", "excludeall", "equal", "to_int", "contains_val", "exclude_val", "sformat", "itemize", "set", "expand", "items2dict", "to_ip"}
 
 // nonFunctionGroupAttrs are group attributes parseGroup never treats as a
 // custom group function.
 var nonFunctionGroupAttrs = map[string]bool{
 	"name": true, "input": true, "method": true, "output": true, "default": true,
-	"chain": true, "functions": true, "macro": true, "record": true,
+	"chain": true, "functions": true, "macro": true,
+}
+
+func isBuiltinAttrGroupFunc(name string) bool {
+	for _, b := range builtinAttrGroupFunctions {
+		if name == b {
+			return true
+		}
+	}
+	return false
+}
+
+// groupFuncAttrs returns the attributes of group that postProcess runs as
+// group functions, in the order it runs them: template order, as TTP does,
+// or, for a group without one, the built-in ones in
+// builtinAttrGroupFunctions order and then the custom ones sorted.
+func (r *Runtime) groupFuncAttrs(group *compiler.CompiledGroup) []string {
+	custom := r.customAttrGroupFunctions(group)
+	var names []string
+	if group.AttrOrder == nil {
+		for _, b := range builtinAttrGroupFunctions {
+			if _, ok := group.Attributes[b]; ok {
+				names = append(names, b)
+			}
+		}
+		return append(names, custom...)
+	}
+	for _, a := range group.AttrOrder {
+		if _, ok := group.Attributes[a]; !ok {
+			continue
+		}
+		if isBuiltinAttrGroupFunc(a) || slices.Contains(custom, a) {
+			names = append(names, a)
+		}
+	}
+	return names
 }
 
 // customAttrGroupFunctions returns, sorted, the attributes of group that
@@ -501,14 +540,7 @@ func (r *Runtime) customAttrGroupFunctions(group *compiler.CompiledGroup) []stri
 		if nonFunctionGroupAttrs[attrName] {
 			continue
 		}
-		builtin := false
-		for _, b := range builtinAttrGroupFunctions {
-			if attrName == b {
-				builtin = true
-				break
-			}
-		}
-		if builtin {
+		if isBuiltinAttrGroupFunc(attrName) {
 			continue
 		}
 		if _, ok := r.getGroupFunc(attrName); ok {

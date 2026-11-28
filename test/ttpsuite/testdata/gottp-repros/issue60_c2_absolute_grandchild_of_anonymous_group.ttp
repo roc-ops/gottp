@@ -1,0 +1,10 @@
+<group>
+interface {{ name }}
+ description {{ desc | ORPHRASE }}
+<group name="vlans">
+ vlan {{ vlan }}
+<group name="/names">
+ name {{ vname }}
+</group>
+</group>
+</group>

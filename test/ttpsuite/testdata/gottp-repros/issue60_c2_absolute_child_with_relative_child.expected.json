@@ -1,0 +1,34 @@
+[
+ [
+  {
+   "intf": [
+    {
+     "name": "Gi1"
+    },
+    {
+     "name": "Gi2"
+    }
+   ],
+   "vl": [
+    {
+     "vlan": "10",
+     "nm": {
+      "vname": "ten"
+     }
+    },
+    {
+     "vlan": "20",
+     "nm": {
+      "vname": "twenty"
+     }
+    },
+    {
+     "vlan": "30",
+     "nm": {
+      "vname": "thirty"
+     }
+    }
+   ]
+  }
+ ]
+]

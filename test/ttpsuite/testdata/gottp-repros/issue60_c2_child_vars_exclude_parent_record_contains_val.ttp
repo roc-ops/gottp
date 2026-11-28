@@ -1,0 +1,8 @@
+<group name="intf">
+interface {{ name }}
+ description {{ desc | ORPHRASE }}
+<group name="vlans" contains_val="vname, name">
+ vlan {{ vlan }}
+ name {{ vname }}
+</group>
+</group>

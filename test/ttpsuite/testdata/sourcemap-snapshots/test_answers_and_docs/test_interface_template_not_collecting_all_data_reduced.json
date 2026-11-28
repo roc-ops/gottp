@@ -2,11 +2,11 @@
  "inputs": {
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":40,"GroupName":"","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":28}},"ResultPath":"interfaces[0]"}]},
    {"LineNumber":2,"Matched":false,"Matches":[]},
-   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":16}},"ResultPath":"interfaces"}]},
-   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":41,"GroupName":"ipv4*","PatternIndex":0,"Variables":{"ipv4":{"StartCol":14,"EndCol":41}},"ResultPath":"interfaces.ipv4[0]"}]},
-   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":25,"GroupName":"","PatternIndex":2,"Variables":{"mac_address":{"StartCol":13,"EndCol":25}},"ResultPath":"interfaces"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":16,"GroupName":"","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":16}},"ResultPath":"interfaces[1]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":41,"GroupName":"ipv4*","PatternIndex":0,"Variables":{"ipv4":{"StartCol":14,"EndCol":41}},"ResultPath":"interfaces[1].ipv4[0]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":25,"GroupName":"","PatternIndex":2,"Variables":{"mac_address":{"StartCol":13,"EndCol":25}},"ResultPath":"interfaces[1]"}]},
    {"LineNumber":6,"Matched":false,"Matches":[]},
    {"LineNumber":7,"Matched":false,"Matches":[]}
   ]

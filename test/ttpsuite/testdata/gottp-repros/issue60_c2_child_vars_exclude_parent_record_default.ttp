@@ -1,0 +1,8 @@
+<group name="intf">
+interface {{ name }}
+ description {{ desc | ORPHRASE }}
+<group name="vlans" default="desc">
+ vlan {{ vlan }}
+ state {{ state }}
+</group>
+</group>

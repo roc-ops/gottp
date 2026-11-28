@@ -1,0 +1,8 @@
+<group>
+interface {{ name }}
+ description {{ desc | ORPHRASE }}
+ ip address {{ ip }} {{ mask }}
+<group name="/vl">
+ vlan {{ vlan }}
+</group>
+</group>

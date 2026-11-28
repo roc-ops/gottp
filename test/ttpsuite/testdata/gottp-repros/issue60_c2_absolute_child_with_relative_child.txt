@@ -1,0 +1,12 @@
+interface Gi1
+ description uplink
+ vlan 10
+ name ten
+ vlan 20
+ name twenty
+ ip address 1.1.1.1 255.255.255.0
+interface Gi2
+ description down
+ vlan 30
+ name thirty
+ ip address 2.2.2.2 255.255.255.0

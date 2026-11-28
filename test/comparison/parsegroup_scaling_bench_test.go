@@ -77,3 +77,20 @@ func BenchmarkDynamicPathGroup(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkNestedScaling20k parses 20,000 parent records with child groups:
+// the single-stream path (refactor C2, #60) for groups with children.
+func BenchmarkNestedScaling20k(b *testing.B) {
+	compiled, err := gottp.CompileTemplate(nestedBenchTemplate)
+	if err != nil {
+		b.Fatalf("compile: %v", err)
+	}
+	inputs := gottp.Inputs{"Default_Input": nestedBenchInput(20000)}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := compiled.Parse(inputs, nil, nil); err != nil {
+			b.Fatalf("parse: %v", err)
+		}
+	}
+}

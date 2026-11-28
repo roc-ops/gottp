@@ -1,0 +1,8 @@
+<group name="intf">
+interface {{ name }}
+<group name="/vlans.{{ vlan }}">
+ vlan {{ vlan }}
+ name {{ vname }}
+</group>
+ ip address {{ ip }} {{ mask }}
+</group>
