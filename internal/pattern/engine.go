@@ -474,6 +474,14 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 		}
 	}
 
+	// Python TTP rebuilds the line's leading whitespace verbatim
+	// ("\n" + indent + ...), so an indented line matches only data with
+	// exactly that indent (#30). Emit it literally (spaces and tabs need no
+	// escaping) and build the rest of the regex from the unindented line.
+	indentLen := len(line) - len(strings.TrimLeft(line, " \t"))
+	indent := line[:indentLen]
+	line = line[indentLen:]
+
 	// Find variable positions
 	re := regexp.MustCompile(`\{\{([\S\s]+?)\}\}`)
 	matches := re.FindAllStringSubmatchIndex(line, -1)
@@ -483,7 +491,7 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 	}
 
 	// Build regex by replacing variables and escaping text
-	var regexParts []string
+	regexParts := []string{indent}
 	lastEnd := 0
 
 	for i, match := range matches {
@@ -543,15 +551,7 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 	// If the original line has leading spaces, we need to account for them in the regex
 	// Python TTP preserves leading spaces in the pattern
 	if !strings.HasPrefix(regexStr, "^") {
-		// Check if the original line has leading spaces
-		leadingSpaces := len(line) - len(strings.TrimLeft(line, " \t"))
-		if leadingSpaces > 0 && len(regexParts) > 0 {
-			// The first part should already have the leading spaces from escapeText
-			// But we need to ensure the pattern starts with ^ to anchor to line start
-			regexStr = "^" + regexStr
-		} else {
-			regexStr = "^" + regexStr
-		}
+		regexStr = "^" + regexStr
 	}
 
 	// Handle trailing whitespace: Python TTP strips it and adds optional matching

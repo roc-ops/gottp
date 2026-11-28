@@ -9,8 +9,8 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 48 / skipped-by-issue 148 / design 4 of 200
-gottp repros: pass 2 / skipped-by-issue 8 / design 0 of 10
+TTP 0.10.1 suite: pass 49 / skipped-by-issue 147 / design 4 of 200
+gottp repros: pass 3 / skipped-by-issue 7 / design 0 of 10
 source-map parity: same 199 / diverge 11 of 210
 ```
 
@@ -36,12 +36,12 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 |---|---|
 | `issue28_parent_start_line_without_variables` | #28 |
 | `issue29_joinmatches_on_start_line` | #29 |
-| `issue30_indented_line_matches_any_indentation` | #30 |
+| `issue30_indented_line_matches_any_indentation` | passes; #30 is fixed |
 | `issue31_ignore_vars_name` | #31 |
 | `issue32_one_line_fills_several_template_lines` | #32 |
 | `issue33_trailing_ignore_with_trailing_whitespace` | #33 |
 | `issue34_split_joinmatches` | #34 |
-| `issue35_strip_characters_argument` | passes; #35 is fixed |
+| `issue35_strip_characters_argument` | #35 |
 | `issue36_unknown_function_falls_back_to_str_method` | #36 |
 | `sourcemap_void_group` | passes; covers `void` for source-map parity (#108) |
 
@@ -79,11 +79,10 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 | Issue | Cases | Also | Title |
 |---|---|---|---|
 | #68 | 13 |  | _headers_ (and columns) indicator is unimplemented |
+| #28 | 12 |  | Parent group whose _start_ line has no variables drops its child groups |
 | #67 | 10 |  | Raw-string arguments r"…" silently match nothing |
-| #28 | 9 |  | Parent group whose _start_ line has no variables drops its child groups |
+| #63 | 9 |  | set(True) / set(False) (and any literal argument) is a string |
 | #80 | 9 | 2 | Missing output features |
-| #63 | 8 |  | set(True) / set(False) (and any literal argument) is a string |
-| #30 | 7 |  | Indented template lines match data at any indentation |
 | #64 | 6 |  | A variable with default() captures the leading space |
 | #74 | 6 |  | <extend> inside a <group> is ignored |
 | #93 | 6 |  | <extend>: <vars> from the extended file and the groups=/vars=/inputs=/lookups= filters are not applied |
@@ -93,7 +92,6 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 | #88 | 4 |  | itemize on a child group drops its values, and the path argument is ignored |
 | #97 | 4 |  | A group macro that returns None loses its in-place changes, and the next chained macro gets None |
 | #110 | 4 |  | Group-specific output= results are merged into the main result instead of added as a separate item |
-| #100 | 4 |  | Nested-section templates from TTP answers diverge; root cause not isolated |
 | #112 | 4 |  | A chain stored in <vars> as a list is ignored (group chain= and chain()) |
 | #69 | 3 |  | A _start_ line rejected by a condition doesn't close the previous record |
 | #73 | 3 | 1 | Getters: gethostname through set(), and get_date/get_time/getfilename/get_timestamp* missing |
@@ -101,6 +99,7 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 | #91 | 3 | 1 | A group with no matching lines does not emit its default values |
 | #94 | 3 |  | <input url=...> pointing at a directory loads nothing |
 | #99 | 3 |  | record()/set= across groups: the recorded value is not set and the first child record is lost |
+| #100 | 3 |  | Nested-section templates from TTP answers diverge; root cause not isolated |
 | #72 | 2 |  | Group to_int has no float fallback |
 | #76 | 2 |  | A dynamic-path value containing . is split into path segments |
 | #77 | 2 |  | Nested <template> children are merged into one result |
@@ -116,6 +115,9 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 | #101 | 1 | 1 | <output> with its settings in the tag body is ignored |
 | #102 | 1 |  | format_attributes is ignored (tabulate tablefmt) |
 | #114 | 1 |  | Group validate= attribute is not applied |
+| #118 | 1 | 1 | A joinmatches line keeps collecting after a sibling group's _start_ |
+| #119 | 1 |  | A group's second _start_ line matches lines that belong to a sibling group |
+| #120 | 1 |  | Sibling groups with the same name: the second replaces the first instead of forming a list |
 
 #62 (top-level anonymous group loses one list level) was the first difference in 65 cases. Its fix made 26 of them pass; the other 39 are listed under the issue they hit next, which for 11 of them is one of four new issues (#110, #112, #113, #114).
 

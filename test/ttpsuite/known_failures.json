@@ -9,10 +9,6 @@
    "issue": 29,
    "reason": "joinmatches on a _start_ line merges consecutive records into one"
   },
-  "gottp-repros/issue30_indented_line_matches_any_indentation": {
-   "issue": 30,
-   "reason": "indented template line matches data at any indentation"
-  },
   "gottp-repros/issue31_ignore_vars_name": {
    "issue": 31,
    "reason": "ignore(\"<vars name>\") empties the group"
@@ -89,12 +85,15 @@
    "reason": "parent group whose start line is \"service {{ ignore }}\" drops its child groups (the macro also uses Python \"import re\")"
   },
   "test_answers_and_docs/test_github_issue_42": {
-   "issue": 30,
-   "reason": "indented template lines also match the \"!\" lines at other indents"
+   "issue": 120,
+   "also": [
+    118
+   ],
+   "reason": "sibling groups named route-targets: the second replaces the first instead of forming a list"
   },
   "test_answers_and_docs/test_github_issue_42_answer": {
-   "issue": 30,
-   "reason": "indented template lines also match lines at other indents"
+   "issue": 119,
+   "reason": "export_rts's second _start_ line also matches the import route-target lines"
   },
   "test_answers_and_docs/test_interface_template_not_collecting_all_data_reduced": {
    "issue": 89,
@@ -113,16 +112,16 @@
    "reason": "to_ip does not accept \"address netmask\""
   },
   "test_answers_and_docs/test_issue_45": {
-   "issue": 30,
-   "reason": "indented template lines match data at any indentation"
+   "issue": 28,
+   "reason": "forwarding-options { {{ _start_ }} has no variables, so its child groups are dropped"
   },
   "test_answers_and_docs/test_issue_45_1": {
-   "issue": 30,
-   "reason": "indented template lines match data at any indentation"
+   "issue": 28,
+   "reason": "forwarding-options { {{ _start_ }} has no variables, so its child groups are dropped"
   },
   "test_answers_and_docs/test_issue_45_filtering_fix": {
-   "issue": 30,
-   "reason": "indented template lines match data at any indentation"
+   "issue": 28,
+   "reason": "forwarding-options { {{ _start_ }} has no variables, so its child groups are dropped"
   },
   "test_answers_and_docs/test_issue_45_for_junos_cfg": {
    "issue": 63,
@@ -135,10 +134,6 @@
   "test_answers_and_docs/test_issue_48_answer_more": {
    "issue": 112,
    "reason": "chain(var) naming a <vars> list is ignored"
-  },
-  "test_answers_and_docs/test_issue_50": {
-   "issue": 30,
-   "reason": "indented template lines also match the deeper ipv6 address lines"
   },
   "test_answers_and_docs/test_issue_52_answer": {
    "issue": 79,
@@ -188,8 +183,8 @@
    "reason": "lines owned by a void child group are also collected by the parent; root cause not isolated"
   },
   "test_answers_and_docs/test_slack_answer_2": {
-   "issue": 100,
-   "reason": "nested port/ethernet sections lose captures; root cause not isolated"
+   "issue": 63,
+   "reason": "set(true) gives the string \"true\""
   },
   "test_answers_and_docs/test_slack_answer_3": {
    "issue": 100,
@@ -366,8 +361,8 @@
    "reason": "group-level lookup= attribute is ignored"
   },
   "test_group_name_attribute/test_group_same_null_path_for_several_groups": {
-   "issue": 30,
-   "reason": "indented template lines also match the \"!\" lines at other indents"
+   "issue": 118,
+   "reason": "the import joinmatches line keeps collecting after the export group starts"
   },
   "test_headers_indicator/test_headers_docs_example": {
    "issue": 68,

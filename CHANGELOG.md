@@ -10,6 +10,9 @@ All notable changes to GoTTP will be documented in this file.
 ### Fixed
 - **`strip`/`lstrip`/`rstrip` characters argument**: `strip("chars")` ignored its argument and only removed whitespace, and `lstrip`/`rstrip` weren't registered, so all three returned the value unchanged. They now behave like Python's `str.strip/lstrip/rstrip(chars)`: the argument is a set of characters removed from both ends, the start or the end, and without an argument they remove whitespace. The `chain()` fallback does the same. A quoted argument made only of the other quote character (`strip('"')`) also reached the function as an empty string; quote characters inside a quoted argument are now kept. (#35)
 
+### Changed (breaking: matching)
+- **Indented template lines match the exact indent**: a template line's leading whitespace was turned into `[ \t]+`, so a line indented by two spaces also matched data indented by one space, four spaces or a tab. Python TTP rebuilds the indent verbatim, and gottp now does the same: two spaces match exactly two spaces, and a tab matches only a tab. Unindented lines are unchanged, and so is whitespace inside a line, which still matches any run of spaces and tabs. Templates that relied on the loose match need their indent to match the data. Templates saved with `SaveCompiledTemplate` keep the regex they were compiled with until they are compiled again. (#30)
+
 ## [v0.1.13] - 2026-09-03
 
 ### Fixed
