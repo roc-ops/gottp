@@ -2,7 +2,6 @@ package gottp
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/roc-ops/gottp/api/python"
 	"github.com/roc-ops/gottp/internal/compiled"
@@ -338,8 +337,12 @@ func (ct *CompiledTemplate) ParseStream(
 // name (a nested group's by name and parent record index, "name[0]"). A
 // group that produced no records still gets one, so a yang= path that
 // names no schema node is reported. With several inputs a group's results
-// from each input are merged into its one entry. Without YANG modules
-// ValidationResults is empty.
+// from each input are merged into its one entry. A nested group's index
+// counts parent records per input, so with several inputs "name[0]" merges
+// the first parent record of every input: it does not name one record.
+// Without YANG modules ValidationResults is empty; an empty
+// &YANGModules{} counts as modules set, so every yang= group gets an entry
+// (a path error, with no modules to find the path in).
 func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOptions) (*ParseResult, error) {
 	rt := compiled.NewRuntimeWithCache(ct.compiled, ct.compileFunctions, ct.pipelines)
 	return parseWith(rt, ct.compiled.Groups, inputs, vars, options, true)
@@ -374,7 +377,7 @@ func parseWith(rt *compiled.Runtime, groups []*compiler.CompiledGroup, inputs In
 		validationResults = make(map[string]*yang.ValidationResult)
 	}
 	if opts != nil && opts.YANGModuleSet != nil {
-		addMissingYANGEntries(groups, yang.NewValidator(opts.YANGModuleSet), validationResults)
+		addMissingYANGEntries(groups, rt.YANGValidatedGroups(), yang.NewValidator(opts.YANGModuleSet), validationResults)
 	}
 
 	var sourceMap *SourceMap
@@ -437,20 +440,18 @@ func walkYANGGroups(groups []*compiler.CompiledGroup, fn func(g *compiler.Compil
 	walk(groups)
 }
 
-// addMissingYANGEntries gives each yang= group that has no validation result
-// (it produced no records) one: its path validated with no data, which is
-// valid when the path names a schema node.
-func addMissingYANGEntries(groups []*compiler.CompiledGroup, v *yang.Validator, results map[string]*yang.ValidationResult) {
+// addMissingYANGEntries gives each yang= group the parse did not validate
+// (it produced no records) an entry under its name: its path validated with
+// no data, which is valid when the path names a schema node. Groups are
+// told apart by identity, not by name, so a group without records gets its
+// entry even when a same-named group has one ("inner" beside "inner[0]");
+// when the name's entry already exists the two merge.
+func addMissingYANGEntries(groups []*compiler.CompiledGroup, validated map[*compiler.CompiledGroup]bool, v *yang.Validator, results map[string]*yang.ValidationResult) {
 	walkYANGGroups(groups, func(g *compiler.CompiledGroup, path string) {
-		if _, ok := results[g.Name]; ok {
+		if validated[g] {
 			return
 		}
-		for key := range results {
-			if strings.HasPrefix(key, g.Name+"[") {
-				return
-			}
-		}
-		results[g.Name] = v.Validate([]map[string]interface{}{}, path, g.Name)
+		results[g.Name] = yang.MergeResults(results[g.Name], v.Validate([]map[string]interface{}{}, path, g.Name))
 	})
 }
 
@@ -560,6 +561,15 @@ func loadYANGModules(yangMods *YANGModules) (*yang.ModuleSet, error) {
 // and yang= paths into the submodule's content validate under the module's
 // name or prefix ("parent:container/..."). Load the parent module together
 // with all the submodules it includes.
+//
+// As in YANG 1.1, a submodule may use the top-level typedefs and groupings
+// of its module and of the module's other submodules without including
+// them. goyang, which gottp uses, does not support this, and gottp links
+// them in before processing. Identities, features and extensions are not
+// linked: a submodule that uses one from its module or a sibling it does
+// not include fails to load. A prefix that several loaded modules claim
+// (as their own prefix, or as their submodules' belongs-to prefix) resolves
+// to none of them: a yang= path using it is an error.
 type YANGModules struct {
 	Modules map[string]string // name -> content of a module or submodule
 	Files   []string          // file paths

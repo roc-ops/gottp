@@ -3,6 +3,7 @@ package compiled
 import (
 	"sync"
 
+	"github.com/roc-ops/gottp/internal/compiler"
 	"github.com/roc-ops/gottp/internal/yang"
 )
 
@@ -27,6 +28,7 @@ import (
 type lastParseResults struct {
 	mu                sync.Mutex
 	validationResults map[string]*yang.ValidationResult
+	yangValidated     map[*compiler.CompiledGroup]bool
 	keyFields         map[string][]string
 }
 
@@ -47,6 +49,7 @@ func (l *lastParseResults) get() (map[string]*yang.ValidationResult, map[string]
 func (r *Runtime) beginParse() *Runtime {
 	run := *r
 	run.validationResults = make(map[string]*yang.ValidationResult)
+	run.yangValidated = make(map[*compiler.CompiledGroup]bool)
 	run.keyFields = make(map[string][]string)
 	run.recordedVars = make(map[string]interface{})
 	run.runtimeLookups = nil
@@ -68,6 +71,7 @@ func (r *Runtime) finishParse(run *Runtime) {
 	r.lastParse.mu.Lock()
 	defer r.lastParse.mu.Unlock()
 	r.lastParse.validationResults = run.validationResults
+	r.lastParse.yangValidated = run.yangValidated
 	r.lastParse.keyFields = run.keyFields
 }
 

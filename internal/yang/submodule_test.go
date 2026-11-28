@@ -68,3 +68,90 @@ func TestSubmoduleContentResolvesUnderParent(t *testing.T) {
 		t.Error("a submodule must not be a schema of its own")
 	}
 }
+
+func loadSet(t *testing.T, mods map[string]string) (*ModuleSet, error) {
+	t.Helper()
+	ms := NewModuleSet()
+	for name, content := range mods {
+		if err := ms.AddModule(name, content); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return ms, ms.ProcessAllModules()
+}
+
+// YANG 1.1 (RFC 7950 5.1): a submodule sees every top-level typedef and
+// grouping of its module and of the module's other submodules, without
+// including them. goyang resolves neither; ProcessAllModules makes them
+// visible. Verdicts match yangson 1.6.7.
+func TestSubmoduleSeesParentAndSiblingDefinitions(t *testing.T) {
+	ms, err := loadSet(t, map[string]string{
+		"p":  `module p { yang-version 1.1; namespace "urn:p"; prefix pp; include sb; include sc; include sd; typedef small { type uint8 { range "1..9"; } } }`,
+		"sb": `submodule sb { yang-version 1.1; belongs-to p { prefix pp; } container cb { leaf n { type small; } } }`,
+		"sc": `submodule sc { yang-version 1.1; belongs-to p { prefix pq; } typedef tiny { type pq:small { range "1..3"; } } grouping gc { leaf m { type tiny; } } }`,
+		"sd": `submodule sd { yang-version 1.1; belongs-to p { prefix pp; } container cd { uses gc; leaf k { type tiny; } } }`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := NewValidator(ms)
+	for _, tc := range []struct {
+		path  string
+		data  map[string]interface{}
+		valid bool
+	}{
+		{"p:cb", map[string]interface{}{"n": 5}, true},
+		{"p:cb", map[string]interface{}{"n": 10}, false},
+		{"p:cd", map[string]interface{}{"m": 2, "k": 3}, true},
+		{"p:cd", map[string]interface{}{"m": 4}, false},
+		{"p:cd", map[string]interface{}{"k": 4}, false},
+	} {
+		if r := v.Validate(tc.data, tc.path, "g"); r.Valid != tc.valid {
+			t.Errorf("%s %v: valid=%v, want %v (errors %v)", tc.path, tc.data, r.Valid, tc.valid, r.Errors)
+		}
+	}
+}
+
+// A goyang panic on user modules is a load error naming the modules, not a
+// crash. goyang 1.6.3 panics building the error for an unknown type in a
+// submodule.
+func TestGoyangPanicIsLoadError(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("panicked: %v", r)
+		}
+	}()
+	_, err := loadSet(t, map[string]string{
+		"p":  `module p { yang-version 1.1; namespace "urn:p"; prefix pp; include sb; }`,
+		"sb": `submodule sb { yang-version 1.1; belongs-to p { prefix pp; } container cb { leaf n { type nosuch; } } }`,
+	})
+	if err == nil || !strings.Contains(err.Error(), "p") || !strings.Contains(err.Error(), "sb") {
+		t.Fatalf("want a load error naming p and sb, got %v", err)
+	}
+	t.Log(err)
+}
+
+// A belongs-to prefix two loaded modules' submodules both use names neither
+// module: a path using it is an error, whichever order the maps iterate.
+func TestAmbiguousBelongsToPrefix(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		ms, err := loadSet(t, map[string]string{
+			"a":   `module a { namespace "urn:a"; prefix a; include sa; }`,
+			"sa":  `submodule sa { belongs-to a { prefix x; } container ca { leaf l { type string; } } }`,
+			"b":   `module b { namespace "urn:b"; prefix b; include sb2; }`,
+			"sb2": `submodule sb2 { belongs-to b { prefix x; } container ca { leaf l { type uint8; } } }`,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ms.FindSchemaByPath("x:ca/l")
+		if err == nil || !strings.Contains(err.Error(), "ambiguous") || !strings.Contains(err.Error(), "a, b") {
+			t.Fatalf("want an ambiguous-prefix error naming a and b, got %v", err)
+		}
+		for _, p := range []string{"a:ca/l", "b:ca/l"} {
+			if _, err := ms.FindSchemaByPath(p); err != nil {
+				t.Errorf("%s: %v", p, err)
+			}
+		}
+	}
+}

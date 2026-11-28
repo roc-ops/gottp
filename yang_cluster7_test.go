@@ -308,3 +308,56 @@ func TestYANGIncludeOfAnotherModulesSubmodule(t *testing.T) {
 		t.Fatalf("want a belongs-to error, got %v", err)
 	}
 }
+
+// A top-level yang= group with no records keeps its entry when a nested
+// group of the same name has records ("inner" next to "inner[0]").
+func TestYANGEntryPerGroupDespiteNameCollision(t *testing.T) {
+	ct, err := CompileTemplate(`<group name="inner" yang="t-dev:no-such">
+NOMATCH {{ z }}
+</group>
+<group name="outer">
+OUT {{ o }}
+<group name="inner" yang="t-dev:show-version">
+Version {{ version }}
+</group>
+</group>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := ct.ParseWithValidation(Inputs{"Default_Input": "OUT 1\nVersion 17.3\n"}, nil,
+		&ParseOptions{YANGModules: devModules(t)["Modules"]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vr := res.ValidationResults["inner[0]"]; vr == nil || !vr.Valid {
+		t.Errorf("inner[0]: want valid, got %s", describeVR(vr))
+	}
+	vr := res.ValidationResults["inner"]
+	if vr == nil || vr.Valid || len(vr.Errors) == 0 || !strings.Contains(vr.Errors[0].Message, "no-such") {
+		t.Errorf("inner: want the top group's path error, got %s", describeVR(vr))
+	}
+}
+
+// A parent module holding typedefs its submodules use: goyang 1.6.3 panics
+// on it unaided. yangson 1.6.7: n 5 valid, n 10 out of range.
+func TestYANGSubmoduleUsesParentTypedef(t *testing.T) {
+	mods := &YANGModules{Files: writeYANGFiles(t, map[string]string{
+		"p":  `module p { yang-version 1.1; namespace "urn:p"; prefix pp; include sb; typedef small { type uint8 { range "1..9"; } } }`,
+		"sb": `submodule sb { yang-version 1.1; belongs-to p { prefix pp; } container cb { leaf n { type small; } } }`,
+	})}
+	ct, err := CompileTemplate(`<group name="cb" yang="p:cb">
+N {{ n | to_int }}
+</group>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for in, valid := range map[string]bool{"N 5\n": true, "N 10\n": false} {
+		res, err := ct.ParseWithValidation(Inputs{"Default_Input": in}, nil, &ParseOptions{YANGModules: mods})
+		if err != nil {
+			t.Fatalf("%q: %v", in, err)
+		}
+		if vr := res.ValidationResults["cb"]; vr == nil || vr.Valid != valid {
+			t.Errorf("%q: want valid=%v, got %s", in, valid, describeVR(vr))
+		}
+	}
+}

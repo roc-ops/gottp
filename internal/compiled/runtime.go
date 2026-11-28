@@ -37,6 +37,7 @@ type Runtime struct {
 	matchCollector    *MatchCollector
 	yangValidator     *yang.Validator
 	validationResults map[string]*yang.ValidationResult // group name -> validation result
+	yangValidated     map[*compiler.CompiledGroup]bool  // groups with a validation result in this parse
 	keyFields         map[string][]string               // group name -> key field names (from keys= attribute)
 	recordedVars      map[string]interface{}            // global recorded variables (from record() function)
 	runtimeLookups    map[string]map[string]interface{} // per-parse runtime lookup tables from ParseOptions
@@ -161,6 +162,15 @@ func (r *Runtime) SetYANGModuleSet(moduleSet *yang.ModuleSet) {
 func (r *Runtime) GetValidationResults() map[string]*yang.ValidationResult {
 	validationResults, _ := r.lastParse.get()
 	return validationResults
+}
+
+// YANGValidatedGroups returns the groups the most recent parse gave a
+// validation result, so a caller can tell which group a result key belongs
+// to when a top group and a nested group share a name.
+func (r *Runtime) YANGValidatedGroups() map[*compiler.CompiledGroup]bool {
+	r.lastParse.mu.Lock()
+	defer r.lastParse.mu.Unlock()
+	return r.lastParse.yangValidated
 }
 
 // GetKeyFields returns declared key fields for each group (from keys= attribute)
@@ -507,6 +517,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 // against path and stored in the validation results under key.
 type yangJob struct {
 	key, path, name string
+	group           *compiler.CompiledGroup
 	data            interface{}
 }
 
@@ -518,6 +529,9 @@ func (r *Runtime) validateYANG(jobs []yangJob) {
 	}
 	for _, j := range jobs {
 		r.validationResults[j.key] = yang.MergeResults(r.validationResults[j.key], r.yangValidator.Validate(j.data, j.path, j.name))
+		if r.yangValidated != nil {
+			r.yangValidated[j.group] = true
+		}
 	}
 }
 
@@ -802,7 +816,7 @@ func (r *Runtime) finishFlat(group *compiler.CompiledGroup, pl *groupPipeline, r
 	var jobs []yangJob
 	if r.yangValidator != nil && records != nil {
 		if yangPath, ok := group.Attributes["yang"]; ok && yangPath != "" {
-			jobs = append(jobs, yangJob{key: group.Name, path: yangPath, name: group.Name, data: records})
+			jobs = append(jobs, yangJob{key: group.Name, path: yangPath, name: group.Name, group: group, data: records})
 		}
 	}
 
