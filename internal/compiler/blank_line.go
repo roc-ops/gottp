@@ -28,52 +28,80 @@ func regexMatchesBlank(cp *pattern.CompiledPattern) bool {
 	if cp.Regex == nil {
 		return false
 	}
+	// Fast path: a literal prefix with a character other than a space or
+	// tab can't match a blank line.
+	if prefix, _ := cp.Regex.LiteralPrefix(); !isBlankText(prefix) {
+		return false
+	}
 	re, err := syntax.Parse(cp.Regex.String(), syntax.Perl)
 	if err != nil {
 		return true
 	}
-	prog, err := syntax.Compile(re.Simplify())
-	if err != nil {
+	return canMatchBlank(re, defaultWordCaptures(cp, re.MaxCap()))
+}
+
+// canMatchBlank reports whether re can match a string of only spaces and
+// tabs (the empty string included), with the captures in word treated as
+// matching no such string. Empty-width assertions are assumed to hold, which
+// over-approximates and so is safe.
+func canMatchBlank(re *syntax.Regexp, word map[int]bool) bool {
+	switch re.Op {
+	case syntax.OpNoMatch:
+		return false
+	case syntax.OpLiteral:
+		for _, r := range re.Rune {
+			if r != ' ' && r != '\t' {
+				return false
+			}
+		}
+		return true
+	case syntax.OpCharClass:
+		for i := 0; i+1 < len(re.Rune); i += 2 {
+			lo, hi := re.Rune[i], re.Rune[i+1]
+			if (lo <= ' ' && ' ' <= hi) || (lo <= '\t' && '\t' <= hi) {
+				return true
+			}
+		}
+		return false
+	case syntax.OpCapture:
+		if word[re.Cap] {
+			return false
+		}
+		return canMatchBlank(re.Sub[0], word)
+	case syntax.OpStar, syntax.OpQuest:
+		return true
+	case syntax.OpPlus:
+		return canMatchBlank(re.Sub[0], word)
+	case syntax.OpRepeat:
+		return re.Min == 0 || canMatchBlank(re.Sub[0], word)
+	case syntax.OpConcat:
+		for _, sub := range re.Sub {
+			if !canMatchBlank(sub, word) {
+				return false
+			}
+		}
+		return true
+	case syntax.OpAlternate:
+		for _, sub := range re.Sub {
+			if canMatchBlank(sub, word) {
+				return true
+			}
+		}
+		return false
+	default:
+		// Empty match, the any-character ops and the empty-width
+		// assertions.
 		return true
 	}
-	word := defaultWordCaptures(cp, re.MaxCap())
+}
 
-	// Reachability of a match over the alphabet {' ', '\t'}. The position
-	// in the line is not tracked, so every empty-width assertion is assumed
-	// to hold: that over-approximates, which is safe.
-	seen := make([]bool, len(prog.Inst))
-	stack := []uint32{uint32(prog.Start)}
-	for len(stack) > 0 {
-		pc := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		if seen[pc] {
-			continue
-		}
-		seen[pc] = true
-		inst := &prog.Inst[pc]
-		switch inst.Op {
-		case syntax.InstMatch:
-			return true
-		case syntax.InstFail:
-		case syntax.InstAlt, syntax.InstAltMatch:
-			stack = append(stack, inst.Out, inst.Arg)
-		case syntax.InstCapture:
-			// Arg is 2*n at the start of capture n.
-			if inst.Arg%2 == 0 && word[int(inst.Arg/2)] {
-				continue
-			}
-			stack = append(stack, inst.Out)
-		case syntax.InstEmptyWidth, syntax.InstNop:
-			stack = append(stack, inst.Out)
-		case syntax.InstRune, syntax.InstRune1, syntax.InstRuneAny, syntax.InstRuneAnyNotNL:
-			if inst.MatchRune(' ') || inst.MatchRune('\t') {
-				stack = append(stack, inst.Out)
-			}
-		default:
-			return true
+func isBlankText(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] != ' ' && s[i] != '\t' {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // defaultWordCaptures returns the capture numbers of the default() variables
@@ -83,6 +111,16 @@ func regexMatchesBlank(cp *pattern.CompiledPattern) bool {
 // the variable's own pattern. If the count doesn't add up to maxCap the
 // numbering is unknown and no capture is returned (the safe answer).
 func defaultWordCaptures(cp *pattern.CompiledPattern, maxCap int) map[int]bool {
+	found := false
+	for _, v := range cp.Variables {
+		if v.Pattern == lazyAny && hasFunction(v, "default") && !pattern.IsNonCapturingVar(v.Name) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil
+	}
 	var word map[int]bool
 	n := 0
 	for _, name := range cp.VariableOrder {
