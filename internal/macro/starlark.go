@@ -563,6 +563,18 @@ func (e *StarlarkEngine) goToStarlark(v interface{}) starlark.Value {
 			list[i] = e.goToStarlark(item)
 		}
 		return starlark.NewList(list)
+	case []map[string]interface{}:
+		list := make([]starlark.Value, len(val))
+		for i, item := range val {
+			list[i] = e.goToStarlark(item)
+		}
+		return starlark.NewList(list)
+	case []string:
+		list := make([]starlark.Value, len(val))
+		for i, item := range val {
+			list[i] = starlark.String(item)
+		}
+		return starlark.NewList(list)
 	case map[string]interface{}:
 		dict := starlark.NewDict(len(val))
 		for k, v := range val {

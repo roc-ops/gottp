@@ -433,6 +433,7 @@ var looseListLevels = map[string]string{
 	"formatter_with_functions":        "#98: formatter output gets an extra list level",
 	"formatter_with_path":             "#98: formatter output gets an extra list level",
 	"template_input_output":           "#98: formatter output gets an extra list level",
+	"output_macro_then_json":          "#98: formatter output gets an extra list level",
 	"itemize":                         "#111: functions=\"itemize(...)\" flattens a list-valued key",
 }
 
