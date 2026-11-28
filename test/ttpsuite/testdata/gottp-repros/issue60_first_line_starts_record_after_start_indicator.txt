@@ -1,0 +1,8 @@
+interface Gi1
+ description one
+ vlan 10
+ mtu 1500
+interface Gi2
+ description two
+ vlan 20
+ mtu 9000

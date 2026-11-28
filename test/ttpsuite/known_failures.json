@@ -1,6 +1,10 @@
 {
  "_comment": "TTP 0.10.1 suite cases that don't match yet. issue = the issue the first strict difference belongs to; also = issues hit after it. A reason starting with 'design:' marks a deliberate difference. A case listed here that passes fails the test, so remove it when its issue is fixed.",
  "cases": {
+  "gottp-repros/issue128_end_line_values_are_saved": {
+   "issue": 128,
+   "reason": "values captured on an _end_ line are saved into the record"
+  },
   "gottp-repros/issue28_parent_start_line_without_variables": {
    "issue": 28,
    "reason": "parent group whose _start_ line has no variables drops its child groups"

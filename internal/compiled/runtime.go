@@ -1526,6 +1526,7 @@ func (r *Runtime) stepMerge(
 ) error {
 	match := allMatches[matchIdx]
 	const maxGapLines = 100
+	prof := group.Profile()
 
 	isStartPattern := startPatterns[match.patternIdx]
 	isEndPattern := endPatterns[match.patternIdx]
@@ -1538,59 +1539,11 @@ func (r *Runtime) stepMerge(
 		shouldStartNewMatch := true
 		if hasLineIndicator && match.patternIdx == 0 && state.currentMatch != nil {
 			shouldStartNewMatch = false
-		} else if hasAnyStartIndicator && state.currentMatch != nil {
+		} else if hasAnyStartIndicator && state.currentMatch != nil && !state.currentMatchHasEnd {
+			// (A record that an end pattern already closed never absorbs a
+			// start match: the match starts a new record, as in Python TTP.)
 			hasEndPatterns := len(endPatterns) > 0
-			isStartPatternVar := false
-			if match.patternIdx >= 0 && match.patternIdx < len(group.Patterns) {
-				pattern := group.Patterns[match.patternIdx]
-				for varName, variable := range pattern.Variables {
-					if varName == "_start_" {
-						isStartPatternVar = true
-						break
-					}
-					for _, funcStr := range variable.Functions {
-						if funcStr == "_start_" {
-							isStartPatternVar = true
-							break
-						}
-					}
-					if isStartPatternVar {
-						break
-					}
-				}
-			}
-			currentMatchStartedByStart := false
-			if state.currentStartPatternIdx >= 0 && state.currentStartPatternIdx < len(group.Patterns) {
-				startPattern := group.Patterns[state.currentStartPatternIdx]
-				for varName, variable := range startPattern.Variables {
-					if varName == "_start_" {
-						currentMatchStartedByStart = true
-						break
-					}
-					for _, funcStr := range variable.Functions {
-						if funcStr == "_start_" {
-							currentMatchStartedByStart = true
-							break
-						}
-					}
-					if currentMatchStartedByStart {
-						break
-					}
-				}
-				if !currentMatchStartedByStart {
-					for _, variable := range startPattern.Variables {
-						for _, funcStr := range variable.Functions {
-							if funcStr == "_start_" {
-								currentMatchStartedByStart = true
-								break
-							}
-						}
-						if currentMatchStartedByStart {
-							break
-						}
-					}
-				}
-			}
+			isStartPatternVar := prof.IsIndicatedStart(match.patternIdx)
 			if isStartPatternVar && (hasEndPatterns || hasAnyStartIndicator) {
 				hasPatternsToMergeOnSameLine := false
 				for i := matchIdx + 1; i < len(allMatches); i++ {
@@ -1599,16 +1552,7 @@ func (r *Runtime) stepMerge(
 						break
 					}
 					nextIsEnd := endPatterns[nextMatch.patternIdx]
-					nextIsStartPatternVar := false
-					if nextMatch.patternIdx >= 0 && nextMatch.patternIdx < len(group.Patterns) {
-						nextPattern := group.Patterns[nextMatch.patternIdx]
-						for varName := range nextPattern.Variables {
-							if varName == "_start_" {
-								nextIsStartPatternVar = true
-								break
-							}
-						}
-					}
+					nextIsStartPatternVar := prof.IsStartEmpty(nextMatch.patternIdx)
 					if !nextIsEnd && !nextIsStartPatternVar {
 						hasPatternsToMergeOnSameLine = true
 						break
@@ -1623,36 +1567,9 @@ func (r *Runtime) stepMerge(
 				}
 			} else if !isStartPatternVar && hasEndPatterns && !state.currentMatchHasEnd {
 				shouldStartNewMatch = false
-			} else if !isStartPatternVar && currentMatchStartedByStart {
-				shouldStartNewMatch = false
 			} else if match.patternIdx == state.currentStartPatternIdx {
 				count := state.patternMatchCount[match.patternIdx]
-				isStartPatternVar := false
-				isStartPattern := false
-				if match.patternIdx >= 0 && match.patternIdx < len(group.Patterns) {
-					pattern := group.Patterns[match.patternIdx]
-					for varName := range pattern.Variables {
-						if varName == "_start_" {
-							isStartPatternVar = true
-							isStartPattern = true
-							break
-						}
-					}
-					if !isStartPattern {
-						for _, variable := range pattern.Variables {
-							for _, funcStr := range variable.Functions {
-								if funcStr == "_start_" {
-									isStartPattern = true
-									break
-								}
-							}
-							if isStartPattern {
-								break
-							}
-						}
-					}
-				}
-				_ = isStartPattern
+				isStartPatternVar := prof.IsStartEmpty(match.patternIdx)
 				if isStartPatternVar {
 					if hasEndPatterns && state.currentMatch != nil && !state.currentMatchHasEnd && count == 0 {
 						shouldStartNewMatch = false
@@ -1670,20 +1587,8 @@ func (r *Runtime) stepMerge(
 				} else {
 					shouldStartNewMatch = true
 				}
-			} else {
-				if currentMatchStartedByStart || (hasEndPatterns && !state.currentMatchHasEnd) {
-					shouldStartNewMatch = false
-				} else if hasLineIndicator {
-					if match.lineIdx-state.currentStartLineIdx >= 0 && match.lineIdx-state.currentStartLineIdx < maxGapLines {
-						shouldStartNewMatch = false
-					} else {
-						shouldStartNewMatch = true
-					}
-				} else if match.lineIdx-state.currentStartLineIdx >= 0 && match.lineIdx-state.currentStartLineIdx < maxGapLines {
-					shouldStartNewMatch = false
-				} else if state.currentStartPos == -1 {
-					shouldStartNewMatch = false
-				}
+			} else if hasEndPatterns && !state.currentMatchHasEnd {
+				shouldStartNewMatch = false
 			}
 		} else if hasLineIndicator && state.currentMatch != nil {
 			if match.patternIdx == state.currentStartPatternIdx {
@@ -1845,25 +1750,7 @@ func (r *Runtime) stepMerge(
 		if shouldStartNewMatch && !shouldMerge {
 			shouldFinalizePrevious := true
 			hasEndPatterns := len(endPatterns) > 0
-			isStartPatternVar := false
-			if match.patternIdx >= 0 && match.patternIdx < len(group.Patterns) {
-				pattern := group.Patterns[match.patternIdx]
-				for varName, variable := range pattern.Variables {
-					if varName == "_start_" {
-						isStartPatternVar = true
-						break
-					}
-					for _, funcStr := range variable.Functions {
-						if funcStr == "_start_" {
-							isStartPatternVar = true
-							break
-						}
-					}
-					if isStartPatternVar {
-						break
-					}
-				}
-			}
+			isStartPatternVar := prof.IsIndicatedStart(match.patternIdx)
 			isRepeatStartMatch := isStartPatternVar && match.patternIdx == state.currentStartPatternIdx
 			hasPatternsToMergeOnSameLine := false
 			if isStartPatternVar && hasEndPatterns {
@@ -1873,16 +1760,7 @@ func (r *Runtime) stepMerge(
 						break
 					}
 					nextIsEnd := endPatterns[nextMatch.patternIdx]
-					nextIsStartPatternVar := false
-					if nextMatch.patternIdx >= 0 && nextMatch.patternIdx < len(group.Patterns) {
-						nextPattern := group.Patterns[nextMatch.patternIdx]
-						for varName := range nextPattern.Variables {
-							if varName == "_start_" {
-								nextIsStartPatternVar = true
-								break
-							}
-						}
-					}
+					nextIsStartPatternVar := prof.IsStartEmpty(nextMatch.patternIdx)
 					if !nextIsEnd && !nextIsStartPatternVar {
 						count := state.patternMatchCount[nextMatch.patternIdx]
 						if count == 0 {
@@ -1973,25 +1851,7 @@ func (r *Runtime) stepMerge(
 	} else {
 		// Normal pattern - merge into current match if close enough
 		shouldFinalizeAndStartNew := false
-		currentMatchStartedByStart := false
-		if state.currentStartPatternIdx >= 0 && state.currentStartPatternIdx < len(group.Patterns) {
-			startPattern := group.Patterns[state.currentStartPatternIdx]
-			for varName, variable := range startPattern.Variables {
-				if varName == "_start_" {
-					currentMatchStartedByStart = true
-					break
-				}
-				for _, funcStr := range variable.Functions {
-					if funcStr == "_start_" {
-						currentMatchStartedByStart = true
-						break
-					}
-				}
-				if currentMatchStartedByStart {
-					break
-				}
-			}
-		}
+		currentMatchStartedByStart := prof.IsIndicatedStart(state.currentStartPatternIdx)
 		if state.currentMatch != nil {
 			hasEndPatterns := len(endPatterns) > 0
 
@@ -2357,7 +2217,12 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 	}
 	lineOffsets[len(lines)] = offset
 
+	ind := indicatorsFor(group)
+
 	for patternIdx, compiledPattern := range group.Patterns {
+		if !ind.profile.Matches(patternIdx) {
+			continue // a line without variables: Python TTP skips it
+		}
 
 		if compiledPattern.HasAnchors {
 			// Match line by line
@@ -2367,39 +2232,17 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 				line = strings.TrimRight(line, "\r \t")
 				trimmedLine := strings.TrimSpace(line)
 
-				// Check if this pattern has _start_ or _end_ indicator - if so, allow matching empty lines
-				hasStartIndicator := false
-				hasEndIndicator := false
-				for varName := range compiledPattern.Variables {
-					if varName == "_start_" {
-						hasStartIndicator = true
-					}
-					if varName == "_end_" {
-						hasEndIndicator = true
-					}
-					// Also check functions
-					for _, funcStr := range compiledPattern.Variables[varName].Functions {
-						if funcStr == "_start_" {
-							hasStartIndicator = true
-						}
-						if funcStr == "_end_" {
-							hasEndIndicator = true
-						}
-					}
-					if hasStartIndicator && hasEndIndicator {
-						break
-					}
-				}
-
-				// Skip empty lines unless this pattern has _start_ or _end_ indicator
-				if trimmedLine == "" && !hasStartIndicator && !hasEndIndicator {
+				// Skip empty lines unless this pattern is a start or end
+				// indicator line, which may match a blank line.
+				matchesBlank := ind.profile.MatchesBlank(patternIdx)
+				if trimmedLine == "" && !matchesBlank {
 					continue
 				}
 
 				// Use the line (with leading spaces but trailing spaces trimmed) for matching
 				// For _start_ or _end_ patterns on empty lines, use empty string
 				matchLine := line
-				if trimmedLine == "" && (hasStartIndicator || hasEndIndicator) {
+				if trimmedLine == "" && matchesBlank {
 					matchLine = ""
 				}
 
@@ -2495,8 +2338,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 			hasNormalMatch := false
 			for j < len(allMatches) && allMatches[j].spanStart == currentStart {
 				// Check if this is a "normal" match (not just pure _start_/_end_)
-				isPureIndicator := isPureIndicatorResult(allMatches[j].result)
-				if !isPureIndicator {
+				if !isPureIndicatorResult(allMatches[j].result) {
 					hasNormalMatch = true
 				}
 				j++
@@ -2505,33 +2347,12 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 			// Process matches at this position
 			for k := i; k < j; k++ {
 				isPureIndicator := isPureIndicatorResult(allMatches[k].result)
-				// Check if this is a _start_ or _line_ pattern by checking the pattern index
-				// These patterns are needed to start matches even if redundant
-				isStartPatternMatch := false
-				isLinePatternMatch := false
-				if allMatches[k].patternIdx < len(group.Patterns) {
-					pattern := group.Patterns[allMatches[k].patternIdx]
-					for varName := range pattern.Variables {
-						if varName == "_start_" {
-							isStartPatternMatch = true
-							break
-						}
-						if varName == "_line_" {
-							// Check if _line_ is on its own line (not used with joinmatches)
-							// If pattern has only _line_ variable, it's on its own line and should start matches
-							if len(pattern.Variables) == 1 {
-								isLinePatternMatch = true
-								break
-							}
-						}
-					}
-				}
 
 				if hasNormalMatch && isPureIndicator {
 					// Skip pure indicator match if we have a normal match
 					// EXCEPT _start_ and _line_ (on its own line), which we need to start matches even if redundant
 					// Filter out _end_ and _line_ (with joinmatches) when redundant, but keep _start_ and standalone _line_
-					if isStartPatternMatch || isLinePatternMatch {
+					if keepsRedundantIndicator(ind.profile, allMatches[k].patternIdx) {
 						// Keep _start_ or standalone _line_ even if redundant - they're needed to start matches
 						filteredMatches = append(filteredMatches, allMatches[k])
 						continue
@@ -2546,42 +2367,10 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		allMatches = filteredMatches
 	}
 
-	// Check if any pattern has joinmatches variables and extract join characters
-	joinMatchesVars := make(map[string]bool)      // Track which variables have joinmatches
-	joinMatchesChars := make(map[string]string)   // Track join characters for each variable
-	joinMatchesHasToList := make(map[string]bool) // Track if to_list was used before joinmatches
-	for _, pattern := range group.Patterns {
-		for varName, variable := range pattern.Variables {
-			hasToList := false
-			joinChar := "\n" // default join character
-			for _, funcStr := range variable.Functions {
-				if funcStr == "to_list" {
-					hasToList = true
-				}
-				if strings.HasPrefix(funcStr, "joinmatches") {
-					joinMatchesVars[varName] = true
-					joinMatchesHasToList[varName] = hasToList
-					// Extract join character from joinmatches function call
-					// Format: "joinmatches" or "joinmatches(',')" or "joinmatches('char')"
-					if strings.Contains(funcStr, "(") {
-						// Extract argument between parentheses
-						start := strings.Index(funcStr, "(")
-						end := strings.Index(funcStr, ")")
-						if start >= 0 && end > start {
-							arg := funcStr[start+1 : end]
-							// Remove quotes if present
-							arg = strings.Trim(arg, "'\"")
-							if arg != "" {
-								joinChar = arg
-							}
-						}
-					}
-					joinMatchesChars[varName] = joinChar
-					break // Only need first joinmatches
-				}
-			}
-		}
-	}
+	// joinmatches variables and their join characters (from the profile)
+	joinMatchesVars := ind.joinMatchesVars
+	joinMatchesChars := ind.joinMatchesChars
+	joinMatchesHasToList := ind.joinMatchesHasToList
 
 	// Merge matches that belong to the same group instance
 	// First pattern (index 0) is the "start" pattern
@@ -2599,289 +2388,13 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		return nil
 	}
 
-	// Detect which patterns have _start_ indicator
-	// Start pattern detection rules:
-	// - When _start_ AND _end_ are present: Only patterns with _start_ are start patterns
-	// - When _start_ is present but NO _end_:
-	//   * Patterns with _start_ are always start patterns
-	//   * Patterns BEFORE the first _start_ pattern can also be start patterns (if they have non-special variables)
-	//   * Patterns AFTER the first _start_ pattern are NOT start patterns (they only merge)
-	startPatterns := make(map[int]bool) // pattern index -> is start pattern
-	hasEmptyStartPattern := false       // true if we have a _start_ pattern that only matches empty lines
-	hasLineIndicator := false           // true if we have a _line_ indicator (matches any line)
-	hasAnyStartIndicator := false       // true if ANY pattern has _start_ indicator
-
-	// If method is "table", all patterns are start patterns
-	if group.Method == "table" {
-		for patternIdx := range group.Patterns {
-			startPatterns[patternIdx] = true
-		}
-	} else {
-		// Otherwise, check for _start_ or _line_ indicator
-		// First pass: detect if any pattern has _start_ indicator
-		// Python TTP behavior: if ANY pattern has _start_, ALL patterns can serve as start patterns
-		// Note: Use = not := to assign to the function-level variable, not create a new local one
-		hasAnyStartIndicator = false
-		for _, compiledPattern := range group.Patterns {
-			for _, variable := range compiledPattern.Variables {
-				if variable.Name == "_start_" {
-					hasAnyStartIndicator = true
-					break
-				}
-				// Also check if _start_ is in functions (e.g., {{ name | _start_ }})
-				for _, funcStr := range variable.Functions {
-					if funcStr == "_start_" {
-						hasAnyStartIndicator = true
-						break
-					}
-				}
-				if hasAnyStartIndicator {
-					break
-				}
-			}
-			if hasAnyStartIndicator {
-				break
-			}
-		}
-
-		// Second pass: mark start patterns
-		// First, check if we have _end_ patterns (needed for special handling)
-		hasAnyEndIndicator := false
-		for _, compiledPattern := range group.Patterns {
-			for _, variable := range compiledPattern.Variables {
-				if variable.Name == "_end_" {
-					hasAnyEndIndicator = true
-					break
-				}
-				for _, funcStr := range variable.Functions {
-					if funcStr == "_end_" {
-						hasAnyEndIndicator = true
-						break
-					}
-				}
-				if hasAnyEndIndicator {
-					break
-				}
-			}
-			if hasAnyEndIndicator {
-				break
-			}
-		}
-
-		for patternIdx, compiledPattern := range group.Patterns {
-			// Check if this pattern has joinmatches - if so, _line_ in functions shouldn't make it a start pattern
-			patternHasJoinMatches := false
-			for _, variable := range compiledPattern.Variables {
-				for _, funcStr := range variable.Functions {
-					if strings.HasPrefix(funcStr, "joinmatches") {
-						patternHasJoinMatches = true
-						break
-					}
-				}
-				if patternHasJoinMatches {
-					break
-				}
-			}
-
-			// SPECIAL: If we have BOTH _start_ and _end_ patterns, only patterns with _start_ should be start patterns.
-			// Other patterns should merge into the match started by _start_ until _end_ is hit.
-			// This is different from the general Python TTP behavior where "if any pattern has _start_, all patterns are start patterns".
-			// When _end_ is present, we need more precise control: only _start_ patterns actually start matches.
-			if hasAnyStartIndicator && hasAnyEndIndicator {
-				// Check if this specific pattern has _start_
-				patternHasStart := false
-				for _, variable := range compiledPattern.Variables {
-					if variable.Name == "_start_" {
-						patternHasStart = true
-						break
-					}
-					for _, funcStr := range variable.Functions {
-						if funcStr == "_start_" {
-							patternHasStart = true
-							break
-						}
-					}
-					if patternHasStart {
-						break
-					}
-				}
-				// Only mark as start pattern if it has _start_
-				if patternHasStart {
-					startPatterns[patternIdx] = true
-				}
-			} else if hasAnyStartIndicator {
-				// If any pattern has _start_ but NO _end_, patterns with _start_ are start patterns.
-				// Additionally, patterns BEFORE the first _start_ pattern can also be start patterns,
-				// allowing them to match independently (e.g., "interface Tunnel" can start a match
-				// even though only "interface GigabitEthernet" has _start_).
-				// However, patterns AFTER the _start_ pattern should NOT be start patterns - they should
-				// only merge into matches started by _start_ patterns.
-				// Find the first pattern with _start_
-				firstStartPatternIdx := -1
-				for idx, pattern := range group.Patterns {
-					for _, variable := range pattern.Variables {
-						if variable.Name == "_start_" {
-							firstStartPatternIdx = idx
-							break
-						}
-						for _, funcStr := range variable.Functions {
-							if funcStr == "_start_" {
-								firstStartPatternIdx = idx
-								break
-							}
-						}
-						if firstStartPatternIdx >= 0 {
-							break
-						}
-					}
-					if firstStartPatternIdx >= 0 {
-						break
-					}
-				}
-
-				// Check if this specific pattern has _start_
-				patternHasStart := false
-				for _, variable := range compiledPattern.Variables {
-					if variable.Name == "_start_" {
-						patternHasStart = true
-						break
-					}
-					for _, funcStr := range variable.Functions {
-						if funcStr == "_start_" {
-							patternHasStart = true
-							break
-						}
-					}
-					if patternHasStart {
-						break
-					}
-				}
-				if patternHasStart {
-					// Pattern has _start_ - mark as start pattern
-					startPatterns[patternIdx] = true
-				} else if firstStartPatternIdx >= 0 && patternIdx < firstStartPatternIdx {
-					// Pattern comes BEFORE the first _start_ pattern - allow it to be a start pattern
-					// This allows "interface Tunnel" to start a match even though only "interface GigabitEthernet" has _start_
-					hasNonSpecialVars := false
-					for varName := range compiledPattern.Variables {
-						if varName != "_start_" && varName != "_end_" && varName != "_line_" && varName != "ignore" {
-							hasNonSpecialVars = true
-							break
-						}
-					}
-					if hasNonSpecialVars {
-						startPatterns[patternIdx] = true
-					}
-				}
-				// Patterns AFTER the first _start_ pattern are NOT start patterns - they only merge
-			}
-
-			// Check if any variable in this pattern has _start_ or _line_ indicator
-			for _, variable := range compiledPattern.Variables {
-				if variable.Name == "_start_" || variable.Name == "_line_" {
-					// If _line_ is the variable name and pattern has joinmatches, don't treat as start pattern
-					// (it should merge with existing match)
-					if variable.Name == "_line_" && patternHasJoinMatches {
-						// Don't mark as start pattern - it should merge
-						if !hasAnyStartIndicator {
-							// Only unmark if we're not in "all patterns are start patterns" mode
-							startPatterns[patternIdx] = false
-							startPatterns[patternIdx] = true
-						}
-					} else {
-						startPatterns[patternIdx] = true
-					}
-					// Check if this pattern only has _line_ (on its own line)
-					if len(compiledPattern.Variables) == 1 && variable.Name == "_line_" {
-						hasLineIndicator = true
-					}
-					// Check if this pattern only has _start_ (on its own line)
-					if len(compiledPattern.Variables) == 1 && variable.Name == "_start_" {
-						// Check if pattern regex matches empty/whitespace-only lines
-						// (used when _start_ is on its own line)
-						// The regex string might be "^[\t ]*$" (current) or "^.*$" (legacy)
-						if compiledPattern.Regex != nil {
-							regexStr := compiledPattern.Regex.String()
-							if regexStr == "^.*$" || regexStr == "(?m)^.*$" || regexStr == "^$" || regexStr == "(?m)^$" || regexStr == `^[\t ]*$` || regexStr == `(?m)^[\t ]*$` {
-								hasEmptyStartPattern = true
-							}
-						}
-					}
-					break
-				}
-				// Also check if _start_ or _line_ is in functions (e.g., {{ name | _start_ }})
-				for _, funcStr := range variable.Functions {
-					if funcStr == "_start_" || funcStr == "_line_" {
-						// If _line_ is in functions and pattern has joinmatches, don't treat as start pattern
-						// (it should merge with existing match)
-						if funcStr == "_line_" && patternHasJoinMatches {
-							// Don't mark as start pattern - it should merge
-							if !hasAnyStartIndicator {
-								// Only unmark if we're not in "all patterns are start patterns" mode
-								startPatterns[patternIdx] = false
-							}
-						} else {
-							startPatterns[patternIdx] = true
-						}
-						break
-					}
-				}
-			}
-		}
-
-		// If no patterns have _start_, default to pattern 0 being the start
-		if len(startPatterns) == 0 {
-			startPatterns[0] = true
-		}
-	}
-
-	// Detect which patterns have _end_ indicator
-	endPatterns := make(map[int]bool) // pattern index -> is end pattern
-
-	// If we have _end_ patterns but no _start_ patterns,
-	// make the first pattern a start pattern to initiate match collection
-	hasAnyEndIndicator := false
-	for patternIdx, compiledPattern := range group.Patterns {
-		for varName := range compiledPattern.Variables {
-			if varName == "_end_" {
-				endPatterns[patternIdx] = true
-				hasAnyEndIndicator = true
-			}
-			// Check if _end_ is in functions
-			for _, funcStr := range compiledPattern.Variables[varName].Functions {
-				if funcStr == "_end_" {
-					endPatterns[patternIdx] = true
-					hasAnyEndIndicator = true
-				}
-			}
-		}
-	}
-
-	// If we have _end_ but no _start_, mark first pattern as start
-	// This must happen AFTER we've checked for _end_ patterns
-	if hasAnyEndIndicator && !hasAnyStartIndicator {
-		// Check if startPatterns is empty or if pattern 0 is not marked as start
-		if len(startPatterns) == 0 || !startPatterns[0] {
-			startPatterns[0] = true
-		}
-	}
-
-	for patternIdx, compiledPattern := range group.Patterns {
-		// Check if any variable in this pattern has _end_ indicator
-		for _, variable := range compiledPattern.Variables {
-			if variable.Name == "_end_" {
-				endPatterns[patternIdx] = true
-				break
-			}
-			// Also check if _end_ is in functions
-			for _, funcStr := range variable.Functions {
-				if funcStr == "_end_" {
-					endPatterns[patternIdx] = true
-					break
-				}
-			}
-		}
-	}
+	// Start and end patterns are Python TTP's start_re and end_re, read
+	// from the group's indicator profile.
+	startPatterns := ind.startPatterns
+	endPatterns := ind.endPatterns
+	hasLineIndicator := ind.hasLineIndicator
+	hasAnyStartIndicator := ind.hasAnyStartIndicator
+	hasEmptyStartPattern := ind.hasEmptyStartPattern
 
 	for matchIdx := range allMatches {
 		if err := r.stepMerge(state, allMatches, matchIdx, group,
@@ -2952,22 +2465,6 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		}
 		parentSpans := make([]parentSpan, len(mergedMatches))
 
-		// Find start patterns to identify parent match boundaries
-		startPatterns := make(map[int]bool)
-		for patternIdx, pattern := range group.Patterns {
-			for varName := range pattern.Variables {
-				if varName == "_start_" {
-					startPatterns[patternIdx] = true
-					break
-				}
-			}
-		}
-
-		// If no start patterns, use first pattern as start
-		if len(startPatterns) == 0 && len(group.Patterns) > 0 {
-			startPatterns[0] = true
-		}
-
 		// Group matches by parent match using the tracked mapping
 		// Use parentMatchToAllMatches to get the correct matches for each parent
 		for parentIdx := 0; parentIdx < len(mergedMatches); parentIdx++ {
@@ -2986,17 +2483,8 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 
 		// Calculate ranges based on match positions
 		// Check if we have _end_ patterns - if so, use _end_ position as range end
-		hasEndPatterns := false
-		endPatternIndices := make(map[int]bool)
-		for patternIdx, pattern := range group.Patterns {
-			for varName := range pattern.Variables {
-				if varName == "_end_" {
-					endPatternIndices[patternIdx] = true
-					hasEndPatterns = true
-					break
-				}
-			}
-		}
+		endPatternIndices := endPatterns
+		hasEndPatterns := len(endPatternIndices) > 0
 
 		// allMatches is sorted ascending by (spanStart, patternIdx) above, which
 		// lets both lookups below binary-search instead of rescanning the whole
@@ -4273,34 +3761,6 @@ func (r *Runtime) parseGroupStream(
 		return fn(filtered, srcRange, group.NormalizedPath)
 	}
 
-	// Pre-extract per-pattern indicator booleans (mirrors prepareGroupMerge's
-	// per-line-per-pattern reads of pattern.Variables for _start_/_end_).
-	type patInfo struct {
-		hasStartIndicator bool
-		hasEndIndicator   bool
-	}
-	patInfos := make([]patInfo, len(group.Patterns))
-	for i, p := range group.Patterns {
-		var info patInfo
-		for varName, v := range p.Variables {
-			if varName == "_start_" {
-				info.hasStartIndicator = true
-			}
-			if varName == "_end_" {
-				info.hasEndIndicator = true
-			}
-			for _, funcStr := range v.Functions {
-				if funcStr == "_start_" {
-					info.hasStartIndicator = true
-				}
-				if funcStr == "_end_" {
-					info.hasEndIndicator = true
-				}
-			}
-		}
-		patInfos[i] = info
-	}
-
 	// Streamability rule 4: every pattern must be line-anchored (or the group
 	// must have _start_; in practice the engine auto-anchors). Enforce
 	// HasAnchors here so we can iterate line-major. If a non-anchored pattern
@@ -4352,15 +3812,19 @@ func (r *Runtime) parseGroupStream(
 		lineMatches = lineMatches[:0]
 
 		for patternIdx, compiledPattern := range group.Patterns {
-			info := patInfos[patternIdx]
+			if !indicator.profile.Matches(patternIdx) {
+				continue // a line without variables: Python TTP skips it
+			}
 
-			// Skip empty lines unless this pattern has _start_/_end_.
-			if trimmedLine == "" && !info.hasStartIndicator && !info.hasEndIndicator {
+			// Skip empty lines unless this pattern is a start or end
+			// indicator line, which may match a blank line.
+			matchesBlank := indicator.profile.MatchesBlank(patternIdx)
+			if trimmedLine == "" && !matchesBlank {
 				continue
 			}
 
 			matchLine := line
-			if trimmedLine == "" && (info.hasStartIndicator || info.hasEndIndicator) {
+			if trimmedLine == "" && matchesBlank {
 				matchLine = ""
 			}
 
@@ -4437,268 +3901,14 @@ func (r *Runtime) parseGroupStream(
 	return nil
 }
 
-// streamIndicatorMeta bundles the indicator/joinmatches metadata that
-// stepMerge consumes. Computed once at the top of parseGroupStream.
-type streamIndicatorMeta struct {
-	joinMatchesVars      map[string]bool
-	joinMatchesHasToList map[string]bool
-	startPatterns        map[int]bool
-	endPatterns          map[int]bool
-	hasLineIndicator     bool
-	hasAnyStartIndicator bool
-	hasEmptyStartPattern bool
-}
+// streamIndicatorMeta is the indicator metadata stepMerge consumes in the
+// streaming pipeline; it is the same groupIndicators parseGroup uses.
+type streamIndicatorMeta = groupIndicators
 
-// computeStreamIndicatorMeta extracts the indicator/joinmatches metadata
-// that prepareGroupMerge computes — without scanning input. This lifts only
-// the cheap, per-group, per-pattern-metadata work; the per-line/per-match
-// extraction is left to the streaming loop in parseGroupStream.
+// computeStreamIndicatorMeta reads the group's merge indicators from its
+// compiled profile, exactly as parseGroup does, without scanning input.
 func computeStreamIndicatorMeta(group *compiler.CompiledGroup) streamIndicatorMeta {
-	meta := streamIndicatorMeta{
-		joinMatchesVars:      make(map[string]bool),
-		joinMatchesHasToList: make(map[string]bool),
-		startPatterns:        make(map[int]bool),
-		endPatterns:          make(map[int]bool),
-	}
-
-	// joinmatches metadata. Streamability rule 3 forbids joinmatches, but we
-	// compute defensively for parity with prepareGroupMerge.
-	for _, pattern := range group.Patterns {
-		for varName, variable := range pattern.Variables {
-			hasToList := false
-			for _, funcStr := range variable.Functions {
-				if funcStr == "to_list" {
-					hasToList = true
-				}
-				if strings.HasPrefix(funcStr, "joinmatches") {
-					meta.joinMatchesVars[varName] = true
-					meta.joinMatchesHasToList[varName] = hasToList
-					break
-				}
-			}
-		}
-	}
-
-	// Detect hasAnyStartIndicator and hasAnyEndIndicator.
-	if group.Method == "table" {
-		for patternIdx := range group.Patterns {
-			meta.startPatterns[patternIdx] = true
-		}
-	} else {
-		hasAnyStartIndicator := false
-		for _, compiledPattern := range group.Patterns {
-			for _, variable := range compiledPattern.Variables {
-				if variable.Name == "_start_" {
-					hasAnyStartIndicator = true
-					break
-				}
-				for _, funcStr := range variable.Functions {
-					if funcStr == "_start_" {
-						hasAnyStartIndicator = true
-						break
-					}
-				}
-				if hasAnyStartIndicator {
-					break
-				}
-			}
-			if hasAnyStartIndicator {
-				break
-			}
-		}
-		meta.hasAnyStartIndicator = hasAnyStartIndicator
-
-		hasAnyEndIndicator := false
-		for _, compiledPattern := range group.Patterns {
-			for _, variable := range compiledPattern.Variables {
-				if variable.Name == "_end_" {
-					hasAnyEndIndicator = true
-					break
-				}
-				for _, funcStr := range variable.Functions {
-					if funcStr == "_end_" {
-						hasAnyEndIndicator = true
-						break
-					}
-				}
-				if hasAnyEndIndicator {
-					break
-				}
-			}
-			if hasAnyEndIndicator {
-				break
-			}
-		}
-
-		for patternIdx, compiledPattern := range group.Patterns {
-			patternHasJoinMatches := false
-			for _, variable := range compiledPattern.Variables {
-				for _, funcStr := range variable.Functions {
-					if strings.HasPrefix(funcStr, "joinmatches") {
-						patternHasJoinMatches = true
-						break
-					}
-				}
-				if patternHasJoinMatches {
-					break
-				}
-			}
-
-			if hasAnyStartIndicator && hasAnyEndIndicator {
-				patternHasStart := false
-				for _, variable := range compiledPattern.Variables {
-					if variable.Name == "_start_" {
-						patternHasStart = true
-						break
-					}
-					for _, funcStr := range variable.Functions {
-						if funcStr == "_start_" {
-							patternHasStart = true
-							break
-						}
-					}
-					if patternHasStart {
-						break
-					}
-				}
-				if patternHasStart {
-					meta.startPatterns[patternIdx] = true
-				}
-			} else if hasAnyStartIndicator {
-				firstStartPatternIdx := -1
-				for idx, pattern := range group.Patterns {
-					for _, variable := range pattern.Variables {
-						if variable.Name == "_start_" {
-							firstStartPatternIdx = idx
-							break
-						}
-						for _, funcStr := range variable.Functions {
-							if funcStr == "_start_" {
-								firstStartPatternIdx = idx
-								break
-							}
-						}
-						if firstStartPatternIdx >= 0 {
-							break
-						}
-					}
-					if firstStartPatternIdx >= 0 {
-						break
-					}
-				}
-
-				patternHasStart := false
-				for _, variable := range compiledPattern.Variables {
-					if variable.Name == "_start_" {
-						patternHasStart = true
-						break
-					}
-					for _, funcStr := range variable.Functions {
-						if funcStr == "_start_" {
-							patternHasStart = true
-							break
-						}
-					}
-					if patternHasStart {
-						break
-					}
-				}
-				if patternHasStart {
-					meta.startPatterns[patternIdx] = true
-				} else if firstStartPatternIdx >= 0 && patternIdx < firstStartPatternIdx {
-					hasNonSpecialVars := false
-					for varName := range compiledPattern.Variables {
-						if varName != "_start_" && varName != "_end_" && varName != "_line_" && varName != "ignore" {
-							hasNonSpecialVars = true
-							break
-						}
-					}
-					if hasNonSpecialVars {
-						meta.startPatterns[patternIdx] = true
-					}
-				}
-			}
-
-			for _, variable := range compiledPattern.Variables {
-				if variable.Name == "_start_" || variable.Name == "_line_" {
-					if variable.Name == "_line_" && patternHasJoinMatches {
-						if !hasAnyStartIndicator {
-							meta.startPatterns[patternIdx] = false
-							meta.startPatterns[patternIdx] = true
-						}
-					} else {
-						meta.startPatterns[patternIdx] = true
-					}
-					if len(compiledPattern.Variables) == 1 && variable.Name == "_line_" {
-						meta.hasLineIndicator = true
-					}
-					if len(compiledPattern.Variables) == 1 && variable.Name == "_start_" {
-						if compiledPattern.Regex != nil {
-							regexStr := compiledPattern.Regex.String()
-							if regexStr == "^.*$" || regexStr == "(?m)^.*$" || regexStr == "^$" || regexStr == "(?m)^$" || regexStr == `^[\t ]*$` || regexStr == `(?m)^[\t ]*$` {
-								meta.hasEmptyStartPattern = true
-							}
-						}
-					}
-					break
-				}
-				for _, funcStr := range variable.Functions {
-					if funcStr == "_start_" || funcStr == "_line_" {
-						if funcStr == "_line_" && patternHasJoinMatches {
-							if !hasAnyStartIndicator {
-								meta.startPatterns[patternIdx] = false
-							}
-						} else {
-							meta.startPatterns[patternIdx] = true
-						}
-						break
-					}
-				}
-			}
-		}
-
-		if len(meta.startPatterns) == 0 {
-			meta.startPatterns[0] = true
-		}
-	}
-
-	// endPatterns + start-default when only _end_ patterns exist.
-	hasAnyEndIndicator := false
-	for patternIdx, compiledPattern := range group.Patterns {
-		for varName := range compiledPattern.Variables {
-			if varName == "_end_" {
-				meta.endPatterns[patternIdx] = true
-				hasAnyEndIndicator = true
-			}
-			for _, funcStr := range compiledPattern.Variables[varName].Functions {
-				if funcStr == "_end_" {
-					meta.endPatterns[patternIdx] = true
-					hasAnyEndIndicator = true
-				}
-			}
-		}
-	}
-	if hasAnyEndIndicator && !meta.hasAnyStartIndicator {
-		if len(meta.startPatterns) == 0 || !meta.startPatterns[0] {
-			meta.startPatterns[0] = true
-		}
-	}
-	for patternIdx, compiledPattern := range group.Patterns {
-		for _, variable := range compiledPattern.Variables {
-			if variable.Name == "_end_" {
-				meta.endPatterns[patternIdx] = true
-				break
-			}
-			for _, funcStr := range variable.Functions {
-				if funcStr == "_end_" {
-					meta.endPatterns[patternIdx] = true
-					break
-				}
-			}
-		}
-	}
-
-	return meta
+	return indicatorsFor(group)
 }
 
 // filterRedundantIndicatorsInLine mirrors the per-position redundant
@@ -4716,8 +3926,7 @@ func filterRedundantIndicatorsInLine(lineMatches []patternMatch, group *compiler
 
 	hasNormalMatch := false
 	for _, m := range lineMatches {
-		isPureIndicator := isPureIndicatorResult(m.result)
-		if !isPureIndicator {
+		if !isPureIndicatorResult(m.result) {
 			hasNormalMatch = true
 			break
 		}
@@ -4727,30 +3936,12 @@ func filterRedundantIndicatorsInLine(lineMatches []patternMatch, group *compiler
 		return lineMatches
 	}
 
+	prof := group.Profile()
 	out := lineMatches[:0]
 	for _, m := range lineMatches {
-		isPureIndicator := isPureIndicatorResult(m.result)
-		isStartPatternMatch := false
-		isLinePatternMatch := false
-		if m.patternIdx < len(group.Patterns) {
-			pattern := group.Patterns[m.patternIdx]
-			for varName := range pattern.Variables {
-				if varName == "_start_" {
-					isStartPatternMatch = true
-					break
-				}
-				if varName == "_line_" {
-					if len(pattern.Variables) == 1 {
-						isLinePatternMatch = true
-						break
-					}
-				}
-			}
-		}
-
-		if isPureIndicator {
+		if isPureIndicatorResult(m.result) {
 			// hasNormalMatch is true here; keep _start_ and standalone _line_.
-			if isStartPatternMatch || isLinePatternMatch {
+			if keepsRedundantIndicator(prof, m.patternIdx) {
 				out = append(out, m)
 				continue
 			}
@@ -4809,41 +4000,24 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 	}
 	lineOffsets[len(lines)] = offset
 
+	prof := group.Profile()
 	for patternIdx, compiledPattern := range group.Patterns {
+		if !prof.Matches(patternIdx) {
+			continue // a line without variables: Python TTP skips it
+		}
 		if compiledPattern.HasAnchors {
 			// Match line by line
 			for lineIdx, line := range lines {
 				line = strings.TrimRight(line, "\r \t")
 				trimmedLine := strings.TrimSpace(line)
 
-				hasStartIndicator := false
-				hasEndIndicator := false
-				for varName := range compiledPattern.Variables {
-					if varName == "_start_" {
-						hasStartIndicator = true
-					}
-					if varName == "_end_" {
-						hasEndIndicator = true
-					}
-					for _, funcStr := range compiledPattern.Variables[varName].Functions {
-						if funcStr == "_start_" {
-							hasStartIndicator = true
-						}
-						if funcStr == "_end_" {
-							hasEndIndicator = true
-						}
-					}
-					if hasStartIndicator && hasEndIndicator {
-						break
-					}
-				}
-
-				if trimmedLine == "" && !hasStartIndicator && !hasEndIndicator {
+				matchesBlank := prof.MatchesBlank(patternIdx)
+				if trimmedLine == "" && !matchesBlank {
 					continue
 				}
 
 				matchLine := line
-				if trimmedLine == "" && (hasStartIndicator || hasEndIndicator) {
+				if trimmedLine == "" && matchesBlank {
 					matchLine = ""
 				}
 
@@ -5374,35 +4548,14 @@ func (r *Runtime) parseGroupWithSourceMap(group *compiler.CompiledGroup, inputDa
 				rangeStartLine := parentRange.startLine
 				parentLines := strings.Split(parentInputData, "\n")
 
-				// Find ALL start patterns (pattern 0 + any patterns with _start_ attribute)
-				// Multiple start patterns allow different formats to begin a new group instance
+				// Find ALL start patterns (Python TTP's start_re, from the
+				// nested group's indicator profile). Multiple start patterns
+				// allow different formats to begin a new group instance.
 				startPatternIdxs := make([]int, 0)
+				nestedProf := nestedGroup.Profile()
 				for i := range nestedGroup.Patterns {
-					if i == 0 {
+					if nestedProf.IsStart(i) {
 						startPatternIdxs = append(startPatternIdxs, i)
-					} else {
-						// Check if this pattern has _start_ indicator
-						// It can be a variable named _start_ or a function called _start_
-						patternHasStart := false
-						for _, variable := range nestedGroup.Patterns[i].Variables {
-							if variable.Name == "_start_" {
-								patternHasStart = true
-								break
-							}
-							// Also check if _start_ is in functions (e.g., {{ name | _start_ }})
-							for _, funcStr := range variable.Functions {
-								if funcStr == "_start_" {
-									patternHasStart = true
-									break
-								}
-							}
-							if patternHasStart {
-								break
-							}
-						}
-						if patternHasStart {
-							startPatternIdxs = append(startPatternIdxs, i)
-						}
 					}
 				}
 

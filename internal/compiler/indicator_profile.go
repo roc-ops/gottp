@@ -85,6 +85,17 @@ type PatternProfile struct {
 	Indicated bool
 	// Tail is true for a line that follows a child group in the template.
 	Tail bool
+	// BareLine is true when the line's only variable is {{ _line_ }}.
+	BareLine bool
+	// BlankStart is true when the line's only variable is {{ _start_ }} and
+	// its regex matches blank lines.
+	BlankStart bool
+	// MatchesBlank is true when the pattern may match a blank input line:
+	// the line carries its own start indicator or is an end pattern.
+	MatchesBlank bool
+	// NoVariables is true for a line without {{ variables }}. TTP skips it
+	// with a warning, so it never matches input.
+	NoVariables bool
 }
 
 // JoinMatchesSpec describes a variable that collects every match (joinmatches).
@@ -119,6 +130,7 @@ type IndicatorProfile struct {
 	joinMatches map[string]JoinMatchesSpec
 
 	hasStart, hasEnd, hasLine, hasIndicated, hasStartEmpty bool
+	hasBareLine, hasBlankStart                             bool
 }
 
 // BuildIndicatorProfile computes the indicator profile of a group from its
@@ -159,6 +171,8 @@ func BuildIndicatorProfile(method string, patterns []*pattern.CompiledPattern) *
 		p.hasLine = p.hasLine || pp.IsLine
 		p.hasIndicated = p.hasIndicated || pp.Indicated
 		p.hasStartEmpty = p.hasStartEmpty || pp.Action == ActionStartEmpty
+		p.hasBareLine = p.hasBareLine || pp.BareLine
+		p.hasBlankStart = p.hasBlankStart || pp.BlankStart
 	}
 
 	// joinmatches variables. A later pattern's settings for the same variable
@@ -200,7 +214,12 @@ func joinMatchesChar(funcStr string) string {
 // all, before the partition.
 func lineProfile(cp *pattern.CompiledPattern) PatternProfile {
 	pp := PatternProfile{Tail: cp.Tail}
-	if !variableSyntax.MatchString(cp.Original) || isUnconditionalSet(cp) {
+	if !variableSyntax.MatchString(cp.Original) {
+		pp.Role = RoleNone
+		pp.NoVariables = true
+		return pp
+	}
+	if isUnconditionalSet(cp) {
 		pp.Role = RoleNone
 		return pp
 	}
@@ -218,7 +237,22 @@ func lineProfile(cp *pattern.CompiledPattern) PatternProfile {
 	}
 	pp.Action = action
 	pp.Indicated = action.isStartAction()
+	pp.MatchesBlank = pp.Indicated || action == ActionEnd
+	if len(cp.VariableOrder) == 1 {
+		switch cp.VariableOrder[0] {
+		case pattern.IndicatorLine:
+			pp.BareLine = true
+		case pattern.IndicatorStart:
+			pp.BlankStart = cp.Regex != nil && blankLineRegexes[cp.Regex.String()]
+		}
+	}
 	return pp
+}
+
+// blankLineRegexes are the regexes the pattern engine generates for a line
+// that is only {{ _start_ }} (current and legacy forms).
+var blankLineRegexes = map[string]bool{
+	"^.*$": true, "(?m)^.*$": true, "^$": true, "(?m)^$": true, `^[\t ]*$`: true, `(?m)^[\t ]*$`: true,
 }
 
 // variableAction is TTP's _variable_class SAVEACTION and IS_LINE.
@@ -292,6 +326,15 @@ func (p *IndicatorProfile) Pattern(i int) PatternProfile {
 // IsStart reports whether pattern i is a start pattern (TTP's start_re).
 func (p *IndicatorProfile) IsStart(i int) bool { return p.Pattern(i).Role == RoleStart }
 
+// StartsRecord reports whether a match of pattern i starts a new record:
+// TTP's ACTION is start or startempty. That is every start pattern, plus a
+// tail line with its own _start_: TTP keeps such a line in group.re (it
+// doesn't bound the group's span) but still saves its match as a new record.
+func (p *IndicatorProfile) StartsRecord(i int) bool {
+	pp := p.Pattern(i)
+	return pp.Role != RoleNone && pp.Action.isStartAction()
+}
+
 // IsEnd reports whether pattern i is an end pattern (TTP's end_re).
 func (p *IndicatorProfile) IsEnd(i int) bool { return p.Pattern(i).Role == RoleEnd }
 
@@ -323,6 +366,25 @@ func (p *IndicatorProfile) HasIndicatedStart() bool { return p.hasIndicated }
 
 // HasStartEmpty reports whether any pattern has a variable named _start_.
 func (p *IndicatorProfile) HasStartEmpty() bool { return p.hasStartEmpty }
+
+// IsBareLine reports whether pattern i is a line that is only {{ _line_ }}.
+func (p *IndicatorProfile) IsBareLine(i int) bool { return p.Pattern(i).BareLine }
+
+// HasBareLine reports whether any pattern is a line that is only {{ _line_ }}.
+func (p *IndicatorProfile) HasBareLine() bool { return p.hasBareLine }
+
+// HasBlankStart reports whether any pattern is a {{ _start_ }}-only line that
+// matches blank lines.
+func (p *IndicatorProfile) HasBlankStart() bool { return p.hasBlankStart }
+
+// MatchesBlank reports whether pattern i may match a blank input line.
+func (p *IndicatorProfile) MatchesBlank(i int) bool { return p.Pattern(i).MatchesBlank }
+
+// Matches reports whether pattern i is matched against input. A line without
+// {{ variables }} is not: Python TTP skips it. (An unconditional set() line is
+// RoleNone in the partition but still matched, because gottp resolves its
+// value per parse there.)
+func (p *IndicatorProfile) Matches(i int) bool { return !p.Pattern(i).NoVariables }
 
 // JoinMatches returns the joinmatches variables of the group by name. The map
 // is shared; callers must not modify it.

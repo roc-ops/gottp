@@ -1,0 +1,6 @@
+<group name="intf">
+interface {{ name }}
+ description {{ desc }}
+ vlan {{ vlan | _start_ }}
+ mtu {{ mtu }}
+</group>

@@ -261,3 +261,70 @@ router bgp {{ asn }}
 		})
 	}
 }
+
+// TestIndicatorProfileLineShapes covers the gottp-side facts the profile adds
+// to TTP's partition: which lines match at all, which may match a blank line,
+// bare {{ _line_ }} / {{ _start_ }} lines, and which matches start a record.
+func TestIndicatorProfileLineShapes(t *testing.T) {
+	tmpl, err := parser.ParseTemplate(`<template>
+<group name="g">
+interface {{ name }}
+ shutdown
+{{ _line_ }}
+{{ _start_ }}
+ vlan {{ v | _start_ }}
+ role {{ r | set("leaf") }}
+ exit {{ _end_ }}
+ <group name="c">
+ c {{ x }}
+ </group>
+ tail {{ t | _start_ }}
+</group>
+</template>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compiled, err := NewCompiler().CompileTemplate(tmpl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := compiled.Groups[0]
+	prof := g.Profile()
+	type shape struct {
+		matches, blank, bareLine, blankStart, startsRecord, isStart, isEnd, tail bool
+	}
+	want := map[string]shape{
+		"interface {{ name }}":        {matches: true, startsRecord: true, isStart: true},
+		" shutdown":                   {},
+		"{{ _line_ }}":                {matches: true, bareLine: true},
+		"{{ _start_ }}":               {matches: true, blank: true, blankStart: true, startsRecord: true, isStart: true},
+		" vlan {{ v | _start_ }}":     {matches: true, blank: true, startsRecord: true, isStart: true},
+		` role {{ r | set("leaf") }}`: {matches: true},
+		" exit {{ _end_ }}":           {matches: true, blank: true, isEnd: true},
+		" tail {{ t | _start_ }}":     {matches: true, blank: true, startsRecord: true, tail: true},
+	}
+	seen := 0
+	for i, cp := range g.Patterns {
+		w, ok := want[cp.Original]
+		if !ok {
+			continue
+		}
+		seen++
+		pp := prof.Pattern(i)
+		got := shape{
+			matches: prof.Matches(i), blank: prof.MatchesBlank(i), bareLine: prof.IsBareLine(i),
+			blankStart: pp.BlankStart, startsRecord: prof.StartsRecord(i), isStart: prof.IsStart(i),
+			isEnd: prof.IsEnd(i), tail: pp.Tail,
+		}
+		if got != w {
+			t.Errorf("%q: got %+v, want %+v", cp.Original, got, w)
+		}
+	}
+	if seen != len(want) {
+		t.Errorf("found %d of %d lines", seen, len(want))
+	}
+	if !prof.HasBareLine() || !prof.HasBlankStart() || !prof.HasIndicatedStart() || !prof.HasEnd() {
+		t.Errorf("group flags: bareLine=%v blankStart=%v indicated=%v end=%v",
+			prof.HasBareLine(), prof.HasBlankStart(), prof.HasIndicatedStart(), prof.HasEnd())
+	}
+}
