@@ -3,11 +3,11 @@
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
    {"LineNumber":1,"Matched":false,"Matches":[]},
-   {"LineNumber":2,"Matched":false,"Matches":[]},
-   {"LineNumber":3,"Matched":false,"Matches":[]},
-   {"LineNumber":4,"Matched":false,"Matches":[]},
-   {"LineNumber":5,"Matched":false,"Matches":[]},
-   {"LineNumber":6,"Matched":false,"Matches":[]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":76,"GroupName":"","PatternIndex":0,"Variables":{"Duplex":{"StartCol":45,"EndCol":53},"Name":{"StartCol":7,"EndCol":24},"Port":{"StartCol":0,"EndCol":7},"Speed":{"StartCol":53,"EndCol":59},"Status":{"StartCol":24,"EndCol":34},"Type":{"StartCol":59,"EndCol":76},"Vlan":{"StartCol":34,"EndCol":45}},"ResultPath":"_anonymous_[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":76,"GroupName":"","PatternIndex":0,"Variables":{"Duplex":{"StartCol":45,"EndCol":53},"Name":{"StartCol":7,"EndCol":24},"Port":{"StartCol":0,"EndCol":7},"Speed":{"StartCol":53,"EndCol":59},"Status":{"StartCol":24,"EndCol":34},"Type":{"StartCol":59,"EndCol":76},"Vlan":{"StartCol":34,"EndCol":45}},"ResultPath":"_anonymous_[1]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":76,"GroupName":"","PatternIndex":0,"Variables":{"Duplex":{"StartCol":45,"EndCol":53},"Name":{"StartCol":7,"EndCol":24},"Port":{"StartCol":0,"EndCol":7},"Speed":{"StartCol":53,"EndCol":59},"Status":{"StartCol":24,"EndCol":34},"Type":{"StartCol":59,"EndCol":76},"Vlan":{"StartCol":34,"EndCol":45}},"ResultPath":"_anonymous_[2]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":73,"GroupName":"","PatternIndex":0,"Variables":{"Duplex":{"StartCol":45,"EndCol":53},"Name":{"StartCol":7,"EndCol":24},"Port":{"StartCol":0,"EndCol":7},"Speed":{"StartCol":53,"EndCol":59},"Status":{"StartCol":24,"EndCol":34},"Type":{"StartCol":59,"EndCol":73},"Vlan":{"StartCol":34,"EndCol":45}},"ResultPath":"_anonymous_[3]"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":74,"GroupName":"","PatternIndex":0,"Variables":{"Duplex":{"StartCol":45,"EndCol":53},"Name":{"StartCol":7,"EndCol":24},"Port":{"StartCol":0,"EndCol":7},"Speed":{"StartCol":53,"EndCol":59},"Status":{"StartCol":24,"EndCol":34},"Type":{"StartCol":59,"EndCol":74},"Vlan":{"StartCol":34,"EndCol":45}},"ResultPath":"_anonymous_[4]"}]},
    {"LineNumber":7,"Matched":false,"Matches":[]}
   ]
  }

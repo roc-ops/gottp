@@ -152,6 +152,9 @@ type CompiledPattern struct {
 	// Tail is true when the template line follows a child group (it is in
 	// the XML tail of a child, not the group's own text).
 	Tail bool
+	// Headers is true for a {{ _headers_ }} line, whose Variables are its
+	// column headers (HeadersLine). The line starts a record.
+	Headers bool
 
 	// Compile-time cached flags consumed by the runtime hot path. Populated by
 	// PopulateFlags after Variables and Regex are assigned.
@@ -670,8 +673,14 @@ func (e *Engine) CompilePattern(line string, exactSpace, exact bool) (*CompiledP
 		return nil, err
 	}
 
-	regexStr, variables, err := e.GenerateRegex(line, exactSpace, exact)
+	variables := e.ExtractVariables(line)
+	regexStr, headerVars, isHeaders, err := e.HeadersLine(line, variables)
 	if err != nil {
+		return nil, err
+	}
+	if isHeaders {
+		variables = headerVars
+	} else if regexStr, err = e.GenerateRegexFromVariables(line, variables, exactSpace, exact); err != nil {
 		return nil, err
 	}
 
@@ -693,6 +702,7 @@ func (e *Engine) CompilePattern(line string, exactSpace, exact bool) (*CompiledP
 		Variables:     varMap,
 		VariableOrder: varOrder,
 		Original:      line,
+		Headers:       isHeaders,
 	}
 	cp.PopulateFlags()
 	return cp, nil

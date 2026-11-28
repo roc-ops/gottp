@@ -1,3 +1,20 @@
 {
- "records": []
+ "records": [
+  {"group_path":"","src_range":[73,158],"record":{"Duplex":"a-full","Name":"PIT-VDU213","Port":"Gi0/1","Speed":"a-100","Status":"connected","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[158,243],"record":{"Duplex":"a-full","Name":"PIT-VDU211","Port":"Gi0/2","Speed":"a-100","Status":"connected","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[243,328],"record":{"Duplex":"auto","Name":"PIT-VDU212","Port":"Gi0/3","Speed":"auto","Status":"notconnect","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[328,413],"record":{"Duplex":"a-full","Name":"","Port":"Gi0/4","Speed":"a-100","Status":"connected","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[413,498],"record":{"Duplex":"auto","Name":"","Port":"Gi0/5","Speed":"auto","Status":"notconnect","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[498,583],"record":{"Duplex":"auto","Name":"","Port":"Gi0/6","Speed":"auto","Status":"notconnect","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[583,668],"record":{"Duplex":"auto","Name":"","Port":"Gi0/7","Speed":"auto","Status":"notconnect","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[668,753],"record":{"Duplex":"auto","Name":"","Port":"Gi0/8","Speed":"auto","Status":"notconnect","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[753,838],"record":{"Duplex":"auto","Name":"","Port":"Gi0/9","Speed":"auto","Status":"notconnect","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[838,923],"record":{"Duplex":"auto","Name":"","Port":"Gi0/10","Speed":"auto","Status":"notconnect","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[923,1008],"record":{"Duplex":"auto","Name":"","Port":"Gi0/11","Speed":"auto","Status":"notconnect","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[1008,1093],"record":{"Duplex":"auto","Name":"","Port":"Gi0/12","Speed":"auto","Status":"notconnect","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[1093,1178],"record":{"Duplex":"auto","Name":"","Port":"Gi0/13","Speed":"auto","Status":"disabled","Type":"10/100/1000BaseTX","Vlan":"1"}},
+  {"group_path":"","src_range":[1178,1263],"record":{"Duplex":"auto","Name":"","Port":"Gi0/14","Speed":"auto","Status":"disabled","Type":"10/100/1000BaseTX","Vlan":"1"}},
+  {"group_path":"","src_range":[1263,1345],"record":{"Duplex":"full","Name":"","Port":"Gi0/15","Speed":"1000","Status":"connected","Type":"1000BaseLX SFP","Vlan":"trunk"}},
+  {"group_path":"","src_range":[1345,1428],"record":{"Duplex":"full","Name":"pitrs2201 te1/1/4","Port":"Gi0/16","Speed":"1000","Status":"connected","Type":"1000BaseLX SFP","Vlan":"trunk"}}
+ ]
 }

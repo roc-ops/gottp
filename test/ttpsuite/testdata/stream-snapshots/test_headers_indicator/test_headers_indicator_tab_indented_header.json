@@ -1,3 +1,7 @@
 {
- "records": []
+ "records": [
+  {"group_path":"","src_range":[81,161],"record":{"LocPrf":"","Metric":"0","Network":"*\u003eef11.11.1.111/32","Next_Hop":"12.123.12.1","Path":"65000 ?","Weight":"0"}},
+  {"group_path":"","src_range":[161,241],"record":{"LocPrf":"","Metric":"0","Network":"*\u003eef222.222.222.2/32","Next_Hop":"12.123.12.1","Path":"65000 ?","Weight":"0"}},
+  {"group_path":"","src_range":[241,321],"record":{"LocPrf":"","Metric":"0","Network":"*\u003eef333.333.333.333/32","Next_Hop":"12.123.12.1","Path":"65000 ?","Weight":"0"}}
+ ]
 }

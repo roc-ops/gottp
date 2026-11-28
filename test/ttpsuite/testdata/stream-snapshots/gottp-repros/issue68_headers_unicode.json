@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[0,17],"record":{"Name":"foo","Pört":"Gé0/1","Status":"up"}},
+  {"group_path":"g","src_range":[17,36],"record":{"Name":"bär","Pört":"Gi0/2","Status":"down"}}
+ ]
+}

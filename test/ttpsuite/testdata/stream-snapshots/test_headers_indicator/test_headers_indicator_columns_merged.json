@@ -1,3 +1,9 @@
 {
- "records": []
+ "records": [
+  {"group_path":"","src_range":[65,142],"record":{"Duplex":"a-full","Name":"PIT-VDU213","Port":"Gi0/1","Speed":"a-100","Status":"connected","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[142,219],"record":{"Duplex":"auto","Name":"PIT-VDU212","Port":"Gi0/3","Speed":"auto","Status":"notconnect","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[219,296],"record":{"Duplex":"auto","Name":"","Port":"Gi0/5","Speed":"auto","Status":"notconnect","Type":"10/100/1000BaseTX","Vlan":"18"}},
+  {"group_path":"","src_range":[296,370],"record":{"Duplex":"full","Name":"","Port":"Gi0/15","Speed":"1000","Status":"connected","Type":"1000BaseLX SFP","Vlan":"trunk"}},
+  {"group_path":"","src_range":[370,445],"record":{"Duplex":"full","Name":"pitrs2201 te1/1/4","Port":"Gi0/16","Speed":"1000","Status":"connected","Type":"1000BaseLX SFP","Vlan":"trunk"}}
+ ]
 }

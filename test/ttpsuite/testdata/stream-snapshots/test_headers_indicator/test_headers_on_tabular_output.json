@@ -1,3 +1,28 @@
 {
- "records": []
+ "records": [
+  {"group_path":"","src_range":[55,108],"record":{"Admin_Count":"-----------","Index":"-------","L3V":"-----","Max__Aflex":"------------","Partition_Name":"-----------------"}},
+  {"group_path":"","src_range":[108,151],"record":{"Admin_Count":"0","Index":"1","L3V":"No","Max__Aflex":"32","Partition_Name":"sivr_icm"}},
+  {"group_path":"","src_range":[151,194],"record":{"Admin_Count":"0","Index":"2","L3V":"No","Max__Aflex":"32","Partition_Name":"ent_mgmt"}},
+  {"group_path":"","src_range":[194,237],"record":{"Admin_Count":"0","Index":"3  *","L3V":"No","Max__Aflex":"32","Partition_Name":"Cloud"}},
+  {"group_path":"","src_range":[237,280],"record":{"Admin_Count":"0","Index":"4","L3V":"No","Max__Aflex":"32","Partition_Name":"lync"}},
+  {"group_path":"","src_range":[280,323],"record":{"Admin_Count":"0","Index":"5","L3V":"No","Max__Aflex":"32","Partition_Name":"sap"}},
+  {"group_path":"","src_range":[323,366],"record":{"Admin_Count":"0","Index":"6","L3V":"No","Max__Aflex":"32","Partition_Name":"config_mgmts"}},
+  {"group_path":"","src_range":[366,409],"record":{"Admin_Count":"0","Index":"7","L3V":"No","Max__Aflex":"32","Partition_Name":"Uprising"}},
+  {"group_path":"","src_range":[409,452],"record":{"Admin_Count":"0","Index":"8","L3V":"No","Max__Aflex":"32","Partition_Name":"ERC_MGMT"}},
+  {"group_path":"","src_range":[452,495],"record":{"Admin_Count":"0","Index":"9","L3V":"No","Max__Aflex":"32","Partition_Name":"sc_sw_ctrl"}},
+  {"group_path":"","src_range":[495,538],"record":{"Admin_Count":"0","Index":"10","L3V":"No","Max__Aflex":"32","Partition_Name":"cust_hub"}},
+  {"group_path":"","src_range":[538,581],"record":{"Admin_Count":"0","Index":"11","L3V":"No","Max__Aflex":"32","Partition_Name":"A10-CIS"}},
+  {"group_path":"","src_range":[581,624],"record":{"Admin_Count":"0","Index":"12 *","L3V":"No","Max__Aflex":"32","Partition_Name":"SAP_Dev_Admin"}},
+  {"group_path":"","src_range":[624,667],"record":{"Admin_Count":"0","Index":"13","L3V":"No","Max__Aflex":"32","Partition_Name":"sentry_ext"}},
+  {"group_path":"","src_range":[667,710],"record":{"Admin_Count":"0","Index":"14","L3V":"No","Max__Aflex":"32","Partition_Name":"web_ecom_srvs"}},
+  {"group_path":"","src_range":[710,753],"record":{"Admin_Count":"0","Index":"15","L3V":"No","Max__Aflex":"32","Partition_Name":"dir_sec_svc"}},
+  {"group_path":"","src_range":[753,796],"record":{"Admin_Count":"0","Index":"16","L3V":"No","Max__Aflex":"32","Partition_Name":"eng_ops"}},
+  {"group_path":"","src_range":[796,839],"record":{"Admin_Count":"0","Index":"17","L3V":"No","Max__Aflex":"32","Partition_Name":"mw_mgmt"}},
+  {"group_path":"","src_range":[839,882],"record":{"Admin_Count":"0","Index":"18","L3V":"No","Max__Aflex":"32","Partition_Name":"oracle_db_adm"}},
+  {"group_path":"","src_range":[882,925],"record":{"Admin_Count":"0","Index":"19","L3V":"No","Max__Aflex":"32","Partition_Name":"idm_mgmt"}},
+  {"group_path":"","src_range":[925,968],"record":{"Admin_Count":"0","Index":"20 *","L3V":"No","Max__Aflex":"32","Partition_Name":"info_mgmt"}},
+  {"group_path":"","src_range":[968,1011],"record":{"Admin_Count":"0","Index":"21","L3V":"No","Max__Aflex":"32","Partition_Name":"sa_ops_natapps"}},
+  {"group_path":"","src_range":[1011,1054],"record":{"Admin_Count":"0","Index":"37 *","L3V":"No","Max__Aflex":"32","Partition_Name":"eng_supt"}},
+  {"group_path":"","src_range":[1054,1105],"record":{"Admin_Count":"0","Index":"128","L3V":"No","Max__Aflex":"32","Partition_Name":"retail_apps"}}
+ ]
 }

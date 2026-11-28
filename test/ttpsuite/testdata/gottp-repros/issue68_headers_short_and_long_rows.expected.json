@@ -1,0 +1,32 @@
+[
+ [
+  {
+   "g": [
+    {
+     "Port": "Gi0/2",
+     "Name": "foo",
+     "Status": "",
+     "Speed": ""
+    },
+    {
+     "Port": "Gi0/3",
+     "Name": "foo",
+     "Status": "u",
+     "Speed": ""
+    },
+    {
+     "Port": "Gi0/4",
+     "Name": "foo",
+     "Status": "up",
+     "Speed": "1000   extra   stuff"
+    },
+    {
+     "Port": "Gi0/567890",
+     "Name": "12345 fo",
+     "Status": "o",
+     "Speed": ""
+    }
+   ]
+  }
+ ]
+]

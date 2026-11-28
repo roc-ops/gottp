@@ -181,3 +181,7 @@ func pyCapitalize(s string) string {
 	}
 	return b.String()
 }
+
+// IsSpace reports whether r is whitespace as Python's str.isspace() and the
+// \s of a str regex read it.
+func IsSpace(r rune) bool { return isSpace(r) }

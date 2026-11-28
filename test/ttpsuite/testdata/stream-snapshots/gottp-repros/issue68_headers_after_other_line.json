@@ -1,0 +1,8 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[0,12],"record":{"Name":"ce a","Port":"interfa","Status":""}},
+  {"group_path":"g","src_range":[12,28],"record":{"Name":"foo","Port":"Gi0/1","Status":"up"}},
+  {"group_path":"g","src_range":[28,44],"record":{"Name":"bar","Port":"Gi0/2","Status":"up"}},
+  {"group_path":"g","src_range":[44,56],"record":{"intf":"b"}}
+ ]
+}

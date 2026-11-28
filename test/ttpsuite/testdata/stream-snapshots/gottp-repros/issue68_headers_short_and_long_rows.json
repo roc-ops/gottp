@@ -1,0 +1,8 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[38,52],"record":{"Name":"foo","Port":"Gi0/2","Speed":"","Status":""}},
+  {"group_path":"g","src_range":[52,72],"record":{"Name":"foo","Port":"Gi0/3","Speed":"","Status":"u"}},
+  {"group_path":"g","src_range":[72,122],"record":{"Name":"foo","Port":"Gi0/4","Speed":"1000   extra   stuff","Status":"up"}},
+  {"group_path":"g","src_range":[122,142],"record":{"Name":"12345 fo","Port":"Gi0/567890","Speed":"","Status":"o"}}
+ ]
+}
