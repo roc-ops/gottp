@@ -74,22 +74,10 @@ func parseGroupFunctionNames(functions string) []string {
 	return names
 }
 
-// hasStartIndicator returns true if the group has at least one variable
-// (or variable function) that produces a _start_ record boundary.
+// hasStartIndicator returns true if some line of the group asks to start a
+// record itself (_start_ or _headers_), per the group's indicator profile.
 func hasStartIndicator(g *CompiledGroup) bool {
-	for _, p := range g.Patterns {
-		for _, v := range p.Variables {
-			if v.Name == "_start_" {
-				return true
-			}
-			for _, f := range v.Functions {
-				if f == "_start_" {
-					return true
-				}
-			}
-		}
-	}
-	return false
+	return g.Profile().HasIndicatedStart()
 }
 
 // allPatternsAnchored returns true if every pattern in the group has
