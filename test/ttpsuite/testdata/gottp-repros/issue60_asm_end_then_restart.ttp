@@ -1,0 +1,5 @@
+<group name="g">
+start {{ s }}
+ val {{ v }}
+ stop {{ _end_ }}
+</group>

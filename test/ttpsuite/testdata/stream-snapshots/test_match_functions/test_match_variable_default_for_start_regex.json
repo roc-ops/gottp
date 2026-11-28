@@ -1,0 +1,5 @@
+{
+ "records": [
+  {"group_path":"ntp-1*","src_range":[0,0],"record":{"server":"Unconfigured","source":"undefined"}}
+ ]
+}

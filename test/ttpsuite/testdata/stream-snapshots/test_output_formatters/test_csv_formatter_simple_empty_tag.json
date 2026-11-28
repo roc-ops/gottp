@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"","src_range":[1,35],"record":{"interface":"Port-Chanel11","vlan":10}},
+  {"group_path":"","src_range":[35,65],"record":{"interface":"Loopback0","vlan":20}}
+ ]
+}

@@ -1,0 +1,10 @@
+{
+ "records": [
+  {"group_path":"arp_test","src_range":[70,139],"record":{"age":"98","interface":"Loopback0","ip":"10.12.13.2","mac":"0950:5785:5cd2"}},
+  {"group_path":"arp_test","src_range":[139,218],"record":{"age":"131","interface":"GigabitEthernet2.13","ip":"10.12.13.3","mac":"0150.7685.14d5"}},
+  {"group_path":"arp_test","src_range":[218,294],"record":{"age":"98","interface":"FastEthernet2.13","ip":"10.12.13.1","mac":"0950-5785-5cd1"}},
+  {"group_path":"arp_test","src_range":[294,373],"record":{"age":"198","interface":"GigabitEthernet2.17","ip":"10.12.13.4","mac":"09:50:5C:8A:5c:41"}},
+  {"group_path":"arp_test","src_range":[373,452],"record":{"age":"198","interface":"GigabitEthernet2.17","ip":"10.12.13.5","mac":"09.50.5C.8A.5c.41"}},
+  {"group_path":"arp_test","src_range":[452,805],"record":{"age":"198","interface":"GigabitEthernet2.17","ip":"10.12.13.6","mac":"09-50-5C-8A-5c-41"}}
+ ]
+}

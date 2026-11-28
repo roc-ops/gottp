@@ -1,0 +1,5 @@
+Area 0
+  age 1
+  age 2
+Area 1
+  age 3

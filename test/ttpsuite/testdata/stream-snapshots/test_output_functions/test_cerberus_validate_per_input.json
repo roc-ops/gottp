@@ -1,0 +1,7 @@
+{
+ "records": [
+  {"group_path":"_","src_range":[26,74],"record":{"host_name":"csw1"}},
+  {"group_path":"ntp_peers","src_range":[40,57],"record":{"peer":"1.2.3.4"}},
+  {"group_path":"ntp_peers","src_range":[57,74],"record":{"peer":"1.2.3.5"}}
+ ]
+}

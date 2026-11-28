@@ -1,0 +1,6 @@
+<group name="lsa*" functions="record('area') | del('area') | void">
+Area {{ area }}
+  <group set="area">
+  age {{ age }}
+  </group>
+</group>

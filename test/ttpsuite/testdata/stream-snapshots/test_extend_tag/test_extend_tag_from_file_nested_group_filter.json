@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"interfaces","src_range":[1,76],"record":{"interface":"Gi1"}},
+  {"group_path":"interfaces","src_range":[76,154],"record":{"disabled":"True","interface":"Gi2"}}
+ ]
+}

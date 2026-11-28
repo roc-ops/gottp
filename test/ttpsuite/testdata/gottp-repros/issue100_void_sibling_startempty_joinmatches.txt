@@ -1,0 +1,4 @@
+vrf a
+  ns 1
+foo
+  ns 2

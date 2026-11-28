@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"","src_range":[1,58],"record":{"description":"Storage Management","interface":"Port-Chanel11"}},
+  {"group_path":"","src_range":[58,96],"record":{"description":"RID","interface":"Loopback0"}}
+ ]
+}

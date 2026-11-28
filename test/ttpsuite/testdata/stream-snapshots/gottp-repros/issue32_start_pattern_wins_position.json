@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[0,9],"record":{"id":"1","kind":"id","rest":"1"}},
+  {"group_path":"g","src_range":[9,14],"record":{"id":"2","kind":"id","rest":"2"}}
+ ]
+}

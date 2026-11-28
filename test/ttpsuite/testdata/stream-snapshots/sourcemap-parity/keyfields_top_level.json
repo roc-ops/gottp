@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"vlans","src_range":[0,19],"record":{"id":"10","name":"users"}},
+  {"group_path":"vlans","src_range":[19,38],"record":{"id":"20","name":"voice"}}
+ ]
+}

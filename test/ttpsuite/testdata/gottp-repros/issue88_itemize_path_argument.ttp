@@ -1,0 +1,3 @@
+<group name="g" itemize="name, ifs">
+interface {{ name }}
+</group>

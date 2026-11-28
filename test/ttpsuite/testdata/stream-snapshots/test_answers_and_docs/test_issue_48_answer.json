@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"","src_range":[1,638],"record":{"code":"3400","course":"ECON","department":"Department of Economics and Finance","lecture_lab_time":"3-0","name":"The Economics of Personnel Management","prereqs":"ECON*2310 or ECON*2200","semester":"U","weight":"0.50"}},
+  {"group_path":"","src_range":[638,1098],"record":{"code":"4400","course":"ECON","department":"Department of Economics","lecture_lab_time":"7-1","name":"The Economics of Personnel Management","prereqs":"ECON*2310","semester":"U","weight":"0.90"}}
+ ]
+}

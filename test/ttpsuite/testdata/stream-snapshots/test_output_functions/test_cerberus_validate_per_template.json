@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"ntp_peers","src_range":[26,43],"record":{"peer":"1.2.3.4"}},
+  {"group_path":"ntp_peers","src_range":[43,60],"record":{"peer":"1.2.3.5"}}
+ ]
+}

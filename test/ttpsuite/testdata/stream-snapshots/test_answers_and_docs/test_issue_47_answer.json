@@ -1,0 +1,7 @@
+{
+ "records": [
+  {"group_path":"","src_range":[1,161],"record":{"description":"Router-id-loopback","interface":"Loopback0","ip":"192.168.0.113","mask":"24"}},
+  {"group_path":"","src_range":[161,488],"record":{"description":"Router-id-loopback 2","interface":"Loopback2","ip":"192.168.0.114","mask":"24"}},
+  {"group_path":"","src_range":[488,650],"record":{"description":"Router-id-loopback 3","interface":"Loopback3","ip":"192.168.0.115","mask":"24"}}
+ ]
+}

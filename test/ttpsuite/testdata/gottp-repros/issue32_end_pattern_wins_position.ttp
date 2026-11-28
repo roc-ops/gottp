@@ -1,0 +1,5 @@
+<group name="g">
+hdr {{ h }}
+ {{ x }} done
+ {{ y | _end_ }} done
+</group>

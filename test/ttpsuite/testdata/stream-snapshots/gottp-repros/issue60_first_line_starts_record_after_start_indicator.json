@@ -1,0 +1,8 @@
+{
+ "records": [
+  {"group_path":"intf","src_range":[0,31],"record":{"desc":"one","name":"Gi1"}},
+  {"group_path":"intf","src_range":[31,50],"record":{"mtu":"1500","vlan":"10"}},
+  {"group_path":"intf","src_range":[50,81],"record":{"desc":"two","name":"Gi2"}},
+  {"group_path":"intf","src_range":[81,100],"record":{"mtu":"9000","vlan":"20"}}
+ ]
+}

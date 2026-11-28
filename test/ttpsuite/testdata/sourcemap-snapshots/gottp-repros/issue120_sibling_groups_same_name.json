@@ -1,0 +1,14 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":5,"GroupName":"vrfs","PatternIndex":0,"Variables":{"name":{"StartCol":4,"EndCol":5}},"ResultPath":"vrfs"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"rts","PatternIndex":0,"Variables":{},"ResultPath":"vrfs.rts"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"rts","PatternIndex":1,"Variables":{"i":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.rts"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"rts","PatternIndex":1,"Variables":{"i":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.rts"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"rts","PatternIndex":0,"Variables":{},"ResultPath":"vrfs.rts"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"rts","PatternIndex":1,"Variables":{"i":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.rts"},{"StartCol":0,"EndCol":4,"GroupName":"rts","PatternIndex":1,"Variables":{"e":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.rts"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"rts","PatternIndex":1,"Variables":{"i":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.rts"},{"StartCol":0,"EndCol":4,"GroupName":"rts","PatternIndex":1,"Variables":{"e":{"StartCol":3,"EndCol":4}},"ResultPath":"vrfs.rts"}]},
+   {"LineNumber":7,"Matched":false,"Matches":[]}
+  ]
+ }
+}

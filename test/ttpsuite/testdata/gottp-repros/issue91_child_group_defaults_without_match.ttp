@@ -1,0 +1,5 @@
+<group name="d">
+<group name="c*">
+Hello {{ a | default("none") }}
+</group>
+</group>

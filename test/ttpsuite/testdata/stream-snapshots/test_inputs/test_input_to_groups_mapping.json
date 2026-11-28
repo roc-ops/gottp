@@ -1,0 +1,5 @@
+{
+ "records": [
+  {"group_path":"system","src_range":[1,153],"record":{"chassis":"vm","hostname":"localhost.localdomain","machine_id":"2a26648f68764152a772fc20c9a3ddb3","os":"CentOS Linux 7 (Core)"}}
+ ]
+}

@@ -1,0 +1,8 @@
+{
+ "records": [
+  {"group_path":"interfaces","src_range":[41,151],"record":{"description":"some info","interface":"GigabitEthernet1","ip":"10.123.89.56","mask":"255.255.255.0"}},
+  {"group_path":"interfaces","src_range":[151,217],"record":{"interface":"GigabitEthernet2","ip":"10.123.89.55","mask":"255.255.255.0"}},
+  {"group_path":"interfaces_2","src_range":[41,151],"record":{"interface":"GigabitEthernet1","ip":"10.123.89.56","mask":"255.255.255.0","vrf":"MGMT"}},
+  {"group_path":"interfaces_2","src_range":[151,217],"record":{"interface":"GigabitEthernet2","ip":"10.123.89.55","mask":"255.255.255.0"}}
+ ]
+}
