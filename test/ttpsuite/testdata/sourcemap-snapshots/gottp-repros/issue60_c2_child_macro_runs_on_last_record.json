@@ -3,7 +3,7 @@
   "Default_Input": [
    {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"top","PatternIndex":0,"Variables":{"state":{"StartCol":7,"EndCol":9}},"ResultPath":"top"}]},
    {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":7,"GroupName":"fan*","PatternIndex":0,"Variables":{"_t":{"StartCol":7,"EndCol":7},"idx":{"StartCol":0,"EndCol":1},"rpm":{"StartCol":3,"EndCol":7}},"ResultPath":"top.fan[0]"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":7,"GroupName":"fan*","PatternIndex":0,"Variables":{"_t":{"StartCol":7,"EndCol":7},"idx":{"StartCol":0,"EndCol":1},"rpm":{"StartCol":3,"EndCol":7}},"ResultPath":"top.fan[1]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":9,"GroupName":"fan*","PatternIndex":0,"Variables":{"_t":{"StartCol":7,"EndCol":9},"idx":{"StartCol":0,"EndCol":1},"rpm":{"StartCol":3,"EndCol":7}},"ResultPath":"top.fan[1]"}]},
    {"LineNumber":3,"Matched":false,"Matches":[]}
   ]
  }

@@ -17,7 +17,7 @@
    {"LineNumber":13,"Matched":true,"Matches":[{"StartCol":0,"EndCol":76,"GroupName":"vlans_forwarding","PatternIndex":0,"Variables":{},"ResultPath":"vlans_forwarding"}]},
    {"LineNumber":14,"Matched":true,"Matches":[{"StartCol":0,"EndCol":29,"GroupName":"interfaces*","PatternIndex":0,"Variables":{"port":{"StartCol":12,"EndCol":15},"vlans":{"StartCol":22,"EndCol":29}},"ResultPath":"vlans_forwarding.interfaces[0]"}]},
    {"LineNumber":15,"Matched":true,"Matches":[{"StartCol":0,"EndCol":36,"GroupName":"interfaces*","PatternIndex":0,"Variables":{"port":{"StartCol":12,"EndCol":15},"vlans":{"StartCol":22,"EndCol":36}},"ResultPath":"vlans_forwarding.interfaces[1]"}]},
-   {"LineNumber":16,"Matched":true,"Matches":[{"StartCol":0,"EndCol":0,"GroupName":"vlans_forwarding","PatternIndex":2,"Variables":{},"ResultPath":"vlans_forwarding"}]}
+   {"LineNumber":16,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"vlans_forwarding","PatternIndex":2,"Variables":{},"ResultPath":"vlans_forwarding"}]}
   ]
  }
 }

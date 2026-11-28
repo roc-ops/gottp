@@ -1,0 +1,3 @@
+<group name="v">
+vlan {{ id | DIGIT | _start_ }} name {{ vlan_name | re("[a-zA-Z0-9\-\" ]+") }}{{ ignore(".*") }}
+</group>

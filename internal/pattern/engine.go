@@ -599,8 +599,8 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 	}
 
 	// Text after last variable
-	// Note: trailing whitespace has already been stripped by the compiler
-	// We'll add optional trailing whitespace matching at the end (unless exactSpace is true)
+	// Note: trailing whitespace has already been stripped by the compiler;
+	// optional trailing whitespace is matched at the end.
 	if lastEnd < len(line) {
 		text := line[lastEnd:]
 		escaped := e.escapeText(text, exactSpace, exact)
@@ -616,14 +616,11 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 		regexStr = "^" + regexStr
 	}
 
-	// Handle trailing whitespace: Python TTP strips it and adds optional matching
-	// Add optional trailing whitespace pattern before the end anchor (unless exactSpace is true)
-	if !exactSpace {
-		// Add pattern to match optional trailing spaces/tabs before end of line
-		// This matches Python TTP's behavior: r"[\t ]*(?=\n|\r\n)"
-		// We use a lookahead to match trailing whitespace without consuming the newline
-		regexStr = regexStr + `[\t ]*`
-	}
+	// Optional trailing spaces/tabs before the end anchor, as TTP's
+	// form_regex appends r"[\t ]*(?=\n|\r\n)". TTP appends it whether or
+	// not _exact_space_ is set, and data lines keep their trailing
+	// whitespace (#33), so this must be unconditional.
+	regexStr = regexStr + `[\t ]*`
 
 	if !strings.HasSuffix(regexStr, "$") {
 		regexStr = regexStr + "$"

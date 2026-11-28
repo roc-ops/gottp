@@ -10,9 +10,9 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 
 ```
 TTP 0.10.1 suite: pass 104 / skipped-by-issue 91 / design 5 of 200
-gottp repros: pass 141 / skipped-by-issue 3 / design 0 of 144
-source-map parity: same 347 / diverge 0 of 347
-stream snapshots: 156 streamable of 347 cases
+gottp repros: pass 148 / skipped-by-issue 2 / design 0 of 150
+source-map parity: same 353 / diverge 0 of 353
+stream snapshots: 162 streamable of 353 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -42,7 +42,13 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue30_indented_line_matches_any_indentation` | passes; #30 is fixed |
 | `issue31_ignore_vars_name` | #31 |
 | `issue32_one_line_fills_several_template_lines` | #32 |
-| `issue33_trailing_ignore_with_trailing_whitespace` | #33 |
+| `issue33_trailing_ignore_with_trailing_whitespace` | passes; #33 is fixed |
+| `issue33_vlan_name_keeps_trailing_space` | passes; a greedy `re()` keeps the line's trailing space (#33) |
+| `issue33_re_dotstar_keeps_trailing_spaces` | passes; `re(".*")` keeps trailing spaces (#33) |
+| `issue33_exact_space_trailing_whitespace` | passes; an `_exact_space_` line allows trailing whitespace (#33) |
+| `issue33_untagged_indented_first_line_matches` | passes; a template with no tags keeps its first line's indent (#33) |
+| `issue33_untagged_indented_first_line_no_unindented_match` | passes; ...so it doesn't match the line without the indent (#33) |
+| `issue33_untagged_leading_blank_lines_keep_indent` | passes; leading blank lines are dropped, the first real line keeps its indent (#33) |
 | `issue34_split_joinmatches` | #34 |
 | `issue35_strip_characters_argument` | #35 |
 | `issue36_unknown_function_falls_back_to_str_method` | passes; #36 is fixed (refactor F2: Python type methods) |

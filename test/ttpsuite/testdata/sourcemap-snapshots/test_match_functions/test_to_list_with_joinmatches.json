@@ -3,7 +3,7 @@
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
    {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":28,"GroupName":"","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":28}},"ResultPath":"_anonymous_[0]"}]},
-   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"","PatternIndex":1,"Variables":{"trunk_vlans":{"StartCol":35,"EndCol":46}},"ResultPath":"_anonymous_[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":47,"GroupName":"","PatternIndex":1,"Variables":{"trunk_vlans":{"StartCol":35,"EndCol":46}},"ResultPath":"_anonymous_[0]"}]},
    {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"","PatternIndex":1,"Variables":{"trunk_vlans":{"StartCol":35,"EndCol":46}},"ResultPath":"_anonymous_[0]"}]},
    {"LineNumber":4,"Matched":false,"Matches":[]}
   ]

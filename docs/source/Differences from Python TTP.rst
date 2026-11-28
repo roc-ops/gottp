@@ -122,6 +122,10 @@ Input Loaders
 
 * All input loaders are implemented
 
+**Data lines**
+
+Data lines keep their trailing spaces and tabs, as in Python TTP, but gottp trims a trailing ``\r`` from each line. With CRLF input, a Python TTP capture whose pattern can match ``\r`` (``{{ x | re(".*") }}``, ``{{ x | _line_ }}``) includes it at the end of a line; gottp's doesn't. ``PHRASE``, ``ORPHRASE`` and ``WORD`` captures behave the same in both.
+
 Output Formatters
 -----------------
 

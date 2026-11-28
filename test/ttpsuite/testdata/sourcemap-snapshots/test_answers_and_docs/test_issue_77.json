@@ -21,7 +21,7 @@
    {"LineNumber":17,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"include**.{{ item }}**","PatternIndex":0,"Variables":{"item":{"StartCol":17,"EndCol":18}},"ResultPath":"lsp.lsp101.secondary.name.include.7"}]},
    {"LineNumber":18,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"exclude**.{{ item }}**","PatternIndex":0,"Variables":{"item":{"StartCol":17,"EndCol":18}},"ResultPath":"lsp.lsp101.secondary.name.exclude.8"}]},
    {"LineNumber":19,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"secondary**.{{ secondaryname }}**","PatternIndex":3,"Variables":{},"ResultPath":"lsp.lsp101.secondary.name"}]},
-   {"LineNumber":20,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"lsp**.{{ lspname }}**","PatternIndex":3,"Variables":{},"ResultPath":"lsp.lsp101"}]},
+   {"LineNumber":20,"Matched":true,"Matches":[{"StartCol":0,"EndCol":8,"GroupName":"lsp**.{{ lspname }}**","PatternIndex":3,"Variables":{},"ResultPath":"lsp.lsp101"}]},
    {"LineNumber":21,"Matched":false,"Matches":[]}
   ]
  }

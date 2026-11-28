@@ -57,7 +57,7 @@
    {"LineNumber":53,"Matched":true,"Matches":[{"StartCol":0,"EndCol":33,"GroupName":"Unicast**","PatternIndex":0,"Variables":{"AFI":{"StartCol":21,"EndCol":25}},"ResultPath":"gethostname.bgp_config.AS_{{ loca_as }}.vrfs[0].cust3.peers.6.6.6.6.afi.ipv4.Unicast"}]},
    {"LineNumber":54,"Matched":true,"Matches":[{"StartCol":0,"EndCol":20,"GroupName":"Unicast**","PatternIndex":2,"Variables":{"allow_as_in":{"StartCol":18,"EndCol":20}},"ResultPath":"gethostname.bgp_config.AS_{{ loca_as }}.vrfs[0].cust3.peers.6.6.6.6.afi.ipv4.Unicast"}]},
    {"LineNumber":55,"Matched":true,"Matches":[{"StartCol":0,"EndCol":40,"GroupName":"Unicast**","PatternIndex":3,"Variables":{"rpl_in":{"StartCol":18,"EndCol":37}},"ResultPath":"gethostname.bgp_config.AS_{{ loca_as }}.vrfs[0].cust3.peers.6.6.6.6.afi.ipv4.Unicast"}]},
-   {"LineNumber":56,"Matched":true,"Matches":[{"StartCol":0,"EndCol":41,"GroupName":"Unicast**","PatternIndex":4,"Variables":{"rpl_out":{"StartCol":18,"EndCol":37}},"ResultPath":"gethostname.bgp_config.AS_{{ loca_as }}.vrfs[0].cust3.peers.6.6.6.6.afi.ipv4.Unicast"}]},
+   {"LineNumber":56,"Matched":true,"Matches":[{"StartCol":0,"EndCol":45,"GroupName":"Unicast**","PatternIndex":4,"Variables":{"rpl_out":{"StartCol":18,"EndCol":37}},"ResultPath":"gethostname.bgp_config.AS_{{ loca_as }}.vrfs[0].cust3.peers.6.6.6.6.afi.ipv4.Unicast"}]},
    {"LineNumber":57,"Matched":false,"Matches":[]}
   ]
  }
