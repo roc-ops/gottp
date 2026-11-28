@@ -1380,68 +1380,30 @@ class GottpEditor {
     // YANG Modules
     setupYANGModuleHandlers() {
         // File input - support multiple files
-        document.getElementById('yang-file-input').addEventListener('change', (e) => {
+        document.getElementById('yang-file-input').addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
             if (files.length === 0) {
                 return;
             }
-            
-            // Load all files
-            let loadedCount = 0;
-            let errorCount = 0;
-            const totalFiles = files.length;
-            
-            files.forEach((file) => {
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    try {
-                        // Extract module name from content
-                        const content = event.target.result;
-                        const moduleNameMatch = content.match(/module\s+(\S+)/);
-                        const moduleName = moduleNameMatch 
-                            ? moduleNameMatch[1] 
-                            : file.name.replace(/\.yang$/i, '');
-                        
-                        await this.loadYANGModuleFromContent(moduleName, content);
-                        loadedCount++;
-                        
-                        // Show notification when all files are loaded
-                        if (loadedCount + errorCount === totalFiles) {
-                            if (errorCount === 0) {
-                                this.showNotification(`Successfully loaded ${loadedCount} YANG module(s)`, 'success');
-                            } else {
-                                this.showNotification(`Loaded ${loadedCount} module(s), ${errorCount} failed`, 'warning');
-                            }
-                            // Reset file input so the same files can be selected again if needed
-                            e.target.value = '';
-                        }
-                    } catch (error) {
-                        errorCount++;
-                        this.showNotification(`Failed to load ${file.name}: ${error.message}`, 'error');
-                        
-                        // Show notification when all files are processed
-                        if (loadedCount + errorCount === totalFiles) {
-                            if (loadedCount > 0) {
-                                this.showNotification(`Loaded ${loadedCount} module(s), ${errorCount} failed`, 'warning');
-                            }
-                            e.target.value = '';
-                        }
-                    }
-                };
-                reader.onerror = () => {
-                    errorCount++;
-                    this.showNotification(`Failed to read file: ${file.name}`, 'error');
-                    
-                    // Show notification when all files are processed
-                    if (loadedCount + errorCount === totalFiles) {
-                        if (loadedCount > 0) {
-                            this.showNotification(`Loaded ${loadedCount} module(s), ${errorCount} failed`, 'warning');
-                        }
-                        e.target.value = '';
-                    }
-                };
-                reader.readAsText(file);
-            });
+
+            const readErrors = [];
+            const pending = [];
+            for (const file of files) {
+                try {
+                    const content = await file.text();
+                    pending.push({
+                        moduleName: this.extractYANGModuleName(content, file.name.replace(/\.yang$/i, '')),
+                        content,
+                    });
+                } catch (error) {
+                    readErrors.push(`${file.name}: failed to read file`);
+                }
+            }
+            // Reset file input so the same files can be selected again if needed
+            e.target.value = '';
+
+            const { loaded, failed } = await this.loadYANGModulesInDependencyOrder(pending);
+            this.reportYANGLoadResult(loaded, readErrors.concat(failed));
         });
         
         // Load from file button
@@ -1476,19 +1438,19 @@ class GottpEditor {
                     throw new Error(`HTTP ${response.status}`);
                 }
                 const content = await response.text();
-                // Extract module name from content
-                const moduleNameMatch = content.match(/module\s+(\S+)/);
-                const moduleName = moduleNameMatch ? moduleNameMatch[1] : url.split('/').pop().replace('.yang', '');
-                this.loadYANGModuleFromContent(moduleName, content);
-                document.getElementById('yang-url-input').value = '';
-                document.getElementById('yang-url-input-container').style.display = 'none';
+                const moduleName = this.extractYANGModuleName(content, url.split('/').pop().replace('.yang', ''));
+                if (await this.loadYANGModuleFromContent(moduleName, content)) {
+                    document.getElementById('yang-url-input').value = '';
+                    document.getElementById('yang-url-input-container').style.display = 'none';
+                }
             } catch (error) {
+                this.setYANGLoadStatus(`Failed to load YANG module from URL: ${error.message}`, 'error');
                 this.showNotification(`Failed to load YANG module from URL: ${error.message}`, 'error');
             }
         });
         
         // Paste load button
-        document.getElementById('yang-paste-load-btn').addEventListener('click', () => {
+        document.getElementById('yang-paste-load-btn').addEventListener('click', async () => {
             const content = document.getElementById('yang-paste-content').value.trim();
             if (!content) {
                 this.showNotification('Please paste YANG module content', 'warning');
@@ -1496,31 +1458,110 @@ class GottpEditor {
             }
             let moduleName = document.getElementById('yang-module-name').value.trim();
             if (!moduleName) {
-                // Try to extract from content
-                const moduleNameMatch = content.match(/module\s+(\S+)/);
-                moduleName = moduleNameMatch ? moduleNameMatch[1] : 'unknown';
+                moduleName = this.extractYANGModuleName(content, 'unknown');
             }
-            this.loadYANGModuleFromContent(moduleName, content);
-            document.getElementById('yang-paste-content').value = '';
-            document.getElementById('yang-module-name').value = '';
-            document.getElementById('yang-paste-container').style.display = 'none';
+            // Keep the pasted text on failure so the user can fix it.
+            if (await this.loadYANGModuleFromContent(moduleName, content)) {
+                document.getElementById('yang-paste-content').value = '';
+                document.getElementById('yang-module-name').value = '';
+                document.getElementById('yang-paste-container').style.display = 'none';
+            }
         });
     }
-    
+
+    extractYANGModuleName(content, fallback) {
+        const match = content.match(/^\s*(?:sub)?module\s+([^\s{]+)/m);
+        return match ? match[1] : fallback;
+    }
+
+    // Validates a module (syntax, and imports against the modules already
+    // loaded) and stores it only if it is valid. Returns true on success.
+    async tryLoadYANGModule(moduleName, content) {
+        await wasmBridge.loadYANGModule(moduleName, content, this.state.yangModules);
+        this.state.yangModules[moduleName] = content;
+        this.updateYANGModulesList();
+        this.saveStateToStorage();
+    }
+
     async loadYANGModuleFromContent(moduleName, content) {
         try {
-            // Validate by trying to load it
-            await wasmBridge.loadYANGModule(moduleName, content);
-            this.state.yangModules[moduleName] = content;
-            this.updateYANGModulesList();
-            this.saveStateToStorage();
+            await this.tryLoadYANGModule(moduleName, content);
+            this.setYANGLoadStatus(`YANG module '${moduleName}' loaded successfully`, 'success');
             this.showNotification(`YANG module '${moduleName}' loaded successfully`, 'success');
+            return true;
         } catch (error) {
-            this.showNotification(`Failed to load YANG module '${moduleName}': ${error.message}`, 'error');
+            const message = `Failed to load YANG module '${moduleName}': ${this.stripYANGErrorPrefix(error.message)}`;
+            this.setYANGLoadStatus(message, 'error');
+            this.showNotification(message, 'error');
+            return false;
         }
+    }
+
+    // Loads several modules, retrying failures while any new module loads, so
+    // a set of files whose modules import each other loads in any order.
+    async loadYANGModulesInDependencyOrder(modules) {
+        const loaded = [];
+        let pending = modules.slice();
+        let errors = new Map();
+        let progress = true;
+        while (pending.length > 0 && progress) {
+            progress = false;
+            const retry = [];
+            errors = new Map();
+            for (const mod of pending) {
+                try {
+                    await this.tryLoadYANGModule(mod.moduleName, mod.content);
+                    loaded.push(mod.moduleName);
+                    progress = true;
+                } catch (error) {
+                    errors.set(mod.moduleName, this.stripYANGErrorPrefix(error.message));
+                    retry.push(mod);
+                }
+            }
+            pending = retry;
+        }
+        const failed = pending.map(mod => `${mod.moduleName}: ${errors.get(mod.moduleName)}`);
+        return { loaded, failed };
+    }
+
+    reportYANGLoadResult(loaded, failed) {
+        if (failed.length === 0) {
+            const message = `Successfully loaded ${loaded.length} YANG module(s): ${loaded.join(', ')}`;
+            this.setYANGLoadStatus(message, 'success');
+            this.showNotification(message, 'success');
+            return;
+        }
+        const header = loaded.length > 0
+            ? `Loaded ${loaded.length} module(s), ${failed.length} failed:`
+            : `Failed to load ${failed.length} YANG module(s):`;
+        this.setYANGLoadStatus(`${header}\n${failed.join('\n')}`, 'error');
+        this.showNotification(`${header} ${failed.join('; ')}`, loaded.length > 0 ? 'warning' : 'error');
+    }
+
+    stripYANGErrorPrefix(message) {
+        return String(message).replace(/^YANG module loading failed: /, '');
+    }
+
+    setYANGLoadStatus(message, type) {
+        const status = document.getElementById('yang-load-status');
+        if (!status) {
+            return;
+        }
+        if (!message) {
+            status.style.display = 'none';
+            status.textContent = '';
+            return;
+        }
+        const color = type === 'error' ? 'var(--error-color)' : 'var(--success-color)';
+        status.textContent = message;
+        status.dataset.status = type;
+        status.style.color = color;
+        status.style.borderColor = color;
+        status.style.display = 'block';
     }
     
     showYANGModulesModal() {
+        this.setYANGLoadStatus(null);
         this.updateYANGModulesList();
         this.showModal('yang-modules-modal');
     }
