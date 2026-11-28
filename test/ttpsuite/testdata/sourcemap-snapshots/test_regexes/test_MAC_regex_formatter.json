@@ -1,0 +1,18 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":false,"Matches":[]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":68,"GroupName":"arp_test","PatternIndex":0,"Variables":{"age":{"StartCol":28,"EndCol":30},"interface":{"StartCol":59,"EndCol":68},"ip":{"StartCol":10,"EndCol":20},"mac":{"StartCol":33,"EndCol":47}},"ResultPath":"arp_test[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":78,"GroupName":"arp_test","PatternIndex":0,"Variables":{"age":{"StartCol":27,"EndCol":30},"interface":{"StartCol":59,"EndCol":78},"ip":{"StartCol":10,"EndCol":20},"mac":{"StartCol":33,"EndCol":47}},"ResultPath":"arp_test[1]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":75,"GroupName":"arp_test","PatternIndex":0,"Variables":{"age":{"StartCol":28,"EndCol":30},"interface":{"StartCol":59,"EndCol":75},"ip":{"StartCol":10,"EndCol":20},"mac":{"StartCol":33,"EndCol":47}},"ResultPath":"arp_test[2]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":78,"GroupName":"arp_test","PatternIndex":0,"Variables":{"age":{"StartCol":27,"EndCol":30},"interface":{"StartCol":59,"EndCol":78},"ip":{"StartCol":10,"EndCol":20},"mac":{"StartCol":33,"EndCol":50}},"ResultPath":"arp_test[3]"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":78,"GroupName":"arp_test","PatternIndex":0,"Variables":{"age":{"StartCol":27,"EndCol":30},"interface":{"StartCol":59,"EndCol":78},"ip":{"StartCol":10,"EndCol":20},"mac":{"StartCol":33,"EndCol":50}},"ResultPath":"arp_test[4]"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":78,"GroupName":"arp_test","PatternIndex":0,"Variables":{"age":{"StartCol":27,"EndCol":30},"interface":{"StartCol":59,"EndCol":78},"ip":{"StartCol":10,"EndCol":20},"mac":{"StartCol":33,"EndCol":50}},"ResultPath":"arp_test[5]"}]},
+   {"LineNumber":8,"Matched":false,"Matches":[]},
+   {"LineNumber":9,"Matched":false,"Matches":[]},
+   {"LineNumber":10,"Matched":false,"Matches":[]},
+   {"LineNumber":11,"Matched":false,"Matches":[]}
+  ]
+ }
+}

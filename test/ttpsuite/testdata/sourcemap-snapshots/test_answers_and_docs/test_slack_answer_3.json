@@ -1,0 +1,20 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":false,"Matches":[]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":59,"GroupName":"service.vprns*.{{id}}**","PatternIndex":0,"Variables":{"id":{"StartCol":13,"EndCol":14},"name":{"StartCol":20,"EndCol":40}},"ResultPath":"service.vprns*.{{id}}[0]"}]},
+   {"LineNumber":3,"Matched":false,"Matches":[]},
+   {"LineNumber":4,"Matched":false,"Matches":[]},
+   {"LineNumber":5,"Matched":false,"Matches":[]},
+   {"LineNumber":6,"Matched":false,"Matches":[]},
+   {"LineNumber":7,"Matched":false,"Matches":[]},
+   {"LineNumber":8,"Matched":false,"Matches":[]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":46,"GroupName":"service.vprns*.{{id}}**","PatternIndex":0,"Variables":{"id":{"StartCol":13,"EndCol":14},"name":{"StartCol":20,"EndCol":27}},"ResultPath":"service.vprns*.{{id}}[1]"}]},
+   {"LineNumber":10,"Matched":false,"Matches":[]},
+   {"LineNumber":11,"Matched":false,"Matches":[]},
+   {"LineNumber":12,"Matched":false,"Matches":[]},
+   {"LineNumber":13,"Matched":false,"Matches":[]}
+  ]
+ }
+}

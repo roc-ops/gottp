@@ -1,0 +1,9 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":18,"GroupName":"vlans*","PatternIndex":0,"Variables":{"id":{"StartCol":5,"EndCol":7},"name":{"StartCol":13,"EndCol":18}},"ResultPath":"vlans[0]"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":18,"GroupName":"vlans*","PatternIndex":0,"Variables":{"id":{"StartCol":5,"EndCol":7},"name":{"StartCol":13,"EndCol":18}},"ResultPath":"vlans[1]"}]},
+   {"LineNumber":2,"Matched":false,"Matches":[]}
+  ]
+ }
+}

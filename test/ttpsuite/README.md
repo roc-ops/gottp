@@ -11,14 +11,15 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:'
 ```
 TTP 0.10.1 suite: pass 49 / skipped-by-issue 147 / design 4 of 200
 gottp repros: pass 6 / skipped-by-issue 8 / design 0 of 14
-source-map parity: same 203 / diverge 11 of 214
+source-map parity: same 203 / diverge 14 of 217
 ```
 
-The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are three:
+The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are four:
 
 - `TestTTPSuite`: TTP's own 200 cases against TTP 0.10.1's results (below).
 - `TestGottpRepros`: gottp bug repros against TTP 0.10.1's results ([gottp repros](#gottp-repros)).
-- `TestSourceMapParity`: every case from both, parsed with source maps off and on, must give the same data ([Source-map parity](#source-map-parity)).
+- `TestSourceMapParity`: every case from both, plus the gottp-only cases in `testdata/sourcemap-parity`, parsed with source maps off and on, must give the same data and key fields ([Source-map parity](#source-map-parity)).
+- `TestSourceMapSnapshots`: the source map of every parity case must match its snapshot in `testdata/sourcemap-snapshots` ([Source-map snapshots](#source-map-snapshots)).
 
 ## How it works
 
@@ -51,7 +52,9 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 
 ## Source-map parity
 
-`CompiledTemplate.Parse` runs `Runtime.Parse` when source maps are off, and a separate copy of the orchestration (`Runtime.ParseWithSourceMap` and `parseGroupWithSourceMap`) when `ParseOptions{EnableSourceMap: true}`. The editor always turns source maps on. `TestSourceMapParity` parses every case (suite and repros) through `CompiledTemplate.ParseWithValidation` both ways and requires the same data, or the same error. The source map itself isn't compared, and it doesn't matter whether the data matches TTP.
+`CompiledTemplate.Parse` runs `Runtime.Parse` when source maps are off, and a separate copy of the orchestration (`Runtime.ParseWithSourceMap` and `parseGroupWithSourceMap`) when `ParseOptions{EnableSourceMap: true}`. The editor turns source maps on when its source-map toggle is on. `TestSourceMapParity` parses every case (suite, repros and `testdata/sourcemap-parity`) through `CompiledTemplate.ParseWithValidation` both ways and requires the same data and the same `KeyFields`, or the same error. The source map itself isn't compared here, and it doesn't matter whether the data matches TTP.
+
+`testdata/sourcemap-parity/` holds gottp-only cases for paths the TTP suite doesn't reach: `NAME.ttp` (template) and `NAME.txt` (the `Default_Input` data), named `sourcemap-parity/NAME`. They have no Python TTP expectation; they cover gottp's `keys=` attribute (`KeyFields`) and input functions (an input `macro=`).
 
 `sourcemap_divergences.json` lists the cases that differ, with the same rules as `known_failures.json`: an unlisted divergence, a listed case at parity and a stale entry all fail the test. `TTPSUITE_SOURCEMAP_REPORT=/tmp/sm.json` writes both results of every diverging case.
 
@@ -61,6 +64,16 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | #106 | 4 | Source map: group errors lose the "failed to parse group <name>" context |
 | #107 | 1 | Source map: the ignore("<vars name>") empty-record special case is missing, so the group is dropped |
 | #108 | 1 | Source map: void groups are not dropped from the results |
+| #60 | 3 | Source maps on skips input functions and leaves `KeyFields` empty (refactor A1) |
+
+## Source-map snapshots
+
+`TestSourceMapSnapshots` parses every source-map parity case with `EnableSourceMap` and compares the source map with `testdata/sourcemap-snapshots/<case>.json`, byte for byte. A snapshot holds one row per input line (`LineNumber`, `Matched`, `Matches` exactly as the public `gottp.SourceMap` marshals to JSON, which is what the editor reads), or the parse error. Any difference fails, and so does a snapshot that names no case. After a deliberate change, rewrite them and review the diff:
+
+```
+go test ./test/ttpsuite -run TestSourceMapSnapshots -update-sourcemap-snapshots
+git diff test/ttpsuite/testdata/sourcemap-snapshots
+```
 
 ## Regenerating the data
 

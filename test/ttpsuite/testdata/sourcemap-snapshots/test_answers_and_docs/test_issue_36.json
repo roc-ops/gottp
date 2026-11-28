@@ -1,0 +1,32 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"ip.{{ acl_type }}.{{ acl_name }}","PatternIndex":0,"Variables":{"acl_name":{"StartCol":24,"EndCol":26},"acl_type":{"StartCol":15,"EndCol":23}},"ResultPath":"ip.{{ acl_type }}.{{ acl_name }}[0]"}]},
+   {"LineNumber":2,"Matched":false,"Matches":[]},
+   {"LineNumber":3,"Matched":false,"Matches":[]},
+   {"LineNumber":4,"Matched":false,"Matches":[]},
+   {"LineNumber":5,"Matched":false,"Matches":[]},
+   {"LineNumber":6,"Matched":false,"Matches":[]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"ip.{{ acl_type }}.{{ acl_name }}","PatternIndex":0,"Variables":{"acl_name":{"StartCol":24,"EndCol":26},"acl_type":{"StartCol":15,"EndCol":23}},"ResultPath":"ip.{{ acl_type }}.{{ acl_name }}[1]"}]},
+   {"LineNumber":8,"Matched":false,"Matches":[]},
+   {"LineNumber":9,"Matched":false,"Matches":[]},
+   {"LineNumber":10,"Matched":false,"Matches":[]},
+   {"LineNumber":11,"Matched":false,"Matches":[]},
+   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":26,"GroupName":"ip.{{ acl_type }}.{{ acl_name }}","PatternIndex":0,"Variables":{"acl_name":{"StartCol":24,"EndCol":26},"acl_type":{"StartCol":15,"EndCol":23}},"ResultPath":"ip.{{ acl_type }}.{{ acl_name }}[2]"}]},
+   {"LineNumber":13,"Matched":false,"Matches":[]},
+   {"LineNumber":14,"Matched":false,"Matches":[]},
+   {"LineNumber":15,"Matched":false,"Matches":[]},
+   {"LineNumber":16,"Matched":false,"Matches":[]},
+   {"LineNumber":17,"Matched":false,"Matches":[]},
+   {"LineNumber":18,"Matched":true,"Matches":[{"StartCol":0,"EndCol":27,"GroupName":"ip.{{ acl_type }}.{{ acl_name }}","PatternIndex":0,"Variables":{"acl_name":{"StartCol":24,"EndCol":27},"acl_type":{"StartCol":15,"EndCol":23}},"ResultPath":"ip.{{ acl_type }}.{{ acl_name }}[3]"}]},
+   {"LineNumber":19,"Matched":false,"Matches":[]},
+   {"LineNumber":20,"Matched":false,"Matches":[]},
+   {"LineNumber":21,"Matched":false,"Matches":[]},
+   {"LineNumber":22,"Matched":false,"Matches":[]},
+   {"LineNumber":23,"Matched":false,"Matches":[]},
+   {"LineNumber":24,"Matched":false,"Matches":[]},
+   {"LineNumber":25,"Matched":false,"Matches":[]}
+  ]
+ }
+}

@@ -1,0 +1,3 @@
+<group name="vlans*" keys="id, name">
+vlan {{ id }} name {{ name }}
+</group>

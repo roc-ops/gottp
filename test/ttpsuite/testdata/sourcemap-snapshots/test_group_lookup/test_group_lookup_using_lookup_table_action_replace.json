@@ -1,0 +1,11 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":false,"Matches":[]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":72,"GroupName":"arp","PatternIndex":0,"Variables":{"age":{"StartCol":28,"EndCol":30},"interface":{"StartCol":56,"EndCol":72},"ip":{"StartCol":10,"EndCol":20},"mac":{"StartCol":33,"EndCol":47}},"ResultPath":"arp[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":75,"GroupName":"arp","PatternIndex":0,"Variables":{"age":{"StartCol":27,"EndCol":30},"interface":{"StartCol":56,"EndCol":75},"ip":{"StartCol":10,"EndCol":20},"mac":{"StartCol":33,"EndCol":47}},"ResultPath":"arp[1]"}]},
+   {"LineNumber":4,"Matched":false,"Matches":[]}
+  ]
+ }
+}

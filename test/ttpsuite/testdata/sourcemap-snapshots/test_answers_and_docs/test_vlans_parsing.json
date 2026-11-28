@@ -1,0 +1,23 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":false,"Matches":[]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":65,"GroupName":"ports_summary*","PatternIndex":0,"Variables":{"encap":{"StartCol":35,"EndCol":41},"mode":{"StartCol":22,"EndCol":24},"native_vlan":{"StartCol":64,"EndCol":65},"port":{"StartCol":12,"EndCol":15},"satus":{"StartCol":50,"EndCol":58}},"ResultPath":"ports_summary[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":65,"GroupName":"ports_summary*","PatternIndex":0,"Variables":{"encap":{"StartCol":35,"EndCol":41},"mode":{"StartCol":22,"EndCol":24},"native_vlan":{"StartCol":64,"EndCol":65},"port":{"StartCol":12,"EndCol":15},"satus":{"StartCol":50,"EndCol":58}},"ResultPath":"ports_summary[1]"}]},
+   {"LineNumber":4,"Matched":false,"Matches":[]},
+   {"LineNumber":5,"Matched":false,"Matches":[]},
+   {"LineNumber":6,"Matched":false,"Matches":[]},
+   {"LineNumber":7,"Matched":false,"Matches":[]},
+   {"LineNumber":8,"Matched":false,"Matches":[]},
+   {"LineNumber":9,"Matched":false,"Matches":[]},
+   {"LineNumber":10,"Matched":false,"Matches":[]},
+   {"LineNumber":11,"Matched":false,"Matches":[]},
+   {"LineNumber":12,"Matched":false,"Matches":[]},
+   {"LineNumber":13,"Matched":false,"Matches":[]},
+   {"LineNumber":14,"Matched":false,"Matches":[]},
+   {"LineNumber":15,"Matched":false,"Matches":[]},
+   {"LineNumber":16,"Matched":false,"Matches":[]}
+  ]
+ }
+}

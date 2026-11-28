@@ -1,0 +1,6 @@
+<group name="ifaces*" keys="name">
+interface {{ name }}
+ <group name="addrs*" keys="ip">
+ ip address {{ ip }}
+ </group>
+</group>

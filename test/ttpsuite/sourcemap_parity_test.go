@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/roc-ops/gottp"
@@ -12,11 +14,34 @@ import (
 
 const divergencesFile = "sourcemap_divergences.json"
 
+// parityOutcome is what TestSourceMapParity compares: the parsed data (after
+// a JSON round trip) and the key fields reported by ParseResult.KeyFields.
+type parityOutcome struct {
+	Data      interface{}         `json:"data"`
+	KeyFields map[string][]string `json:"key_fields,omitempty"`
+}
+
 // parseCompiled parses one case through CompiledTemplate.ParseWithValidation,
-// with source maps off or on, and returns the data after a JSON round trip.
-// With source maps off it runs Runtime.Parse; with them on it runs
-// Runtime.ParseWithSourceMap, the path the editor uses.
+// with source maps off or on, and returns the data (after a JSON round trip)
+// and the key fields. With source maps off it runs Runtime.Parse; with them
+// on it runs Runtime.ParseWithSourceMap, the path the editor uses.
 func parseCompiled(c ttpCase, sourceMap bool) (interface{}, error) {
+	res, err := parseWithSourceMapOption(c, sourceMap)
+	if err != nil {
+		return nil, err
+	}
+	out := parityOutcome{Data: res.Data}
+	if len(res.KeyFields) > 0 {
+		out.KeyFields = res.KeyFields
+	}
+	// The round trip turns the outcome into plain maps and lists, so
+	// firstDiff reports paths like $.data[0].g or $.key_fields.g.
+	return jsonRoundTrip(out)
+}
+
+// parseWithSourceMapOption compiles c and runs ParseWithValidation with
+// EnableSourceMap set to sourceMap.
+func parseWithSourceMapOption(c ttpCase, sourceMap bool) (*gottp.ParseResult, error) {
 	ct, err := gottp.CompileTemplate(c.Template)
 	if err != nil {
 		return nil, fmt.Errorf("CompileTemplate: %w", err)
@@ -36,19 +61,65 @@ func parseCompiled(c ttpCase, sourceMap bool) (interface{}, error) {
 	if sourceMap && res.SourceMap == nil {
 		return nil, fmt.Errorf("EnableSourceMap: true returned no source map")
 	}
-	return jsonRoundTrip(res.Data)
+	return res, nil
+}
+
+// sourceMapParityDir holds gottp-only cases for TestSourceMapParity (and the
+// source-map snapshots): NAME.ttp (template) and NAME.txt (the Default_Input
+// data). They have no Python TTP expectation because they cover gottp
+// features (keys=, input macros) or paths the TTP suite doesn't reach. Their
+// cases are named "sourcemap-parity/NAME".
+var sourceMapParityDir = filepath.Join("testdata", "sourcemap-parity")
+
+const sourceMapParityPrefix = "sourcemap-parity/"
+
+func loadSourceMapParityCases(t *testing.T) []ttpCase {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(sourceMapParityDir, "*.ttp"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no cases in %s (err=%v)", sourceMapParityDir, err)
+	}
+	var all []ttpCase
+	for _, f := range files {
+		stem := strings.TrimSuffix(f, ".ttp")
+		tmpl, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(stem + ".txt")
+		if err != nil {
+			t.Fatalf("%s: %v", f, err)
+		}
+		all = append(all, ttpCase{
+			Name:     sourceMapParityPrefix + filepath.Base(stem),
+			Source:   filepath.ToSlash(f),
+			Template: string(tmpl),
+			Inputs:   []input{{Name: "Default_Input", Data: string(data)}},
+		})
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].Name < all[j].Name })
+	return all
+}
+
+// sourceMapCases is every case the source-map tests run: the TTP suite, the
+// gottp repros and the gottp-only source-map parity cases.
+func sourceMapCases(t *testing.T) []ttpCase {
+	t.Helper()
+	cases := append(loadCases(t), loadRepros(t)...)
+	return append(cases, loadSourceMapParityCases(t)...)
 }
 
 // TestSourceMapParity checks that turning source maps on doesn't change the
-// parsed data, for every case in testdata/cases and testdata/gottp-repros.
-// The source map itself isn't compared. This is independent of whether the
+// parsed data or the key fields, for every case in testdata/cases,
+// testdata/gottp-repros and testdata/sourcemap-parity. The source map itself
+// isn't compared here (TestSourceMapSnapshots pins it). This is independent of whether the
 // data matches TTP: a case can fail TestTTPSuite and still be at parity.
 //
 // sourcemap_divergences.json lists the cases whose data differs, each with
 // the issue that tracks the root cause. As with known_failures.json, a listed
 // case that reaches parity fails the test until its entry is removed.
 func TestSourceMapParity(t *testing.T) {
-	cases := append(loadCases(t), loadRepros(t)...)
+	cases := sourceMapCases(t)
 	known := loadKnownFailures(t, divergencesFile)
 	checkNoStaleEntries(t, divergencesFile, known, cases, func(string) bool { return true })
 	abs := enterPytestDir(t)

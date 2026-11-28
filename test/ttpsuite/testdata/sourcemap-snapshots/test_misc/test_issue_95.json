@@ -1,0 +1,20 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":23,"GroupName":"results*","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":23}},"ResultPath":"results[0]"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":21,"GroupName":"results*","PatternIndex":1,"Variables":{"description":{"StartCol":14,"EndCol":21}},"ResultPath":"results[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"results*","PatternIndex":3,"Variables":{},"ResultPath":"results[0]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"results*","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":19}},"ResultPath":"results[1]"}]},
+   {"LineNumber":5,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"results*","PatternIndex":1,"Variables":{"description":{"StartCol":14,"EndCol":17}},"ResultPath":"results[1]"}]},
+   {"LineNumber":6,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"ips","PatternIndex":0,"Variables":{"ip":{"StartCol":13,"EndCol":21},"mask":{"StartCol":22,"EndCol":24}},"ResultPath":"results*.ips"}]},
+   {"LineNumber":7,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"results*","PatternIndex":3,"Variables":{},"ResultPath":"results[1]"}]},
+   {"LineNumber":8,"Matched":true,"Matches":[{"StartCol":0,"EndCol":17,"GroupName":"results*","PatternIndex":0,"Variables":{"interface":{"StartCol":10,"EndCol":17}},"ResultPath":"results[2]"}]},
+   {"LineNumber":9,"Matched":true,"Matches":[{"StartCol":0,"EndCol":24,"GroupName":"results*","PatternIndex":1,"Variables":{"description":{"StartCol":14,"EndCol":24}},"ResultPath":"results[2]"}]},
+   {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":27,"GroupName":"ips","PatternIndex":0,"Variables":{"ip":{"StartCol":13,"EndCol":24},"mask":{"StartCol":25,"EndCol":27}},"ResultPath":"results*.ips"}]},
+   {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":10,"GroupName":"results*","PatternIndex":2,"Variables":{"vrf":{"StartCol":6,"EndCol":10}},"ResultPath":"results[2]"}]},
+   {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":1,"GroupName":"results*","PatternIndex":3,"Variables":{},"ResultPath":"results[2]"}]},
+   {"LineNumber":13,"Matched":false,"Matches":[]}
+  ]
+ }
+}

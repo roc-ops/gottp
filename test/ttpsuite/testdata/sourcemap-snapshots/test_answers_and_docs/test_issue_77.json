@@ -1,0 +1,28 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"lsp**.{{ lspname }}**","PatternIndex":0,"Variables":{"lspname":{"StartCol":5,"EndCol":11}},"ResultPath":"lsp**.{{ lspname }}[0]"}]},
+   {"LineNumber":2,"Matched":false,"Matches":[]},
+   {"LineNumber":3,"Matched":false,"Matches":[]},
+   {"LineNumber":4,"Matched":false,"Matches":[]},
+   {"LineNumber":5,"Matched":false,"Matches":[]},
+   {"LineNumber":6,"Matched":false,"Matches":[]},
+   {"LineNumber":7,"Matched":false,"Matches":[]},
+   {"LineNumber":8,"Matched":false,"Matches":[]},
+   {"LineNumber":9,"Matched":false,"Matches":[]},
+   {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"lsp**.{{ lspname }}**","PatternIndex":3,"Variables":{},"ResultPath":"lsp**.{{ lspname }}[0]"}]},
+   {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"lsp**.{{ lspname }}**","PatternIndex":0,"Variables":{"lspname":{"StartCol":5,"EndCol":11}},"ResultPath":"lsp**.{{ lspname }}[1]"}]},
+   {"LineNumber":12,"Matched":false,"Matches":[]},
+   {"LineNumber":13,"Matched":false,"Matches":[]},
+   {"LineNumber":14,"Matched":false,"Matches":[]},
+   {"LineNumber":15,"Matched":false,"Matches":[]},
+   {"LineNumber":16,"Matched":false,"Matches":[]},
+   {"LineNumber":17,"Matched":false,"Matches":[]},
+   {"LineNumber":18,"Matched":false,"Matches":[]},
+   {"LineNumber":19,"Matched":false,"Matches":[]},
+   {"LineNumber":20,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"lsp**.{{ lspname }}**","PatternIndex":3,"Variables":{},"ResultPath":"lsp**.{{ lspname }}[1]"}]},
+   {"LineNumber":21,"Matched":false,"Matches":[]}
+  ]
+ }
+}
