@@ -2,10 +2,10 @@
  "inputs": {
   "sys_host": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
-   {"LineNumber":1,"Matched":false,"Matches":[]},
-   {"LineNumber":2,"Matched":false,"Matches":[]},
-   {"LineNumber":3,"Matched":false,"Matches":[]},
-   {"LineNumber":4,"Matched":false,"Matches":[]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":39,"GroupName":"system","PatternIndex":0,"Variables":{"hostname":{"StartCol":18,"EndCol":39}},"ResultPath":"system"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":20,"GroupName":"system","PatternIndex":1,"Variables":{"chassis":{"StartCol":18,"EndCol":20}},"ResultPath":"system"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":50,"GroupName":"system","PatternIndex":2,"Variables":{"machine_id":{"StartCol":18,"EndCol":50}},"ResultPath":"system"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":39,"GroupName":"system","PatternIndex":3,"Variables":{"os":{"StartCol":18,"EndCol":39}},"ResultPath":"system"}]},
    {"LineNumber":5,"Matched":false,"Matches":[]}
   ]
  }

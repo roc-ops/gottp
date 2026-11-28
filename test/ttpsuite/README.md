@@ -11,7 +11,7 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:'
 ```
 TTP 0.10.1 suite: pass 49 / skipped-by-issue 147 / design 4 of 200
 gottp repros: pass 6 / skipped-by-issue 8 / design 0 of 14
-source-map parity: same 203 / diverge 14 of 217
+source-map parity: same 217 / diverge 0 of 217
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are four:
@@ -52,19 +52,13 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 
 ## Source-map parity
 
-`CompiledTemplate.Parse` runs `Runtime.Parse` when source maps are off, and a separate copy of the orchestration (`Runtime.ParseWithSourceMap` and `parseGroupWithSourceMap`) when `ParseOptions{EnableSourceMap: true}`. The editor turns source maps on when its source-map toggle is on. `TestSourceMapParity` parses every case (suite, repros and `testdata/sourcemap-parity`) through `CompiledTemplate.ParseWithValidation` both ways and requires the same data and the same `KeyFields`, or the same error. The source map itself isn't compared here, and it doesn't matter whether the data matches TTP.
+`CompiledTemplate.Parse` and `ParseWithValidation` run one parse pipeline (`Runtime.parse`, `internal/compiled/orchestrator.go`) whether source maps are on or off; with `ParseOptions{EnableSourceMap: true}` it also records the source map (`parseGroupWithSourceMap`). Before refactor A1 (#60) source maps on ran a separate copy of the orchestration that had drifted. The editor turns source maps on when its source-map toggle is on. `TestSourceMapParity` parses every case (suite, repros and `testdata/sourcemap-parity`) through `CompiledTemplate.ParseWithValidation` both ways and requires the same data and the same `KeyFields`, or the same error. The source map itself isn't compared here, and it doesn't matter whether the data matches TTP.
 
 `testdata/sourcemap-parity/` holds gottp-only cases for paths the TTP suite doesn't reach: `NAME.ttp` (template) and `NAME.txt` (the `Default_Input` data), named `sourcemap-parity/NAME`. They have no Python TTP expectation; they cover gottp's `keys=` attribute (`KeyFields`) and input functions (an input `macro=`).
 
 `sourcemap_divergences.json` lists the cases that differ, with the same rules as `known_failures.json`: an unlisted divergence, a listed case at parity and a stale entry all fail the test. `TTPSUITE_SOURCEMAP_REPORT=/tmp/sm.json` writes both results of every diverging case.
 
-| Issue | Cases | Title |
-|---|---|---|
-| #105 | 5 | Source map: a group without input= parses only Default_Input (other inputs give an empty result) |
-| #106 | 4 | Source map: group errors lose the "failed to parse group <name>" context |
-| #107 | 1 | Source map: the ignore("<vars name>") empty-record special case is missing, so the group is dropped |
-| #108 | 1 | Source map: void groups are not dropped from the results |
-| #60 | 3 | Source maps on skips input functions and leaves `KeyFields` empty (refactor A1) |
+The table is empty: refactor A1 (#60) fixed the 14 divergences it used to list (#105, #106, #107, #108, plus input functions and `KeyFields`).
 
 ## Source-map snapshots
 

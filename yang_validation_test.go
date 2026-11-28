@@ -1,6 +1,8 @@
 package gottp
 
 import (
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -156,4 +158,76 @@ CPU{{ cpu-id | to_int }} {{ usage-5s | to_float }}%
 	right := strings.Replace(wrong, `show_cpuinfo"`, `show_cpuinfo/cpu"`, 1)
 	valid, errs, warns = parseWithYANG(t, right, input, module, "cpu*")
 	requireYANGError(t, valid, errs, warns, "Field 'usage-5s' value is out of range in item 1")
+}
+
+// Issue #52: with source maps on, top-level groups were validated a second
+// time after parsing, and that result replaced the one parseGroup recorded.
+// Validation results must be the same with source maps on and off.
+func TestYANGValidationSameWithSourceMap(t *testing.T) {
+	module := `module t-if {
+  namespace "urn:t:if"; prefix tif;
+  container show {
+    list intf { key name;
+      leaf name { type string; }
+      leaf mtu { type uint16 { range "68..9216"; } }
+      list addr { key ip; leaf ip { type string; } }
+    }
+  }
+}`
+	tmpl := `<group name="intf*" yang="t-if:show/intf">
+interface {{ name }}
+ mtu {{ mtu | to_int }}
+ <group name="addr*" yang="t-if:show/intf/addr">
+ ip {{ ip }}
+ </group>
+</group>`
+	input := "interface a\n mtu 20\n ip 1.1.1.1\ninterface b\n mtu 1500\n ip 2.2.2.2\n"
+	ct, err := CompileTemplate(tmpl)
+	if err != nil {
+		t.Fatalf("CompileTemplate: %v", err)
+	}
+	summarize := func(sourceMap bool) map[string]string {
+		res, err := ct.ParseWithValidation(Inputs{"Default_Input": input}, nil, &ParseOptions{
+			YANGModules:     &YANGModules{Modules: map[string]string{"m": module}},
+			EnableSourceMap: sourceMap,
+		})
+		if err != nil {
+			t.Fatalf("ParseWithValidation(sourceMap=%v): %v", sourceMap, err)
+		}
+		out := map[string]string{}
+		for group, vr := range res.ValidationResults {
+			var msgs []string
+			for _, e := range vr.Errors {
+				msgs = append(msgs, "E:"+e.Message)
+			}
+			for _, w := range vr.Warnings {
+				msgs = append(msgs, "W:"+w.Message)
+			}
+			out[group] = fmt.Sprintf("valid=%v %q", vr.Valid, msgs)
+		}
+		return out
+	}
+	off, on := summarize(false), summarize(true)
+	if !reflect.DeepEqual(off, on) {
+		t.Fatalf("validation results differ with source maps on\noff: %v\non:  %v", off, on)
+	}
+	if !strings.Contains(off["intf*"], "valid=false") {
+		t.Fatalf("expected intf* to be invalid (mtu 20 is out of range), got %v", off)
+	}
+
+	// A group that matches nothing but returns its start-line defaults was
+	// validated only by the second, source-map-only pass.
+	defaultsTmpl := `<group name="intf*" yang="t-if:show/intf">
+interface {{ name | default("none") }}
+ mtu {{ mtu | to_int }}
+</group>`
+	ct, err = CompileTemplate(defaultsTmpl)
+	if err != nil {
+		t.Fatalf("CompileTemplate: %v", err)
+	}
+	input = "nothing here\n"
+	off, on = summarize(false), summarize(true)
+	if !reflect.DeepEqual(off, on) {
+		t.Fatalf("validation results differ with source maps on (defaults-only group)\noff: %v\non:  %v", off, on)
+	}
 }

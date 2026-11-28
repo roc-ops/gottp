@@ -1,3 +1,3 @@
 {
- "error": "ParseWithValidation: failed to process group macro: group macro [check_1 check_2] failed: failed to call macro function check_2: NoneType has no .get field or method"
+ "error": "ParseWithValidation: failed to parse group : failed to process group macro: group macro [check_1 check_2] failed: failed to call macro function check_2: NoneType has no .get field or method"
 }

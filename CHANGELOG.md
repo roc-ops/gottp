@@ -21,6 +21,16 @@ These fixes make `ParseWithValidation` report problems it used to pass, so outpu
 - **A `yang=` path at the wrong level is an error**: when none of a group's fields is defined under its path (for example the container instead of the list each match maps to), the result is `Valid=false` with one error that suggests the right path, instead of `Valid=true` with only warnings. (#57)
 - **Leaves under `choice`/`case` are validated**: they were reported as "not defined" warnings and never type-checked. (#59)
 
+### Fixed (source maps on)
+`ParseOptions{EnableSourceMap: true}` (the editor's source-map toggle, and `ParseWithValidation` callers that set it) ran its own copy of the parse orchestration, which had drifted from the one used with source maps off. Both now run one pipeline (refactor A1, #60), so turning source maps on no longer changes data, errors, key fields or validation results:
+- **A group without `input=` parses every input**, not only `Default_Input`, and `input="a, b"` is split on commas. Inputs embedded with `<input load="text">` or passed under other names gave an empty result. (#105)
+- **Group errors keep their `failed to parse group <name>:` prefix.** (#106)
+- **The `ignore("<vars name>")` empty-record special case applies**, so the group comes back as `{}` instead of being dropped (as with source maps off; #31 tracks matching Python TTP). (#107)
+- **`void` groups are left out of the results.** (#108)
+- **Input functions run** (`<input>` `functions=`, `macro=`, `commands=`), and **`KeyFields` is filled** from `keys=`.
+- **Top-level groups are validated once.** A second YANG validation of top-level groups, which replaced the result `parseGroup` recorded, is gone; a group that only returns its start-line defaults no longer gets a validation result that it doesn't get with source maps off. (#52)
+- `<vars name="...">` tags are stored the same way as with source maps off: in each input's results with `results="per_input"` (with getters such as `gethostname` resolved), and not at all with `per_template`.
+
 ### Tests
 - **Source-map snapshots and parity pins** (refactor A0, #60): `test/ttpsuite` now pins the source map of all 217 source-map parity cases as snapshot files (`TestSourceMapSnapshots`, rewritten with `-update-sourcemap-snapshots`), and `TestSourceMapParity` also compares `KeyFields`. Three new gottp-only parity cases (`testdata/sourcemap-parity`) record that source maps on skips input functions and leaves `KeyFields` empty. `test/comparison` has benchmarks with source maps on (`*SourceMap`) next to the existing ones.
 
