@@ -58,6 +58,7 @@ func (r *Runtime) beginParse() *Runtime {
 	run.pipelines = nil
 	run.parseVars = nil
 	run.parseOptVars = nil
+	run.raised = &methodRaise{}
 	return &run
 }
 

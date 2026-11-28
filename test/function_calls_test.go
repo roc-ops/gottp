@@ -344,3 +344,81 @@ func TestRawTextArguments(t *testing.T) {
 		})
 	}
 }
+
+// TestTypeMethodWarnings (refactor F2, #36): a name that is a ported Python
+// method of some value type isn't unknown, so it doesn't warn; a Python
+// method gottp doesn't port (one that changes the value in place, or whose
+// result has no JSON form) warns that the value is kept; a name that is a
+// method of no type still warns as unknown. A custom function of the name
+// drops the not-ported warning.
+func TestTypeMethodWarnings(t *testing.T) {
+	cases := []struct {
+		fn   string
+		want []string // substrings of one warning; nil: no warning
+	}{
+		{"title", nil},
+		{"zfill(9)", nil},
+		{"to_int | bit_length", nil},
+		{"to_int | real", nil},
+		{"split(',') | index('1')", nil},
+		{"upper", nil},
+		{"split(',') | sort", []string{`"sort"`, "changes the value in place", "None"}},
+		{"split(',') | reverse", []string{`"reverse"`, "changes the value in place"}},
+		{"encode", []string{`"encode"`, "bytes"}},
+		{"nosuchfn", []string{"unknown match variable function", "nosuchfn"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.fn, func(t *testing.T) {
+			warnings := compileWarnings(t, "x {{ v | "+tc.fn+" }}\n")
+			if tc.want == nil {
+				if len(warnings) > 0 {
+					t.Errorf("want no warning, got %q", warnings)
+				}
+				return
+			}
+			for _, w := range warnings {
+				if containsAll(w, tc.want) {
+					return
+				}
+			}
+			t.Errorf("want a warning containing %q, got %q", tc.want, warnings)
+		})
+	}
+
+	c, err := gottp.CompileTemplateWithOptions("x {{ v | sort }}\n", &gottp.CompileOptions{
+		Functions: &gottp.Functions{Match: map[string]gottp.MatchFunc{
+			"sort": func(v interface{}, _ []string, _ map[string]interface{}) (interface{}, error) { return v, nil },
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := c.GetWarnings(); len(w) > 0 {
+		t.Errorf("custom sort: want no warning, got %q", w)
+	}
+}
+
+// TestTypeMethodRaiseFailsParse: Python TTP catches only AttributeError
+// from a type method; any other exception fails its parse, and gottp's.
+func TestTypeMethodRaiseFailsParse(t *testing.T) {
+	c, err := gottp.CompileTemplate("x {{ v | index(\"z\") }}\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = c.Parse(gottp.Inputs{"Default_Input": "x abc\n"}, nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "ValueError: substring not found") {
+		t.Fatalf("want the ValueError, got %v", err)
+	}
+	// A value whose type has no such method (AttributeError) is kept.
+	c, err = gottp.CompileTemplate("x {{ v | to_int | index(\"z\") }}\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := c.Parse(gottp.Inputs{"Default_Input": "x 5\n"}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := fmt.Sprint(got); !strings.Contains(s, "v:5") {
+		t.Errorf("want v kept as 5, got %s", s)
+	}
+}

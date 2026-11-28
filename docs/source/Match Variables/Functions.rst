@@ -18,7 +18,7 @@ Match variable functions, group attributes and ``functions=``/``chain=``, input 
   * A Python expression such as ``set(1+2)``, ``x.upper()``, an f-string or ``b"x"``. Python TTP evaluates it; gottp doesn't, and passes the text ``"1+2"``.
 
 * Broken call syntax is a **compile error**: an unterminated quote, unbalanced brackets, an empty argument (``f(a,,b)``), a positional argument after a keyword one, a repeated keyword, and ``macro()`` with a keyword argument or, on an output, without a name.
-* A function name that isn't known in its scope gives a compile warning, with up to three similar names (Python TTP's ``guess``), and is skipped when the template runs. A Python TTP function gottp doesn't implement (group ``lookup`` and ``str_to_unicode``; output ``deepdiff``, ``validate`` and ``validate_yangson``) is warned about as "not supported by gottp" instead, without suggestions; a match variable keeps its value. A function passed only in ``ParseOptions.Functions`` is warned about too, since it isn't known at compile time; one passed in ``CompileOptions.Functions`` isn't.
+* In a match variable, a name that isn't a match function runs the value's own Python method of that name (see `Python type methods`_), as in Python TTP. A function name that is neither, in any scope, gives a compile warning, with up to three similar names (Python TTP's ``guess``), and is skipped when the template runs. A Python TTP function gottp doesn't implement (group ``lookup`` and ``str_to_unicode``; output ``deepdiff``, ``validate`` and ``validate_yangson``) is warned about as "not supported by gottp" instead, without suggestions; a match variable keeps its value. A function passed only in ``ParseOptions.Functions`` is warned about too, since it isn't known at compile time; one passed in ``CompileOptions.Functions`` isn't.
 
 Calls are read once, when the template compiles.
 
@@ -33,18 +33,8 @@ Action functions transform match results into desired state.
 
    * - Name
      - Description
-   * - ``upper`` ✅
-     - Convert string to uppercase
-   * - ``lower`` ✅
-     - Convert string to lowercase
-   * - ``strip`` ✅
-     - Remove leading and trailing whitespace
-   * - ``split`` ✅
-     - Split string by delimiter (default: comma)
    * - ``join`` ✅
      - Join list of strings with delimiter (default: comma)
-   * - ``replace`` ✅
-     - Replace all occurrences of old string with new string
    * - ``IP`` ✅
      - Validate and normalize IP address
    * - ``mac_eui`` ✅
@@ -129,12 +119,8 @@ Condition functions perform checks with match results and return True or False.
      - Check if match is equal to provided value
    * - ``notequal`` ✅
      - Check if match is not equal to provided value
-   * - ``startswith`` ✅
-     - Check if match starts with certain string
    * - ``startswith_re`` ✅
      - Check if match starts with certain string using regular expression
-   * - ``endswith`` ✅
-     - Check if match ends with certain string
    * - ``endswith_re`` ✅
      - Check if match ends with certain string using regular expression
    * - ``notstartswith`` ✅
@@ -165,6 +151,50 @@ Condition functions perform checks with match results and return True or False.
      - Check if match is valid IP address (IPv4 or IPv6)
    * - ``cidr_match`` ✅
      - Check if IP overlaps with given CIDR prefix
+
+Python type methods
+-------------------
+
+When a match variable function isn't a match function (and isn't a custom function from ``CompileOptions`` or ``ParseOptions``), Python TTP 0.10.1 calls the value's own method or attribute of that name (``getattr(data, name)``, ``ttp.py:2464``). gottp does the same, with Go ports of **Python 3.12's** methods of the value's type:
+
+* A **True or False result is a filter**: ``{{ name | isalpha }}`` drops the match when the value isn't all letters. Any other result **replaces the value**: ``{{ v | find("2") }}`` saves an int, ``{{ v | partition(",") }}`` a list (a tuple is a list).
+* The arguments are the call's Python values, as TTP passes them (a template variable's name isn't replaced by its value here).
+* A name the value's type doesn't have (``{{ v | to_int | upper }}``) is Python's ``AttributeError``, which TTP logs and skips: the **value is kept**.
+* **Any other exception fails the parse**, as it fails Python TTP's: ``index("z")`` when there is no ``z`` (``ValueError``), ``center("a")`` (``TypeError``), ``"{}-{}" | format("x")`` (``IndexError``). ``Parse`` returns an error naming the variable, the call and the exception. Only a line Python TTP runs the method on counts: TTP runs a group's other lines only from its first start line on, and not at all if no line matches the start line, its lines other than ``_end_`` lines only up to the last ``_end_`` line, and a child group's lines only inside its parent's match. A raise on any other line fails neither engine's parse.
+* Methods follow **Python 3.12**, Unicode 15.0.0 included: ``upper("straße")`` is ``STRASSE``, ``title`` capitalizes after any uncased character (``they're`` is ``They'Re``), a final ``Σ`` lowercases to ``ς``, the ``is*`` tests and the whitespace that ``split()`` and ``strip()`` remove are Python's character classes.
+* A name that is a TTP match function wins, as in TTP: ``count``, ``copy``, ``join``, ``isdigit`` and ``append`` are TTP's functions, not the methods.
+
+The value's type is its Go form: ``str`` is a string, ``int`` is an int (``to_int``), ``float`` a float64 (``to_float``), ``list`` a list (``split``), ``dict`` a map (``ip_info``) and ``bool`` a bool, which has int's methods, as in Python.
+
+.. list-table:: Ported methods and attributes
+   :widths: 15 85
+   :header-rows: 1
+
+   * - Type
+     - Names
+   * - ``str``
+     - ``capitalize``, ``casefold``, ``center``, ``count``, ``endswith``, ``expandtabs``, ``find``, ``format``, ``format_map``, ``index``, ``isalnum``, ``isalpha``, ``isascii``, ``isdecimal``, ``isdigit``, ``isidentifier``, ``islower``, ``isnumeric``, ``isprintable``, ``isspace``, ``istitle``, ``isupper``, ``join``, ``ljust``, ``lower``, ``lstrip``, ``maketrans``, ``partition``, ``removeprefix``, ``removesuffix``, ``replace``, ``rfind``, ``rindex``, ``rjust``, ``rpartition``, ``rsplit``, ``rstrip``, ``split``, ``splitlines``, ``startswith``, ``strip``, ``swapcase``, ``title``, ``translate``, ``upper``, ``zfill``
+   * - ``int``, ``bool``
+     - ``as_integer_ratio``, ``bit_count``, ``bit_length``, ``conjugate``, ``is_integer``; attributes ``real``, ``imag``, ``numerator``, ``denominator``
+   * - ``float``
+     - ``as_integer_ratio``, ``conjugate``, ``hex``, ``is_integer``; attributes ``real``, ``imag``
+   * - ``list``
+     - ``count``, ``copy``, ``index``
+   * - ``dict``
+     - ``copy``, ``get``, ``items``, ``keys``, ``values``
+
+``upper``, ``lower``, ``strip``, ``lstrip``, ``rstrip``, ``split``, ``replace``, ``startswith`` and ``endswith`` are not TTP match functions, so they are these methods. gottp used to have its own versions, which differed from Python: ``split`` trimmed each part and split on ``,`` by default (Python splits on whitespace), ``replace`` ignored its count, ``startswith``/``endswith`` took no tuple or start/end, ``strip`` treated ``None`` as the characters ``N``, ``o``, ``n``, ``e``, ``upper``/``lower`` used Go's simple case mappings (``ß`` stayed ``ß``) and all of them turned a number into a string first, where Python keeps the value.
+
+Not ported, with a compile warning (``GetWarnings()``), and the value is kept:
+
+* Methods that change the value in place: list ``clear``, ``extend``, ``insert``, ``pop``, ``remove``, ``reverse``, ``sort``; dict ``clear``, ``pop``, ``popitem``, ``setdefault``, ``update``. They return ``None``, which Python TTP saves as the value; gottp keeps the value instead.
+* Methods whose result has no JSON form: ``str.encode`` and ``int.to_bytes`` (bytes), and the class methods ``int.from_bytes``, ``float.fromhex`` and ``dict.fromkeys``.
+
+Differences from Python TTP (see also ``test/comparison/KNOWN_DIFFERENCES.md``):
+
+* ``keys``, ``values`` and ``items`` give lists (``items`` as ``[key, value]`` lists) in key order, since gottp's maps keep no order. Python TTP saves the view object itself, which its JSON and YAML outputs can't write.
+* ``get(x)`` in Python TTP is read as ``re(x)``, a regex for the variable (TTP's pattern lookup finds its own ``get`` function), so ``dict.get`` is never reached there. gottp runs ``dict.get``.
+* A dict literal's keys are strings in gottp, so ``translate({97: "x"})`` looks up ``"97"``, and ``get(1)`` finds nothing.
 
 Not Yet Implemented
 -------------------

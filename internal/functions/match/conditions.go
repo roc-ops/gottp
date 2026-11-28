@@ -21,9 +21,7 @@ func IsConditionFunction(name string) bool {
 	conditionFunctions := map[string]bool{
 		"contains":         true,
 		"contains_re":     true,
-		"startswith":      true,
 		"startswith_re":   true,
-		"endswith":        true,
 		"endswith_re":     true,
 		"notstartswith":   true,
 		"notstartswith_re": true,
@@ -47,9 +45,7 @@ func IsConditionFunction(name string) bool {
 func (r *Registry) RegisterConditionFunctions() {
 	r.Register("contains", contains)
 	r.Register("contains_re", containsRe)
-	r.Register("startswith", startswith)
 	r.Register("startswith_re", startswithRe)
-	r.Register("endswith", endswith)
 	r.Register("endswith_re", endswithRe)
 	r.Register("notstartswith", notstartswith)
 	r.Register("notstartswith_re", notstartswithRe)
@@ -106,21 +102,6 @@ func containsRe(value interface{}, args []string, kwargs map[string]interface{})
 	return &ConditionResult{Value: value, Condition: false}, nil
 }
 
-// startswith checks if value starts with the given prefix (non-regex)
-func startswith(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	str := fmt.Sprintf("%v", value)
-	
-	if len(args) == 0 {
-		return &ConditionResult{Value: value, Condition: true}, nil
-	}
-	
-	prefix := args[0]
-	if strings.HasPrefix(str, prefix) {
-		return &ConditionResult{Value: value, Condition: true}, nil
-	}
-	
-	return &ConditionResult{Value: value, Condition: false}, nil
-}
 
 // startswithRe checks if value starts with a regex pattern
 func startswithRe(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
@@ -143,21 +124,6 @@ func startswithRe(value interface{}, args []string, kwargs map[string]interface{
 	return &ConditionResult{Value: value, Condition: false}, nil
 }
 
-// endswith checks if value ends with the given suffix (non-regex)
-func endswith(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	str := fmt.Sprintf("%v", value)
-	
-	if len(args) == 0 {
-		return &ConditionResult{Value: value, Condition: true}, nil
-	}
-	
-	suffix := args[0]
-	if strings.HasSuffix(str, suffix) {
-		return &ConditionResult{Value: value, Condition: true}, nil
-	}
-	
-	return &ConditionResult{Value: value, Condition: false}, nil
-}
 
 // endswithRe checks if value ends with a regex pattern
 func endswithRe(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {

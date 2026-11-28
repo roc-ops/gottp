@@ -27,8 +27,9 @@ def normalize_result(result):
     if result is None:
         return None
     
-    # If result is a list of lists (per_input method)
-    if isinstance(result, list):
+    # If result is a list of lists (per_input method). A tuple is a list,
+    # as TTP's JSON output (json.dumps) writes it.
+    if isinstance(result, (list, tuple)):
         return [normalize_result(item) for item in result]
     
     # If result is a dict

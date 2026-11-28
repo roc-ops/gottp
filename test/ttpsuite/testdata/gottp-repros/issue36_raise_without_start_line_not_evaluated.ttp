@@ -1,0 +1,4 @@
+<group name="i">
+interface {{ name }}
+ description {{ d | rindex("-") }}
+</group>

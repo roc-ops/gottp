@@ -2,7 +2,7 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (refactor F1, #36):
+Current result (refactor F2, #36):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
@@ -10,9 +10,9 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 
 ```
 TTP 0.10.1 suite: pass 104 / skipped-by-issue 91 / design 5 of 200
-gottp repros: pass 124 / skipped-by-issue 16 / design 0 of 140
-source-map parity: same 343 / diverge 0 of 343
-stream snapshots: 154 streamable of 343 cases
+gottp repros: pass 141 / skipped-by-issue 3 / design 0 of 144
+source-map parity: same 347 / diverge 0 of 347
+stream snapshots: 156 streamable of 347 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -45,7 +45,7 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue33_trailing_ignore_with_trailing_whitespace` | #33 |
 | `issue34_split_joinmatches` | #34 |
 | `issue35_strip_characters_argument` | #35 |
-| `issue36_unknown_function_falls_back_to_str_method` | #36 |
+| `issue36_unknown_function_falls_back_to_str_method` | passes; #36 is fixed (refactor F2: Python type methods) |
 | `sourcemap_void_group` | passes; covers `void` for source-map parity (#108) |
 | `issue60_first_line_starts_record_after_start_indicator` | passes; the first line starts a record even after a `_start_` line (refactor B, #60) |
 | `issue60_table_tail_line_is_ordinary` | passes; a `method="table"` line after a child group is not a start pattern (#60) |
@@ -149,29 +149,33 @@ Fixes from the review of E1 (#153), each recorded from TTP 0.10.1; all pass:
 | `issue149_sformat_keywords_in_functions` | `functions="sformat(string='{name}-{vrf}', add_field='nv')"` saves under `nv` |
 | `issue149_items2dict_missing_key_drops` | `items2dict=` drops a record without one of its keys |
 
-Function-call pins for refactor F (#36), recorded from TTP 0.10.1. F1 gives match, group, input and output functions one call module (`internal/call`), which splits a chain on every `|` as TTP does and reads arguments as Python literals; F2 ports the type-method fallback of TTP's `check_matches` (`ttp.py:2464`). When a match function isn't a TTP function, TTP runs `getattr(value, name)`: a callable is called with the arguments, `True`/`False` keeps or drops the match, and any other result replaces the value. The *Today* column says which ones fail after F1; those are in `known_failures.json`. `issue36_unknown_function_falls_back_to_str_method` (`swapcase`, above) belongs to this set too. What TTP only logs (unknown-name warnings, #144's hang and #146's `TypeError`) is pinned by Go tests in `test/function_calls_test.go`.
+Function-call pins for refactor F (#36), recorded from TTP 0.10.1. F1 gives match, group, input and output functions one call module (`internal/call`), which splits a chain on every `|` as TTP does and reads arguments as Python literals; F2 ports the type-method fallback of TTP's `check_matches` (`ttp.py:2464`). When a match function isn't a TTP function, TTP runs `getattr(value, name)`: a callable is called with the arguments, `True`/`False` keeps or drops the match, and any other result replaces the value. Since F2 they all pass. `issue36_unknown_function_falls_back_to_str_method` (`swapcase`, above) belongs to this set too. What TTP only logs (unknown-name warnings, #144's hang and #146's `TypeError`) is pinned by Go tests in `test/function_calls_test.go`.
 
-| Repro | Rule | Today |
+| Repro | Rule | Status |
 |---|---|---|
-| `issue36_str_title` | `title` gives `Hello-World` | fails |
-| `issue36_str_zfill` | `zfill(9)` gives `000000123` | fails |
-| `issue36_str_center` | `center(12, "*")` gives `****abc*****` | fails |
-| `issue36_str_casefold` | `casefold` gives `strasse` | fails |
-| `issue36_str_removesuffix` | `removesuffix(",")` | fails |
-| `issue36_str_partition_returns_tuple` | `partition(",")` returns a tuple, saved as the list `["a", ",", "b,c"]` | fails |
-| `issue36_str_find_returns_int` | `find("2")` saves the int `2` | fails |
-| `issue36_str_isalpha_filters` | `isalpha` returning `False` drops the match | fails |
-| `issue36_str_isupper_filters` | `isupper` returning `False` drops the match | fails |
-| `issue36_str_isdigit_filters` | `isdigit` filters the same way (gottp's built-in already does) | passes |
-| `issue36_int_bit_length` | `to_int \| bit_length` gives `8` | fails |
-| `issue36_int_imag_attribute` | `to_int \| imag`, an attribute that isn't callable, gives `0` | fails |
-| `issue36_list_index` | `split(",") \| index("b")` gives `1` (TTP's own `count` shadows `list.count`) | fails |
+| `issue36_str_title` | `title` gives `Hello-World` | passes (F2) |
+| `issue36_str_zfill` | `zfill(9)` gives `000000123` | passes (F2) |
+| `issue36_str_center` | `center(12, "*")` gives `****abc*****` | passes (F2) |
+| `issue36_str_casefold` | `casefold` gives `strasse` | passes (F2) |
+| `issue36_str_removesuffix` | `removesuffix(",")` | passes (F2) |
+| `issue36_str_partition_returns_tuple` | `partition(",")` returns a tuple, saved as the list `["a", ",", "b,c"]` | passes (F2) |
+| `issue36_str_find_returns_int` | `find("2")` saves the int `2` | passes (F2) |
+| `issue36_str_isalpha_filters` | `isalpha` returning `False` drops the match | passes (F2) |
+| `issue36_str_isupper_filters` | `isupper` returning `False` drops the match | passes (F2) |
+| `issue36_str_isdigit_filters` | `isdigit` (a TTP match function) filters the same way | passes |
+| `issue36_int_bit_length` | `to_int \| bit_length` gives `8` | passes (F2) |
+| `issue36_int_imag_attribute` | `to_int \| imag`, an attribute that isn't callable, gives `0` | passes (F2) |
+| `issue36_list_index` | `split(",") \| index("b")` gives `1` (TTP's own `count` shadows `list.count`) | passes (F2) |
 | `issue36_unknown_name_keeps_value` | `nosuchfn`, a method on nothing, keeps the value | passes |
-| `issue36_builtin_upper` | built-in `upper` | passes |
-| `issue36_builtin_strip_characters` | built-in `strip("x")` | passes |
-| `issue36_builtin_replace` | built-in `replace("a", "b")` | passes |
-| `issue36_builtin_split` | built-in `split(",")` | passes |
-| `issue36_builtin_join` | built-in `join("-")` after `split` | passes |
+| `issue36_builtin_upper` | `upper`, the str method since F2 | passes |
+| `issue36_builtin_strip_characters` | `strip("x")`, the str method since F2 | passes |
+| `issue36_builtin_replace` | `replace("a", "b")`, the str method since F2 | passes |
+| `issue36_builtin_split` | `split(",")`, the str method since F2 | passes |
+| `issue36_builtin_join` | `join("-")` after `split` (TTP's own `join`) | passes |
+| `issue36_raise_before_first_start_not_evaluated` | `rindex("-")` would raise on a line before the first start line, where run_re runs no regex but the start patterns | passes (F2 review) |
+| `issue36_raise_without_start_line_not_evaluated` | the same with no start line at all: nothing but the start patterns runs | passes (F2 review) |
+| `issue36_raise_before_child_start_not_evaluated` | a child group's line before the child's first start line, inside the parent's region | passes |
+| `issue36_raise_child_end_line_not_evaluated` | a child's ordinary pattern would match (and raise on) the line of its last `_end_` match: TTP's region ends before that line's newline, which the regex needs | passes (F2 review) |
 | `issue23_re_pipe_splits_chain` | `re("UP\|DOWN")` is split at the `\|` as TTP splits it, so `--` matches too (decision on #23: keep the result, add a warning) | passes |
 | `issue23_re_noncapturing_pipe_splits_chain` | the same for `re("(?:UP\|DOWN)")` | passes |
 | `issue23_sformat_pipe_in_quotes` | `sformat("a\|{}")`: both halves fail in TTP, so the value is kept | passes (F1) |

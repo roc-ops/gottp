@@ -103,30 +103,6 @@ func TestConditionFunctions_EdgeCases(t *testing.T) {
 			args:   []string{""},
 		},
 		{
-			name:   "startswith with empty string",
-			fnName: "startswith",
-			value:  "",
-			args:   []string{"prefix"},
-		},
-		{
-			name:   "startswith with empty prefix",
-			fnName: "startswith",
-			value:  "test",
-			args:   []string{""},
-		},
-		{
-			name:   "endswith with empty string",
-			fnName: "endswith",
-			value:  "",
-			args:   []string{"suffix"},
-		},
-		{
-			name:   "endswith with empty suffix",
-			fnName: "endswith",
-			value:  "test",
-			args:   []string{""},
-		},
-		{
 			name:   "equal with nil value",
 			fnName: "equal",
 			value:  nil,

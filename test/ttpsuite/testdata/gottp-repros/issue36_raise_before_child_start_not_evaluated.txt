@@ -1,0 +1,5 @@
+ ip helper none
+interface e0
+ ip helper none
+ ip address 1.1.1.1
+ ip helper a-b
