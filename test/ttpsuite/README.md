@@ -10,9 +10,9 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 
 ```
 TTP 0.10.1 suite: pass 104 / skipped-by-issue 91 / design 5 of 200
-gottp repros: pass 137 / skipped-by-issue 3 / design 0 of 140
-source-map parity: same 343 / diverge 0 of 343
-stream snapshots: 154 streamable of 343 cases
+gottp repros: pass 141 / skipped-by-issue 3 / design 0 of 144
+source-map parity: same 347 / diverge 0 of 347
+stream snapshots: 156 streamable of 347 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -172,6 +172,10 @@ Function-call pins for refactor F (#36), recorded from TTP 0.10.1. F1 gives matc
 | `issue36_builtin_replace` | `replace("a", "b")`, the str method since F2 | passes |
 | `issue36_builtin_split` | `split(",")`, the str method since F2 | passes |
 | `issue36_builtin_join` | `join("-")` after `split` (TTP's own `join`) | passes |
+| `issue36_raise_before_first_start_not_evaluated` | `rindex("-")` would raise on a line before the first start line, where run_re runs no regex but the start patterns | passes (F2 review) |
+| `issue36_raise_without_start_line_not_evaluated` | the same with no start line at all: nothing but the start patterns runs | passes (F2 review) |
+| `issue36_raise_before_child_start_not_evaluated` | a child group's line before the child's first start line, inside the parent's region | passes |
+| `issue36_raise_child_end_line_not_evaluated` | a child's ordinary pattern would match (and raise on) the line of its last `_end_` match: TTP's region ends before that line's newline, which the regex needs | passes (F2 review) |
 | `issue23_re_pipe_splits_chain` | `re("UP\|DOWN")` is split at the `\|` as TTP splits it, so `--` matches too (decision on #23: keep the result, add a warning) | passes |
 | `issue23_re_noncapturing_pipe_splits_chain` | the same for `re("(?:UP\|DOWN)")` | passes |
 | `issue23_sformat_pipe_in_quotes` | `sformat("a\|{}")`: both halves fail in TTP, so the value is kept | passes (F1) |

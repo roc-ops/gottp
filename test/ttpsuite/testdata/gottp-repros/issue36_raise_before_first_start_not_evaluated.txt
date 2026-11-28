@@ -1,0 +1,5 @@
+hostname r1
+banner
+ description none
+interface e0
+ description to-core

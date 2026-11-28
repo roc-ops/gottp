@@ -537,11 +537,18 @@ func (r *Runtime) parseFlat(group *compiler.CompiledGroup, inputData string, var
 	in := newInputLines(inputData)
 	var allMatches []patternMatch
 	prof := group.Profile()
+	sc := newRunReScope(group)
 	for patternIdx := range group.Patterns {
 		if !prof.Matches(patternIdx) {
 			continue // a line without variables: Python TTP skips it
 		}
-		allMatches = r.matchPattern(group, patternIdx, 0, in, 0, len(inputData)+1, vars, obs != nil, allMatches)
+		allMatches = r.matchPattern(group, patternIdx, 0, in, 0, len(inputData)+1, vars, obs != nil, sc, allMatches)
+	}
+	// A type method's raise on a match TTP evaluates fails the parse, before
+	// any record is processed, as in TTP's run_re.
+	if err := sc.err(); err != nil {
+		r.raised.set(err)
+		return nil, nil, nil
 	}
 
 	// Sort matches by position; at one position, in pattern order.
@@ -662,19 +669,26 @@ func newInputLines(data string) *inputLines {
 
 // matchPattern appends the matches of one pattern of group (whose tree id is
 // groupID) in the region [lo, hi) of the input to dst: a line-anchored
-// pattern matches the lines that start in the region, any other pattern the
-// region's text. As in TTP's check_matches, a match that a condition
+// pattern matches the lines that start in the region and end before hi, any
+// other pattern the region's text. A line ending at hi or later is outside
+// because TTP's line regexes need the newline after the line, and run_re's
+// region ends just before the newline of the line it narrows to (the last
+// end match). As in TTP's check_matches, a match that a condition
 // rejects is dropped unless it is a start pattern's (its result is then
 // nil), and a match that captures nothing is kept. With sm, each match keeps
 // its submatch indices for the source map.
-func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupID int, in *inputLines, lo, hi int, vars map[string]interface{}, sm bool, dst []patternMatch) []patternMatch {
+//
+// With sc nil, a type method's raise fails the parse (r.raised): the region
+// is the one run_re runs the pattern on (tree.go). Otherwise sc sees every
+// match and raise and decides later (runReScope).
+func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupID int, in *inputLines, lo, hi int, vars map[string]interface{}, sm bool, sc *runReScope, dst []patternMatch) []patternMatch {
 	compiledPattern := group.Patterns[patternIdx]
 	prof := group.Profile()
 	startsRecord := prof.StartsRecord(patternIdx)
 	if compiledPattern.HasAnchors {
 		matchesBlank := prof.MatchesBlank(patternIdx)
 		first := sort.SearchInts(in.offsets[:len(in.lines)], lo)
-		for lineIdx := first; lineIdx < len(in.lines) && in.offsets[lineIdx] < hi; lineIdx++ {
+		for lineIdx := first; lineIdx < len(in.lines) && in.offsets[lineIdx]+len(in.lines[lineIdx]) < hi; lineIdx++ {
 			// Trim \r and trailing spaces, but keep leading spaces: the
 			// regex comes from the template line, indentation included.
 			line := strings.TrimRight(in.lines[lineIdx], "\r \t")
@@ -701,15 +715,21 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 			if match == nil {
 				continue
 			}
-			result := r.extractMatchTTP(match, compiledPattern, vars)
+			result, raise := r.extractMatchTTP(match, compiledPattern, vars)
+			spanStart, spanEnd := in.offsets[lineIdx], in.offsets[lineIdx]+len(line)
+			if sc != nil {
+				sc.observe(patternIdx, spanStart, spanEnd, raise)
+			} else if raise != nil {
+				r.raised.set(raise)
+			}
 			if result == nil && !startsRecord {
 				continue
 			}
 			dst = append(dst, patternMatch{
 				group:      groupID,
 				patternIdx: patternIdx,
-				spanStart:  in.offsets[lineIdx],
-				spanEnd:    in.offsets[lineIdx] + len(line),
+				spanStart:  spanStart,
+				spanEnd:    spanEnd,
 				result:     result,
 				sm:         info,
 			})
@@ -737,7 +757,12 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 				matchGroups[i/2] = region[indices[i]:indices[i+1]]
 			}
 		}
-		result := r.extractMatchTTP(matchGroups, compiledPattern, vars)
+		result, raise := r.extractMatchTTP(matchGroups, compiledPattern, vars)
+		if sc != nil {
+			sc.observe(patternIdx, lo+indices[0], lo+indices[1], raise)
+		} else if raise != nil {
+			r.raised.set(raise)
+		}
 		if result == nil && !startsRecord {
 			continue
 		}
@@ -902,8 +927,13 @@ func (r *Runtime) parseGroupStream(
 	// function).
 	kept := false
 	pl := r.pipelineFor(group, vars)
+	sc := newRunReScope(group)
 
 	asm := newAssembler(newAsmGroup(group), false, func(rec asmRecord) error {
+		if sc.certain {
+			// A raise that fails the parse was seen: emit nothing more.
+			return nil
+		}
 		r.pathResolver.UpdateCache(rec.result)
 		r.matchCollector.Clear()
 		// The same per-record steps Parse runs (pipeline.go). The
@@ -994,7 +1024,8 @@ func (r *Runtime) parseGroupStream(
 				continue
 			}
 
-			result := r.extractMatchTTP(match, compiledPattern, vars)
+			result, raise := r.extractMatchTTP(match, compiledPattern, vars)
+			sc.observe(patternIdx, lineStartOffset, lineStartOffset+len(line), raise)
 			if result == nil && !prof.StartsRecord(patternIdx) {
 				continue
 			}
@@ -1009,6 +1040,14 @@ func (r *Runtime) parseGroupStream(
 			}
 			matchIdx++
 		}
+		sc.compact()
+	}
+
+	// A type method's raise on a match TTP evaluates fails the parse. The
+	// records after a raise known to count were not emitted.
+	if err := sc.err(); err != nil {
+		r.raised.set(err)
+		return err
 	}
 
 	// The last record ends at the end of the input.
@@ -1058,9 +1097,9 @@ func (r *Runtime) processFunctions(value interface{}, calls []*call.Call, vars m
 		if !ok {
 			newResult, handled, err := r.matchTypeMethod(result, c)
 			if err != nil {
-				err = fmt.Errorf("match variable %q: %s: %w (Python TTP's parse fails with this exception)", varName, c.Text, err)
-				r.raised.set(err)
-				return nil, err
+				// The caller decides whether TTP evaluates this match
+				// at all (runReScope), and so whether the parse fails.
+				return nil, &pyRaise{fmt.Errorf("match variable %q: %s: %w (Python TTP's parse fails with this exception)", varName, c.Text, err)}
 			}
 			if !handled {
 				// Not a function, nor a method of the value's type: skipped,
@@ -1221,8 +1260,10 @@ func (r *Runtime) processFunctions(value interface{}, calls []*call.Call, vars m
 // extractMatchTTP extracts a match's values with Python TTP's
 // check_matches semantics: a condition that rejects any variable rejects the
 // whole match (nil), and a joinmatches variable keeps its value as is, so
-// the assembler's join can tell a list value from a single one.
-func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.CompiledPattern, vars map[string]interface{}) map[string]interface{} {
+// the assembler's join can tell a list value from a single one. raise is
+// the first Python exception a type method raised (the variable is then
+// left out); whether it fails the parse is the caller's to decide.
+func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.CompiledPattern, vars map[string]interface{}) (result map[string]interface{}, raise error) {
 	// Use the preserved variable order from the pattern
 	varNames := compiledPattern.VariableOrder
 	if len(varNames) == 0 {
@@ -1234,7 +1275,7 @@ func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.Compi
 
 	// Pre-size result map: most variables produce a single key, so VariableOrder
 	// length is a tight upper bound and avoids map growth/rehash for wide patterns.
-	result := make(map[string]interface{}, len(varNames))
+	result = make(map[string]interface{}, len(varNames))
 	varIndex := 1 // First capture group is at index 1 (index 0 is full match)
 
 	// Extract values in order
@@ -1282,7 +1323,10 @@ func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.Compi
 			// Check if it's a condition failure
 			if strings.Contains(err.Error(), "condition_failed") {
 				// Reject entire match
-				return nil
+				return nil, raise
+			}
+			if raise == nil {
+				raise = asPyRaise(err)
 			}
 			// Other error, log but continue
 			continue
@@ -1308,7 +1352,7 @@ func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.Compi
 		varIndex++
 	}
 
-	return result
+	return result, raise
 }
 
 // matchTypeMethod is the fallback for a match function name that isn't a
@@ -1320,7 +1364,7 @@ func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.Compi
 // exception, which fails TTP's parse. The arguments are the call's Python
 // values, as TTP passes them (template variables don't replace them).
 func (r *Runtime) matchTypeMethod(value interface{}, c *call.Call) (result interface{}, handled bool, err error) {
-	return pymethod.Call(value, c.Name, c.Args, c.Kwargs)
+	return pymethod.Call(value, c)
 }
 
 // macroErrorIsNotFound reports whether err represents an unregistered macro

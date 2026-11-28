@@ -25,7 +25,7 @@ func runMethodCases(t *testing.T, cases []methodCase) {
 		if err != nil {
 			t.Fatalf("%s: %v", c.call, err)
 		}
-		got, found, err := Call(c.self, cl.Name, cl.Args, cl.Kwargs)
+		got, found, err := Call(c.self, cl)
 		switch {
 		case c.miss:
 			if found {
@@ -89,6 +89,7 @@ func TestStrMethods(t *testing.T) {
 		{self: "abc", call: `index("z")`, raise: "ValueError"},
 		{self: "abc", call: `rindex("z")`, raise: "ValueError"},
 		{self: "hello", call: `startswith(("x", "hel"))`, want: true},
+		{self: "hello", call: `startswith(["x", "hel"])`, raise: "TypeError"},
 		{self: "hello", call: `endswith("l", 0, 4)`, want: true},
 		{self: "hello", call: "endswith", raise: "TypeError"},
 		{self: "　hi ", call: "strip", want: "hi"},

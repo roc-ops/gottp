@@ -1,10 +1,12 @@
 package comparison
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
 
+	gottp "github.com/roc-ops/gottp"
 	"github.com/roc-ops/gottp/internal/pymethod"
 )
 
@@ -60,6 +62,8 @@ var typeMethodCases = []typeMethodCase{
 	{`partition(",")`, `a,b,c`}, {`partition(",")`, `abc`}, {`rpartition(",")`, `a,b,c`},
 	{`expandtabs`, `a b`},
 	{`format("x", "y")`, `{}-{}`}, {`format("ñ", 3)`, `[{:>4}|{:05d}]`},
+	// repr escapes what str.isprintable rejects: NBSP, NEL, a line separator
+	{`format("a\xa0b")`, `{!r}`}, {`format("\x85\u2028\U000e0001")`, `{!r}`},
 	{`format_map({"a": 1})`, `<{a}>`},
 	{`maketrans("ab", "xy")`, `abc`},
 	{`translate({97: "x", 98: None})`, `abc`},
@@ -87,6 +91,8 @@ var typeMethodRaises = []typeMethodCase{
 	{`center("a")`, `abc`},
 	{`center(9, "**")`, `abc`},
 	{`partition("")`, `abc`},
+	{`startswith(["a"])`, `abc`},
+	{`endswith(["c"])`, `abc`},
 	{`upper(1)`, `abc`},
 	{`format()`, `{}`},
 	{`format("x")`, `{}-{}`},
@@ -178,5 +184,132 @@ func TestTypeMethodCasesCoverEveryMethod(t *testing.T) {
 				t.Errorf("no comparison case calls %s.%s", typ, name)
 			}
 		}
+	}
+}
+
+// raiseScopeCase is a template whose type method raises on some input
+// lines. TTP's run_re runs a group's regexes, and so their functions, only
+// on part of the input: start patterns everywhere, the others from the
+// first start match on, ordinary ones only up to the line of the last end
+// match, and a child group's on its own part of its parent's region. A
+// raise fails the parse only on a line TTP evaluates.
+type raiseScopeCase struct {
+	name, template, data string
+	raises               bool // TTP's parse fails
+}
+
+const raiseScopeFlat = `<group name="i">
+interface {{ name }}
+ description {{ d | rindex("-") }}
+</group>
+`
+
+const raiseScopeFlatEnd = `<group name="i">
+interface {{ name }}
+ description {{ d | rindex("-") }}
+ exit {{ e | rindex("-") }} {{ _end_ }}
+</group>
+`
+
+const raiseScopeEndLine = `<group name="i">
+interface {{ name }}
+ {{ x | rindex("-") }} {{ y }}
+ exit {{ e }} {{ _end_ }}
+</group>
+`
+
+const raiseScopeChild = `<group name="i">
+interface {{ name }}
+ <group name="ip">
+ ip address {{ ip }}
+ ip helper {{ h | rindex("-") }}
+ </group>
+</group>
+`
+
+const raiseScopeChildEnd = `<group name="i">
+interface {{ name }}
+ <group name="ip">
+ ip address {{ ip }}
+ {{ x | rindex("-") }} {{ y }}
+ exit {{ e }} {{ _end_ }}
+ </group>
+</group>
+`
+
+var raiseScopeCases = []raiseScopeCase{
+	// not evaluated by TTP: no raise
+	{"flat_before_first_start", raiseScopeFlat, "hostname r1\nbanner\n description none\ninterface e0\n description to-core\n", false},
+	{"flat_no_start_line", raiseScopeFlat, "hostname r1\n description core-uplink\n description none\n", false},
+	{"flat_after_last_end", raiseScopeFlatEnd, "interface e0\n description to-core\n exit a-b\n description none\n", false},
+	{"flat_end_line_before_first_start", raiseScopeFlatEnd, " exit z\ninterface e0\n description a-b\n", false},
+	{"flat_end_line_not_ordinary", raiseScopeEndLine, "interface e0\n exit a\n", false},
+	{"child_before_child_start", raiseScopeChild, " ip helper none\ninterface e0\n ip helper none\n ip address 1.1.1.1\n ip helper a-b\n", false},
+	{"child_after_child_end", raiseScopeChildEnd, "interface e0\n ip address 1.1.1.1\n fil-ler a\n fil-ler b\n exit a\n bad c\n", false},
+	{"child_no_parent_start", raiseScopeChild, "hostname x\n ip address 1.1.1.1\n ip helper none\n", false},
+	// evaluated by TTP: the parse fails
+	{"flat_second_record", raiseScopeFlat, "interface e0\n description a-b\ninterface e1\n description none\n", true},
+	{"flat_start_line", `<group name="i">
+interface {{ name | rindex("-") }}
+</group>
+`, "hostname r1\ninterface e0\n", true},
+	{"flat_end_line", raiseScopeFlatEnd, "interface e0\n description a-b\n exit z\n", true},
+	{"flat_between_end_lines", raiseScopeFlatEnd, "interface e0\n description a-b\n exit a-b\n description none\n exit c-d\n", true},
+	{"flat_dropped_by_group_filter", `<group name="i" contains="zzz">
+interface {{ name }}
+ description {{ d | rindex("-") }}
+</group>
+`, "interface e0\n description none\n", true},
+	{"flat_argument_error", `<group name="i">
+interface {{ name }}
+ description {{ d | center("a") }}
+</group>
+`, "interface e0\n description to-core\n", true},
+	{"child_in_second_parent_record", raiseScopeChild, "interface e0\n ip address 1.1.1.1\n ip helper a-b\ninterface e1\n ip helper none\n", true},
+	// TTP compares the end of the last start match with a relative offset
+	// (run_re's se), so here the region isn't narrowed and the end line is
+	// evaluated.
+	{"child_end_line_not_narrowed", raiseScopeChildEnd, "interface e0\n ip address 1.1.1.1\n exit a\n", true},
+}
+
+// TestTypeMethodRaiseScopeLikePythonTTP runs each raiseScopeCase through
+// both engines: both fail, or both give the same result. ParseStream fails
+// exactly where Parse does.
+func TestTypeMethodRaiseScopeLikePythonTTP(t *testing.T) {
+	requirePythonTTP(t)
+	for _, c := range raiseScopeCases {
+		t.Run(c.name, func(t *testing.T) {
+			_, pyErr := runPythonTTP(c.template, c.data, nil, nil)
+			_, goErr := runGoTTP(c.template, c.data, nil, nil)
+			if (pyErr != nil) != c.raises {
+				t.Fatalf("Python TTP's error: %v; want a failing parse: %v", pyErr, c.raises)
+			}
+			switch {
+			case pyErr != nil && goErr == nil:
+				t.Fatalf("Python TTP fails (%v), gottp doesn't", pyErr)
+			case pyErr != nil:
+				if !strings.Contains(goErr.Error(), "Python TTP's parse fails") {
+					t.Fatalf("gottp fails with an unexpected error: %v", goErr)
+				}
+			case goErr != nil:
+				t.Fatalf("gottp fails (%v), Python TTP doesn't", goErr)
+			default:
+				RunComparison(t, "raise_scope_"+c.name, c.template, c.data, nil, nil)
+			}
+
+			ct, err := gottp.CompileTemplate(c.template)
+			if err != nil {
+				t.Fatal(err)
+			}
+			inputs := gottp.Inputs{"Default_Input": c.data}
+			_, parseErr := ct.Parse(inputs, nil, nil)
+			streamErr := ct.ParseStream(inputs, nil, nil, func(map[string]interface{}, [2]int, string) error { return nil })
+			if errors.Is(streamErr, gottp.ErrTemplateNotStreamable) {
+				return
+			}
+			if fmt.Sprint(streamErr) != fmt.Sprint(parseErr) {
+				t.Errorf("ParseStream error %v, Parse error %v", streamErr, parseErr)
+			}
+		})
 	}
 }

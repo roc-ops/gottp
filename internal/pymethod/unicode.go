@@ -3,6 +3,8 @@ package pymethod
 import (
 	"strings"
 	"unicode"
+
+	"github.com/roc-ops/gottp/internal/pyunicode"
 )
 
 //go:generate sh -c "python3.12 gen_unicode.py > unicode_tables.go"
@@ -36,7 +38,7 @@ func isNumeric(r rune) bool {
 	return r < 0x80 && '0' <= r && r <= '9' || r >= 0x80 && numericTable.has(r)
 }
 func isSpace(r rune) bool     { return spaceTable.has(r) }
-func isPrintable(r rune) bool { return printableTable.has(r) }
+func isPrintable(r rune) bool { return pyunicode.IsPrintable(r) }
 func isLower(r rune) bool     { return lowerTable.has(r) }
 func isUpper(r rune) bool     { return upperTable.has(r) }
 func isTitle(r rune) bool     { return titleTable.has(r) }

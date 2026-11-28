@@ -1,0 +1,7 @@
+<group name="i">
+interface {{ name }}
+ <group name="ip">
+ ip address {{ ip }}
+ ip helper {{ h | rindex("-") }}
+ </group>
+</group>

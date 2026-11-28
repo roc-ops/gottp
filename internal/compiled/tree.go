@@ -375,7 +375,7 @@ func (t *treeRun) rank(m *patternMatch) int {
 // endT) (DATATEXT offsets) and returns them.
 func (t *treeRun) matchIn(tg *treeGroup, pi, startT, endT int) []patternMatch {
 	n := len(t.matches)
-	t.matches = t.r.matchPattern(tg.cg, pi, tg.asm.id, t.in, startT-1, endT-1, t.vars, t.obs != nil, t.matches)
+	t.matches = t.r.matchPattern(tg.cg, pi, tg.asm.id, t.in, startT-1, endT-1, t.vars, t.obs != nil, nil, t.matches)
 	return t.matches[n:]
 }
 

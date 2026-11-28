@@ -60,16 +60,16 @@ type table map[string]method
 // err is a Python exception (*Error). A bool result is a filter, any other
 // result the new value. A miss allocates nothing: the value is converted
 // only once the method is found.
-func Call(value interface{}, name string, pos []interface{}, kwargs []call.Kwarg) (result interface{}, found bool, err error) {
+func Call(value interface{}, c *call.Call) (result interface{}, found bool, err error) {
 	t := typeOf(value)
 	if t == nil {
 		return nil, false, nil
 	}
-	m, ok := t.methods[name]
+	m, ok := t.methods[c.Name]
 	if !ok {
 		return nil, false, nil
 	}
-	a := &args{typ: t.name, name: name, pos: pos, kw: kwargs}
+	a := &args{typ: t.name, name: c.Name, pos: c.Args, kw: c.Kwargs, call: c}
 	r, err := m.fn(selfOf(value), a)
 	if e, ok := err.(*Error); ok && e.Type == "AttributeError" {
 		// TTP catches an AttributeError raised inside the method too.

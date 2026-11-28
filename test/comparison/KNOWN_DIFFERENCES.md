@@ -170,8 +170,8 @@ The comparison test suite includes:
 - **Test status:** `TestDictMethods` in `internal/pymethod`.
 
 ### Type method arguments (F2)
-- **gottp:** a dict literal's keys are strings, so `translate({97: "x"})` maps the key `"97"` (the code point 97) and `dict.get(1)` finds nothing. A list literal is accepted where Python takes only a tuple (`startswith(["a", "b"])`).
-- **Python TTP 0.10.1:** keeps int keys, and `startswith(["a", "b"])` raises `TypeError`.
+- **gottp:** a dict literal's keys are strings, so `translate({97: "x"})` maps the key `"97"` (the code point 97) and `dict.get(1)` finds nothing.
+- **Python TTP 0.10.1:** keeps int keys.
 
 ## Recent Fixes and Improvements
 

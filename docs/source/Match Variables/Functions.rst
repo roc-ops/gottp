@@ -160,7 +160,7 @@ When a match variable function isn't a match function (and isn't a custom functi
 * A **True or False result is a filter**: ``{{ name | isalpha }}`` drops the match when the value isn't all letters. Any other result **replaces the value**: ``{{ v | find("2") }}`` saves an int, ``{{ v | partition(",") }}`` a list (a tuple is a list).
 * The arguments are the call's Python values, as TTP passes them (a template variable's name isn't replaced by its value here).
 * A name the value's type doesn't have (``{{ v | to_int | upper }}``) is Python's ``AttributeError``, which TTP logs and skips: the **value is kept**.
-* **Any other exception fails the parse**, as it fails Python TTP's: ``index("z")`` when there is no ``z`` (``ValueError``), ``center("a")`` (``TypeError``), ``"{}-{}" | format("x")`` (``IndexError``). ``Parse`` returns an error naming the variable, the call and the exception.
+* **Any other exception fails the parse**, as it fails Python TTP's: ``index("z")`` when there is no ``z`` (``ValueError``), ``center("a")`` (``TypeError``), ``"{}-{}" | format("x")`` (``IndexError``). ``Parse`` returns an error naming the variable, the call and the exception. Only a line Python TTP runs the method on counts: TTP runs a group's other lines only from its first start line on, and not at all if no line matches the start line, its lines other than ``_end_`` lines only up to the last ``_end_`` line, and a child group's lines only inside its parent's match. A raise on any other line fails neither engine's parse.
 * Methods follow **Python 3.12**, Unicode 15.0.0 included: ``upper("straße")`` is ``STRASSE``, ``title`` capitalizes after any uncased character (``they're`` is ``They'Re``), a final ``Σ`` lowercases to ``ς``, the ``is*`` tests and the whitespace that ``split()`` and ``strip()`` remove are Python's character classes.
 * A name that is a TTP match function wins, as in TTP: ``count``, ``copy``, ``join``, ``isdigit`` and ``append`` are TTP's functions, not the methods.
 
@@ -194,7 +194,7 @@ Differences from Python TTP (see also ``test/comparison/KNOWN_DIFFERENCES.md``):
 
 * ``keys``, ``values`` and ``items`` give lists (``items`` as ``[key, value]`` lists) in key order, since gottp's maps keep no order. Python TTP saves the view object itself, which its JSON and YAML outputs can't write.
 * ``get(x)`` in Python TTP is read as ``re(x)``, a regex for the variable (TTP's pattern lookup finds its own ``get`` function), so ``dict.get`` is never reached there. gottp runs ``dict.get``.
-* A dict literal's keys are strings in gottp, so ``translate({97: "x"})`` looks up ``"97"``, and ``get(1)`` finds nothing. A list literal is accepted where Python wants a tuple (``startswith(["a", "b"])``).
+* A dict literal's keys are strings in gottp, so ``translate({97: "x"})`` looks up ``"97"``, and ``get(1)`` finds nothing.
 
 Not Yet Implemented
 -------------------

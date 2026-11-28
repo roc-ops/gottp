@@ -13,7 +13,13 @@ type args struct {
 	typ, name string
 	pos       []interface{}
 	kw        []call.Kwarg
+	// call is the call the arguments come from; nil for a method gottp
+	// calls itself.
+	call *call.Call
 }
+
+// isTuple reports whether positional argument i is a tuple, not a list.
+func (a *args) isTuple(i int) bool { return a.call != nil && a.call.IsTuple(i) }
 
 func (a *args) qual() string { return a.typ + "." + a.name }
 

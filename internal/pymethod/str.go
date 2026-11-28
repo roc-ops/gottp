@@ -397,7 +397,9 @@ func strTailmatch(end bool) func(interface{}, *args) (interface{}, error) {
 		case string:
 			subs = []string{p}
 		case []interface{}:
-			// a tuple (gottp reads a list literal the same way)
+			if !a.isTuple(0) {
+				return nil, raise("TypeError", "%s first arg must be str or a tuple of str, not list", a.name)
+			}
 			for _, item := range p {
 				str, ok := item.(string)
 				if !ok {

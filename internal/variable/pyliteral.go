@@ -56,6 +56,8 @@ type pyLiteralParser struct {
 	// depth is the nesting depth of lists, tuples and dicts, bounded by
 	// maxLiteralDepth.
 	depth int
+	// tuple is set when the last list or tuple read was a tuple.
+	tuple bool
 }
 
 // maxLiteralDepth bounds how deeply lists, tuples and dicts nest, so a
@@ -69,10 +71,19 @@ const maxLiteralDepth = 100
 // is its own text. Without names an identifier other than True, False and
 // None is an error.
 func PythonValueAt(s string, i int, names bool) (interface{}, int, error) {
+	v, next, _, err := PythonValueTupleAt(s, i, names)
+	return v, next, err
+}
+
+// PythonValueTupleAt is PythonValueAt that also reports whether the value,
+// when it is a []interface{}, is a tuple rather than a list: both read as
+// []interface{}, but some Python functions take only one of them.
+func PythonValueTupleAt(s string, i int, names bool) (v interface{}, next int, tuple bool, err error) {
 	p := &pyLiteralParser{s: s, i: i, names: names}
 	p.skipSpace()
-	v, err := p.value()
-	return v, p.i, err
+	v, err = p.value()
+	_, seq := v.([]interface{})
+	return v, p.i, seq && p.tuple, err
 }
 
 func (p *pyLiteralParser) skipSpace() {
@@ -166,6 +177,7 @@ func (p *pyLiteralParser) sequence(end byte) (interface{}, error) {
 			if end == ')' && len(items) == 1 && !comma {
 				return items[0], nil
 			}
+			p.tuple = end == ')'
 			return items, nil
 		}
 		v, err := p.value()

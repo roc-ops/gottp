@@ -1,0 +1,6 @@
+interface e0
+ ip address 1.1.1.1
+ fil-ler a
+ fil-ler b
+ exit a
+ bad c

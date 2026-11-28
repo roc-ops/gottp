@@ -1,0 +1,13 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":12,"GroupName":"i","PatternIndex":0,"Variables":{"name":{"StartCol":10,"EndCol":12}},"ResultPath":"i"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":19,"GroupName":"ip","PatternIndex":0,"Variables":{"ip":{"StartCol":12,"EndCol":19}},"ResultPath":"i.ip"}]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":10,"GroupName":"ip","PatternIndex":1,"Variables":{"x":{"StartCol":1,"EndCol":8},"y":{"StartCol":9,"EndCol":10}},"ResultPath":"i.ip"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":10,"GroupName":"ip","PatternIndex":1,"Variables":{"x":{"StartCol":1,"EndCol":8},"y":{"StartCol":9,"EndCol":10}},"ResultPath":"i.ip"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":7,"GroupName":"ip","PatternIndex":2,"Variables":{"e":{"StartCol":6,"EndCol":7}},"ResultPath":"i.ip"}]},
+   {"LineNumber":5,"Matched":false,"Matches":[]},
+   {"LineNumber":6,"Matched":false,"Matches":[]}
+  ]
+ }
+}

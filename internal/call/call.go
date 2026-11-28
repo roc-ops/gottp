@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/roc-ops/gottp/internal/pyunicode"
 	"github.com/roc-ops/gottp/internal/variable"
 )
 
@@ -51,6 +52,15 @@ type Call struct {
 	// strArg[i] is true when Args[i] is a string, which a template
 	// variable of that name replaces (ResolvedStrs).
 	strArg []bool
+	// tupleArg[i] is true when Args[i] is a tuple literal; nil when no
+	// argument is one.
+	tupleArg []bool
+}
+
+// IsTuple reports whether positional argument i is a tuple: a list and a
+// tuple are both []interface{} in Args.
+func (c *Call) IsTuple(i int) bool {
+	return i >= 0 && i < len(c.tupleArg) && c.tupleArg[i]
 }
 
 // Kwarg is one keyword argument.
@@ -177,11 +187,11 @@ func Parse(text string) (*Call, error) {
 	}
 	c := &Call{Name: name, Text: text}
 	if hasOptions && options != "" {
-		args, kwargs, notes, err := parseArgs(text, len(text)-1-len(options), options)
+		args, tuples, kwargs, notes, err := parseArgs(text, len(text)-1-len(options), options)
 		if err != nil {
 			return nil, fmt.Errorf("cannot read the arguments of %q: %v", text, err)
 		}
-		c.Args, c.Kwargs, c.Notes = args, kwargs, notes
+		c.Args, c.tupleArg, c.Kwargs, c.Notes = args, tuples, kwargs, notes
 	}
 	if len(c.Args) > 0 {
 		c.Strs = make([]string, len(c.Args))
@@ -255,15 +265,13 @@ func isSpace(c byte) bool {
 // unbalanced brackets, an empty argument, a positional argument after a
 // keyword argument, a repeated keyword argument and literals nested too
 // deeply. text is the whole call and off is the offset of options in it,
-// for the notes.
-func parseArgs(text string, off int, s string) ([]interface{}, []Kwarg, []string, error) {
+// for the notes. tuples[i] is true when args[i] is a tuple; tuples is nil
+// when none is.
+func parseArgs(text string, off int, s string) (args []interface{}, tuples []bool, kwargs []Kwarg, notes []string, err error) {
 	segs, err := splitArgs(s)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	var args []interface{}
-	var kwargs []Kwarg
-	var notes []string
 	for _, seg := range segs {
 		i := seg.start
 		key := ""
@@ -274,35 +282,41 @@ func parseArgs(text string, off int, s string) ([]interface{}, []Kwarg, []string
 				key = s[i:j]
 				i = skipSpace(s, k+1)
 				if i >= seg.end {
-					return nil, nil, nil, fmt.Errorf("keyword argument %s has no value", key)
+					return nil, nil, nil, nil, fmt.Errorf("keyword argument %s has no value", key)
 				}
 			}
 		}
 		raw := s[i:seg.end]
-		v, next, err := variable.PythonValueAt(raw, 0, true)
+		v, next, tuple, err := variable.PythonValueTupleAt(raw, 0, true)
 		switch {
 		case err == nil && skipSpace(raw, next) == len(raw):
 		case err != nil && strings.Contains(err.Error(), "nested more than"):
-			return nil, nil, nil, fmt.Errorf("%v at offset %d", err, i)
+			return nil, nil, nil, nil, fmt.Errorf("%v at offset %d", err, i)
 		default:
-			v = raw
+			v, tuple = raw, false
 			notes = append(notes, rawArgNote(text, off+i, off+seg.end, raw))
 		}
 		if key != "" {
 			for _, kw := range kwargs {
 				if kw.Key == key {
-					return nil, nil, nil, fmt.Errorf("keyword argument repeated: %s", key)
+					return nil, nil, nil, nil, fmt.Errorf("keyword argument repeated: %s", key)
 				}
 			}
 			kwargs = append(kwargs, Kwarg{Key: key, Value: v})
 		} else {
 			if len(kwargs) > 0 {
-				return nil, nil, nil, fmt.Errorf("positional argument follows keyword argument")
+				return nil, nil, nil, nil, fmt.Errorf("positional argument follows keyword argument")
+			}
+			if tuple {
+				if tuples == nil {
+					tuples = make([]bool, len(segs))
+				}
+				tuples[len(args)] = true
 			}
 			args = append(args, v)
 		}
 	}
-	return args, kwargs, notes, nil
+	return args, tuples, kwargs, notes, nil
 }
 
 // argSpan is one argument of a call's options: s[start:end], trimmed.
@@ -497,7 +511,8 @@ func floatRepr(f float64) string {
 	return s
 }
 
-// stringRepr is Python's repr() of a str.
+// stringRepr is Python's repr() of a str (unicode_repr in
+// Objects/unicodeobject.c).
 func stringRepr(s string) string {
 	quote := byte('\'')
 	if strings.Contains(s, "'") && !strings.Contains(s, `"`) {
@@ -520,8 +535,16 @@ func stringRepr(s string) string {
 			b.WriteString(`\t`)
 		case r < 0x20 || r == 0x7f:
 			fmt.Fprintf(&b, `\x%02x`, r)
-		default:
+		case r < 0x7f || pyunicode.IsPrintable(r):
 			b.WriteRune(r)
+		// A character str.isprintable rejects is escaped, in the
+		// shortest of \xhh, \uhhhh and \Uhhhhhhhh.
+		case r <= 0xff:
+			fmt.Fprintf(&b, `\x%02x`, r)
+		case r <= 0xffff:
+			fmt.Fprintf(&b, `\u%04x`, r)
+		default:
+			fmt.Fprintf(&b, `\U%08x`, r)
 		}
 	}
 	b.WriteByte(quote)

@@ -66,6 +66,8 @@ var diffCases = []diffCase{
 	{`"abc"`, `index("c")`}, {`"abc"`, `index("z")`}, {`"abcabc"`, `rindex("a")`}, {`"abc"`, `rindex("z")`}, {`"abc"`, `find(1)`},
 	{`"hello"`, `startswith("he")`}, {`"hello"`, `startswith(("x", "hel"))`}, {`"hello"`, `startswith("l", 2)`}, {`"hello"`, `startswith("")`}, {`"hello"`, `startswith("", 9)`}, {`"héllo"`, `startswith("hé")`}, {`"hello"`, `startswith(1)`},
 	{`"hello"`, `endswith("lo")`}, {`"hello"`, `endswith("l", 0, 4)`}, {`"hello"`, `endswith(("x", "y"))`}, {`"hello"`, `endswith`},
+	// a list isn't a tuple, also in parentheses
+	{`"hello"`, `startswith(["x", "hel"])`}, {`"hello"`, `endswith(["lo"])`}, {`"hello"`, `startswith((["he"]))`}, {`"hello"`, `startswith(("he",))`}, {`"hello"`, `startswith(("x", ["he"]))`},
 	// stripping
 	{`"  hi \t\n"`, `strip`}, {`"xxhixx"`, `strip("x")`}, {`"\u3000hi\u2003"`, `strip`}, {`"\x1chi\x1f"`, `strip`}, {`"abcba"`, `strip("ab")`}, {`"  hi"`, `strip(None)`}, {`"hi"`, `strip(1)`},
 	{`"  hi  "`, `lstrip`}, {`"xxhi"`, `lstrip("x")`}, {`"  hi  "`, `rstrip`}, {`"1,2,3,"`, `rstrip(",")`},
@@ -118,7 +120,7 @@ func goRun(t *testing.T, c diffCase) map[string]interface{} {
 	if err != nil {
 		t.Fatalf("%s: %v", c.Call, err)
 	}
-	r, found, err := Call(self, cl.Name, cl.Args, cl.Kwargs)
+	r, found, err := Call(self, cl)
 	switch {
 	case !found:
 		return map[string]interface{}{"kind": "attr"}
