@@ -578,6 +578,17 @@ func (r *Runtime) parseFlat(group *compiler.CompiledGroup, inputData string, var
 		r.raised.set(err)
 		return nil, nil, nil
 	}
+	// run_re narrows the region to the last end match: matches past it are
+	// dropped (#139).
+	if keep := sc.cutKeep(); keep != nil {
+		kept := allMatches[:0]
+		for _, m := range allMatches {
+			if keep(m.patternIdx, m.spanStart, m.spanEnd) {
+				kept = append(kept, m)
+			}
+		}
+		allMatches = kept
+	}
 
 	// Sort matches by position; at one position, in pattern order.
 	sort.Slice(allMatches, func(i, j int) bool {
@@ -924,7 +935,10 @@ func startLineDefaultsRecord(group *compiler.CompiledGroup) map[string]interface
 // parseGroup uses for a group without children (assembler.go), invoking fn
 // for each finished record instead of collecting them. The assembler holds
 // only the current line's matches and the current record, so memory stays
-// bounded however large the input is.
+// bounded however large the input is, with one exception: in a group with
+// an end line, the matches after an end match are held until a later end
+// match or ordinary start match shows that TTP keeps them, or the end of the
+// input shows which of them it drops (run_re's cleanup, #139).
 //
 // Caller must verify group.Streamable == true. parseGroupStream does not
 // re-check (entry gate is in Runtime.ParseStream).
@@ -1007,6 +1021,25 @@ func (r *Runtime) parseGroupStream(
 	totalLen := len(inputData)
 	matchIdx := 0
 
+	// held are the matches after the last end match while holding is set;
+	// release feeds those keep accepts (all of them when keep is nil) to
+	// the assembler.
+	var held []asmMatch
+	holding := false
+	release := func(keep func(pi, start, end int) bool) error {
+		for _, m := range held {
+			if keep != nil && !keep(m.pattern, m.start, m.end) {
+				continue
+			}
+			if err := asm.add(m); err != nil {
+				return err
+			}
+		}
+		held = held[:0]
+		holding = false
+		return nil
+	}
+
 	pos := 0
 	for pos <= totalLen {
 		// Find next newline (or end of input).
@@ -1046,18 +1079,40 @@ func (r *Runtime) parseGroupStream(
 			if result == nil && !prof.StartsRecord(patternIdx) {
 				continue
 			}
-			if err := asm.add(asmMatch{
+			m := asmMatch{
 				idx:     matchIdx,
 				pattern: patternIdx,
 				start:   lineStartOffset,
 				end:     lineStartOffset + len(line),
 				result:  result,
-			}); err != nil {
-				return err
 			}
 			matchIdx++
+			// Matches after an end match are held: Parse drops them if no
+			// later end match or ordinary start match comes (run_re's
+			// cleanup, #139), which only the rest of the input tells.
+			switch role := prof.Pattern(patternIdx).Role; {
+			case role == compiler.RoleEnd && sc.found && m.start >= sc.s,
+				role == compiler.RoleStart && !prof.IsLine(patternIdx):
+				if err := release(nil); err != nil {
+					return err
+				}
+				if err := asm.add(m); err != nil {
+					return err
+				}
+				holding = role == compiler.RoleEnd
+			case holding:
+				held = append(held, m)
+			default:
+				if err := asm.add(m); err != nil {
+					return err
+				}
+			}
 		}
 		sc.compact()
+	}
+	// The end of the input decides what happens to the held matches.
+	if err := release(sc.cutKeep()); err != nil {
+		return err
 	}
 
 	// A type method's raise on a match TTP evaluates fails the parse. The

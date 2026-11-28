@@ -1,0 +1,9 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[0,13],"record":{"s":"1"}},
+  {"group_path":"g","src_range":[14,18],"record":{"l":"ccc"}},
+  {"group_path":"g","src_range":[18,22],"record":{"l":"ddd"}},
+  {"group_path":"g","src_range":[22,30],"record":{"s":"2"}},
+  {"group_path":"g","src_range":[30,34],"record":{"l":"eee"}}
+ ]
+}

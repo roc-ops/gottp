@@ -162,28 +162,69 @@ func (sc *runReScope) firstRaise(n int, in func(pi, pos int) bool) error {
 }
 
 // endLine is run_re's narrowing of the region to the last end match: the
-// input offset of the line it ends at, and whether it narrows at all. As in
-// tree.go's runRe, offsets are DATATEXT's (input offset + 1), and se, an
-// absolute offset, is compared with relative ones as TTP does.
+// input offset of the line it ends at, and whether it narrows at all.
 func (sc *runReScope) endLine() (int, bool) {
-	start := sc.s + 1
+	line, _, ok := sc.narrow()
+	return line, ok
+}
+
+// narrow ports run_re's s, se and e for a top group. TTP's line regexes
+// start with the newline before the line, so in DATATEXT ("\n" + data) a
+// match of a line starting at input offset L starts at L and ends at its
+// input end + 1. se, an absolute offset, is compared with relative ones as
+// TTP does. It returns the input offset of the line of the last end match
+// that narrows the region, the region's new end (DATATEXT), and whether it
+// narrows at all.
+func (sc *runReScope) narrow() (line, end int, ok bool) {
+	if !sc.found {
+		return 0, 0, false
+	}
+	start := sc.s
 	se := 0
 	for pi, l := range sc.last {
 		if !l.ok || sc.role(pi) != compiler.RoleStart {
 			continue
 		}
-		if se < l.start+1 && !sc.prof.IsLine(pi) {
+		if se < l.start && !sc.prof.IsLine(pi) {
 			se = l.end + 1
 		}
 	}
-	e, line := -1, 0
+	e := -1
 	for pi, l := range sc.last {
-		if !l.ok || sc.role(pi) != compiler.RoleEnd {
+		if !l.ok || sc.role(pi) != compiler.RoleEnd || l.start < start {
 			continue
 		}
 		if lastEnd := l.end + 1 - start; e < lastEnd && lastEnd > se {
 			e, line = lastEnd, l.start
 		}
 	}
-	return line, e != -1
+	if e == -1 {
+		return 0, 0, false
+	}
+	return line, start + e, true
+}
+
+// cutKeep returns, when run_re narrows the region to the last end match,
+// which of the group's matches it keeps; nil when it doesn't narrow. As in
+// run_re, a start match is dropped when it starts past the new end (so the
+// line right after the end line is kept: its match starts at the end
+// line's newline, which is the end), and an ordinary match is kept only
+// when it ends before the end, since TTP's regexes need the newline after
+// the line. End matches are all kept. pi is the pattern, start and end the
+// match's input offsets. parseFlat and parseGroupStream apply it (#139).
+func (sc *runReScope) cutKeep() func(pi, start, end int) bool {
+	_, cut, ok := sc.narrow()
+	if !ok {
+		return nil
+	}
+	return func(pi, start, end int) bool {
+		switch sc.role(pi) {
+		case compiler.RoleStart:
+			return start <= cut
+		case compiler.RoleEnd:
+			return true
+		default:
+			return end+1 < cut
+		}
+	}
 }

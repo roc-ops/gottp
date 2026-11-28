@@ -387,12 +387,19 @@ func (t *treeRun) runRe(tg *treeGroup, start, end int) {
 	found := false
 	first := len(t.matches)
 
+	// TTP's region start: start is a line's first character in DATATEXT
+	// (one past the newline TTP's line regexes begin with), or 0 for the
+	// whole input. A match of a line at input offset L starts at L in TTP.
+	ttpOld := start - 1
+	if ttpOld < 0 {
+		ttpOld = 0
+	}
 	for _, pi := range tg.start {
 		ms := t.matchIn(tg, pi, start, end)
 		if len(ms) == 0 {
 			continue
 		}
-		rel0 := ms[0].spanStart + 1 - start
+		rel0 := ms[0].spanStart - ttpOld
 		if s > rel0 || !found {
 			found = true
 			s = rel0
@@ -400,11 +407,13 @@ func (t *treeRun) runRe(tg *treeGroup, start, end int) {
 		// TTP compares the relative start of the last match with se, which
 		// holds an absolute end; the arithmetic is kept as is.
 		last := ms[len(ms)-1]
-		if se < last.spanStart+1-start && !tg.asm.patterns[pi].isLine {
+		if se < last.spanStart-ttpOld && !tg.asm.patterns[pi].isLine {
 			se = last.spanEnd + 1
 		}
 	}
-	start += s
+	if found {
+		start = ttpOld + s + 1
+	}
 
 	if !found {
 		if t.hasStartReDefault(tg) {
@@ -428,23 +437,28 @@ func (t *treeRun) runRe(tg *treeGroup, start, end int) {
 		return
 	}
 
+	// start is now the first start match's line start in DATATEXT, and
+	// TTP's region start the newline before it.
+	ttpStart := start - 1
 	for _, pi := range tg.end {
 		ms := t.matchIn(tg, pi, start, end)
 		if len(ms) == 0 {
 			continue
 		}
-		lastEnd := ms[len(ms)-1].spanEnd + 1 - start
+		lastEnd := ms[len(ms)-1].spanEnd + 1 - ttpStart
 		if e < lastEnd && lastEnd > se {
 			e = lastEnd
 		}
 	}
 	if e != -1 {
-		end = start + e
-		// Drop this group's matches past the last end match (a _line_
-		// start line can match there).
+		end = ttpStart + e
+		// Drop this group's matches that start past the last end match (a
+		// _line_ start line can match there). The line right after the
+		// end line starts at its newline, which is end, so it stays, as in
+		// TTP's "span_start > end" (#139).
 		kept := t.matches[:first]
 		for _, m := range t.matches[first:] {
-			if m.spanStart+1 <= end {
+			if m.spanStart <= end {
 				kept = append(kept, m)
 			}
 		}
