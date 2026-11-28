@@ -372,12 +372,9 @@ func parseWith(rt *compiled.Runtime, groups []*compiler.CompiledGroup, inputs In
 		return nil, err
 	}
 
-	validationResults := rt.GetValidationResults()
-	if validationResults == nil {
-		validationResults = make(map[string]*yang.ValidationResult)
-	}
+	validationResults, validated := rt.GetYANGResults()
 	if opts != nil && opts.YANGModuleSet != nil {
-		addMissingYANGEntries(groups, rt.YANGValidatedGroups(), yang.NewValidator(opts.YANGModuleSet), validationResults)
+		addMissingYANGEntries(groups, validated, yang.NewValidator(opts.YANGModuleSet), validationResults)
 	}
 
 	var sourceMap *SourceMap

@@ -80,9 +80,18 @@ func (ms *ModuleSet) ProcessAllModules() (err error) {
 	}()
 
 	// Process all modules together
+	// restore runs right after Process, and from the defer if Process
+	// panics, so the set is never left with the parent in SubModules.
 	restore := ms.linkSubmoduleScopes()
+	restored := false
+	defer func() {
+		if !restored {
+			restore()
+		}
+	}()
 	errs := ms.mset.Process()
 	restore()
+	restored = true
 	if len(errs) > 0 {
 		// Try to provide more helpful error messages
 		var errorMsgs []string
@@ -221,6 +230,7 @@ func (ms *ModuleSet) linkSubmoduleScopes() (restore func()) {
 		// registerSubmodules reports.
 		var subs []*yang.Module
 		seen := map[*yang.Module]bool{}
+		revision := map[*yang.Module]*yang.Value{} // the revision-date that included it
 		var walk func(incs []*yang.Include)
 		walk = func(incs []*yang.Include) {
 			for _, inc := range incs {
@@ -229,6 +239,7 @@ func (ms *ModuleSet) linkSubmoduleScopes() (restore func()) {
 					continue
 				}
 				seen[s] = true
+				revision[s] = inc.RevisionDate
 				subs = append(subs, s)
 				walk(s.Include)
 			}
@@ -251,7 +262,7 @@ func (ms *ModuleSet) linkSubmoduleScopes() (restore func()) {
 					continue
 				}
 				has[other.Name] = true
-				s.Include = append(s.Include, &yang.Include{Name: other.Name, Source: s.Source, Parent: s})
+				s.Include = append(s.Include, &yang.Include{Name: other.Name, RevisionDate: revision[other], Source: s.Source, Parent: s})
 				linked = true
 			}
 		}

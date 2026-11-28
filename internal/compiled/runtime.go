@@ -173,6 +173,19 @@ func (r *Runtime) YANGValidatedGroups() map[*compiler.CompiledGroup]bool {
 	return r.lastParse.yangValidated
 }
 
+// GetYANGResults returns the most recent parse's validation results and the
+// groups it validated, read together so both come from the same parse when
+// one Runtime parses concurrently.
+func (r *Runtime) GetYANGResults() (map[string]*yang.ValidationResult, map[*compiler.CompiledGroup]bool) {
+	r.lastParse.mu.Lock()
+	defer r.lastParse.mu.Unlock()
+	results := r.lastParse.validationResults
+	if results == nil {
+		results = make(map[string]*yang.ValidationResult)
+	}
+	return results, r.lastParse.yangValidated
+}
+
 // GetKeyFields returns declared key fields for each group (from keys= attribute)
 func (r *Runtime) GetKeyFields() map[string][]string {
 	_, keyFields := r.lastParse.get()

@@ -179,3 +179,28 @@ func TestModuleNotFoundErrorIsStable(t *testing.T) {
 		}
 	}
 }
+
+// A goyang panic during Process still undoes linkSubmoduleScopes: the parent
+// leaves goyang's SubModules map and the circular-include option goes back.
+func TestProcessPanicRestoresSubmoduleLinks(t *testing.T) {
+	ms := NewModuleSet()
+	mods := map[string]string{
+		"p":  `module p { yang-version 1.1; namespace "urn:p"; prefix pp; include sb; }`,
+		"sb": `submodule sb { yang-version 1.1; belongs-to p { prefix pp; } include sc; container cb { leaf n { type nosuch; } } }`,
+		"sc": `submodule sc { yang-version 1.1; belongs-to p { prefix pp; } container cc { leaf m { type string; } } }`,
+	}
+	for _, n := range []string{"p", "sb", "sc"} {
+		if err := ms.AddModule(n, mods[n]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := ms.ProcessAllModules(); err == nil {
+		t.Fatal("want a load error for the unknown type")
+	}
+	if _, ok := ms.mset.SubModules["p"]; ok {
+		t.Error("parent p left in SubModules after the error")
+	}
+	if ms.mset.ParseOptions.IgnoreSubmoduleCircularDependencies {
+		t.Error("IgnoreSubmoduleCircularDependencies left on after the error")
+	}
+}
