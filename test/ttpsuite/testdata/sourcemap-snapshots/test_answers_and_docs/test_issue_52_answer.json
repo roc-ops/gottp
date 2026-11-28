@@ -14,7 +14,7 @@
    {"LineNumber":10,"Matched":true,"Matches":[{"StartCol":0,"EndCol":18,"GroupName":"origin*","PatternIndex":1,"Variables":{"match":{"StartCol":0,"EndCol":18}},"ResultPath":"origin[2]"}]},
    {"LineNumber":11,"Matched":true,"Matches":[{"StartCol":0,"EndCol":47,"GroupName":"origin*","PatternIndex":1,"Variables":{"match":{"StartCol":0,"EndCol":47}},"ResultPath":"origin[2]"}]},
    {"LineNumber":12,"Matched":true,"Matches":[{"StartCol":0,"EndCol":15,"GroupName":"origin*","PatternIndex":1,"Variables":{"match":{"StartCol":0,"EndCol":15}},"ResultPath":"origin[2]"}]},
-   {"LineNumber":13,"Matched":false,"Matches":[]}
+   {"LineNumber":13,"Matched":true,"Matches":[{"StartCol":0,"EndCol":4,"GroupName":"origin*","PatternIndex":1,"Variables":{"match":{"StartCol":0,"EndCol":4}},"ResultPath":"origin[2]"}]}
   ]
  }
 }

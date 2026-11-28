@@ -1,0 +1,2 @@
+interface A
+  ip address 1.1.1.1/24

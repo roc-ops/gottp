@@ -1,0 +1,5 @@
+interface A
+  shutdown
+  mtu 9000
+interface B
+  mtu   1500

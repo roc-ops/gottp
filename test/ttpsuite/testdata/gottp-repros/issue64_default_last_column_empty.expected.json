@@ -1,0 +1,11 @@
+[
+ [
+  {
+   "g": {
+    "port": "Gi1",
+    "state": "up",
+    "descr": "uplink"
+   }
+  }
+ ]
+]

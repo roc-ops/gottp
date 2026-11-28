@@ -1,0 +1,3 @@
+<group name="g">
+{{ port }} {{ state }} {{ descr | default("") }}
+</group>

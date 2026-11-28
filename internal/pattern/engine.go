@@ -79,6 +79,10 @@ type MatchVariable struct {
 	HasSet         bool // a function is set()
 	HasJoinMatches bool // a function is joinmatches()
 
+	// DefaultFallback is true when Pattern is the .*? the engine gives a
+	// default() variable with no pattern of its own (not a user re(".*?")).
+	DefaultFallback bool
+
 	// calls is Functions read as calls (see Calls), built once.
 	calls atomic.Pointer[VariableCalls]
 }
@@ -330,6 +334,7 @@ func (e *Engine) extractFunctionsFromChainValue(value interface{}) []string {
 
 // getPatternForVariable determines the regex pattern for a variable
 func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]interface{}) string {
+	variable.DefaultFallback = false
 	// Check if variable name matches a built-in pattern
 	// BUT: Only use built-in patterns if the name is exactly uppercase (e.g., "IP", not "ip")
 	// This matches Python TTP behavior where {{ IP }} uses built-in pattern but {{ ip }} uses default
@@ -454,6 +459,7 @@ func (e *Engine) getPatternForVariable(variable *MatchVariable, vars map[string]
 			// This matches Python TTP behavior where default() can handle empty values
 			// Note: We use .*? instead of \S* because trailing spaces are trimmed from lines,
 			// so we need to match the end of the line (which may be empty after trimming)
+			variable.DefaultFallback = true
 			return `.*?`
 		}
 	}
@@ -493,6 +499,9 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 	// Special handling for _start_, _end_, and _line_ patterns on their own lines
 	// This must be checked before looking for {{ }} patterns, since they can be without {{ }}
 	trimmedLine := strings.TrimSpace(line)
+	// TTP keeps a line's indent in its regex (#30), also for a line that is
+	// only {{ _start_ }} or {{ _end_ }}.
+	lineIndent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
 	if len(variables) == 1 {
 		if variables[0].Name == "_start_" {
 			// Check if line only has _start_ variable (possibly with whitespace)
@@ -501,7 +510,7 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 				// {{ _start_ }} on its own line should match empty lines (or whitespace-only lines).
 				// This matches Python TTP behavior where standalone {{ _start_ }} generates
 				// regex \n[\t ]*(?=\n|\r\n), which matches blank lines.
-				return `^[\t ]*$`, nil
+				return "^" + lineIndent + `[\t ]*$`, nil
 			}
 			if trimmedLine == "_start_" {
 				// Bare _start_ (without {{ }}) on its own line - match any line.
@@ -517,7 +526,7 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 				// {{ _end_ }} on its own line should match empty lines (or whitespace-only lines).
 				// This matches Python TTP behavior where standalone {{ _end_ }} generates
 				// regex \n[\t ]*(?=\n|\r\n), which matches blank lines.
-				return `^[\t ]*$`, nil
+				return "^" + lineIndent + `[\t ]*$`, nil
 			}
 			if trimmedLine == "_end_" {
 				// Bare _end_ (without {{ }}) on its own line - match any line.
@@ -576,8 +585,9 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 				}
 				if variables[i].Name == "_start_" || variables[i].Name == "_end_" || hasDefault || hasSet {
 					// Make trailing space optional for _start_, _end_, and variables with default() or set()
-					escaped = strings.TrimSuffix(escaped, `[ \t]+`)
-					if strings.HasSuffix(escaped, `\ `) {
+					if t := strings.TrimSuffix(escaped, `[ \t]+`); t != escaped {
+						escaped = t + `[ \t]*`
+					} else if strings.HasSuffix(escaped, `\ `) {
 						escaped = strings.TrimSuffix(escaped, `\ `) + `[ \t]*`
 					} else if strings.HasSuffix(escaped, ` `) {
 						escaped = strings.TrimSuffix(escaped, ` `) + `[ \t]*`

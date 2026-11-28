@@ -92,8 +92,9 @@ type PatternProfile struct {
 	// BlankStart is true when the line's only variable is {{ _start_ }} and
 	// its regex matches blank lines.
 	BlankStart bool
-	// MatchesBlank is true when the pattern may match a blank input line:
-	// the line carries its own start indicator or is an end pattern.
+	// MatchesBlank is true when the pattern's regex may match a blank input
+	// line (empty, or only spaces and tabs); see regexMatchesBlank. The
+	// runtime skips blank lines for the other patterns (#162).
 	MatchesBlank bool
 	// NoVariables is true for a line without {{ variables }}. TTP skips it
 	// with a warning, so it never matches input.
@@ -235,7 +236,7 @@ func lineProfile(cp *pattern.CompiledPattern) PatternProfile {
 	}
 	pp.Action = action
 	pp.Indicated = action.isStartAction()
-	pp.MatchesBlank = pp.Indicated || action == ActionEnd
+	pp.MatchesBlank = regexMatchesBlank(cp)
 	if len(cp.VariableOrder) == 1 {
 		switch cp.VariableOrder[0] {
 		case pattern.IndicatorLine:

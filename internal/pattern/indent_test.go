@@ -27,10 +27,17 @@ func TestIndentMatchesExactly(t *testing.T) {
 		{"  {{ x | _line_ }}", "a b", false},
 		{"   literal {{ ignore }}", "   literal a", true},
 		{"   literal {{ ignore }}", "    literal a", false},
-		// A standalone {{ _start_ }}/{{ _end_ }} still matches any blank line:
-		// the runtime right-trims data lines, so a whitespace-only line
-		// arrives as "" and has no indent to check.
-		{"    {{ _start_ }}", "", true},
+		// A standalone {{ _start_ }}/{{ _end_ }} keeps its indent too, as in
+		// TTP (\n    [\t ]*): it matches a blank line with at least that
+		// indent, and not an empty line (#162).
+		{"    {{ _start_ }}", "", false},
+		{"    {{ _start_ }}", "  ", false},
+		{"    {{ _start_ }}", "    ", true},
+		{"    {{ _start_ }}", "     \t", true},
+		{"  {{ _end_ }}", "  ", true},
+		{"  {{ _end_ }}", "", false},
+		{"{{ _start_ }}", "", true},
+		{"{{ _start_ }}", "  ", true},
 		// Unindented lines are unchanged.
 		{"{{ v }}", "a", true},
 		{"H {{ _start_ }}", "H", true},

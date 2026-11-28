@@ -1,0 +1,4 @@
+<group name="g">
+{{ x | re(".*?") | default("a") | _start_ }}
+ip {{ ip }}
+</group>

@@ -4,6 +4,13 @@ All notable changes to GoTTP will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed: blank data lines and `default()` captures (baseline cluster 1, #162, #64, #65, #91)
+- **Blank data lines are matched, as in TTP (#162).** A data line that is empty or holds only spaces and tabs was skipped before matching unless the template line was a start or end indicator. Now it is skipped only for a template line whose regex can't match it (worked out once, when the template compiles), so `{{ x | _line_ }}`, `re(".*")` and `re("[ ]+")` match it, and `_line_ | joinmatches` keeps it: `desc a  \n  \nmore `. `Parse` and `ParseStream` agree.
+- **A blank line is matched as it is.** A start or end indicator line used to see a blank line as `""`. Now it sees the spaces too, so an indented `  {{ _start_ }}` matches a line of at least two spaces but not an empty line, and a standalone `{{ _start_ }}`/`{{ _end_ }}` line keeps its indent in the regex, as TTP's `\n  [\t ]*` does.
+- **`default()` no longer captures the space before it (#64).** `ip address {{ ip | default("none") }}` on `ip address 1.1.1.1/24` gives `"1.1.1.1/24"`, not `" 1.1.1.1/24"`. The same goes for `set()` variables and `_start_`/`_end_` variables on a line with text: the space before them is now optional instead of removed (`[ \t]*`), which only changes what they capture. Source maps and dynamic paths built from such values change with them (`pwr_sdp.8243`, not `pwr_sdp. 8243`).
+- **`default()` without a regex stays a gottp extension.** It keeps the `.*?` regex, so a trailing `{{ col | default("") }}` still matches an empty or missing last column and text with spaces, where TTP (`WORD`) drops the line. A line made only of `default()` variables doesn't match blank lines. See `test/comparison/KNOWN_DIFFERENCES.md`.
+- #65 (the `default()` value when its line is absent) and #91 (a group with no matching lines emits its defaults) were already fixed on main; this adds the #65 repro. The last case listed under #91, `test_group_default_referencing_variable_parent_group_no_re_two_inputs`, fails because of #70 (several unnamed inline `<input>` tags), and is now listed there.
+
 ### Changed (breaking: captured values keep trailing whitespace, as in TTP, #33)
 Data lines are no longer stripped of trailing spaces and tabs before they are matched. Python TTP 0.10.1 keeps them (its line regex is `\n<line>[\t ]*(?=\n|\r\n)`), so gottp now does too:
 - **A greedy capture keeps the trailing spaces**: `{{ x | re(".*") }}` on `a 1  ` gives `"1  "`, and `re("[a-zA-Z0-9 ]+")` on `vlan 2 name X ` gives `"X "`. They were trimmed.
@@ -11,7 +18,6 @@ Data lines are no longer stripped of trailing spaces and tabs before they are ma
 - **`_exact_space_` lines allow trailing whitespace**, as TTP appends `[\t ]*` whether or not `_exact_space_` is set: `a  {{ x | _exact_space_ }}` matches `a  1  `.
 - **A template with no tags keeps its first line's indent**: ` Core {{ c }}` matches ` Core 1` but not `Core 1`. The whole template was trimmed, so the first line matched at any indent. Leading blank lines are still dropped.
 - Source maps: a match's `EndCol` now includes the line's trailing whitespace, as Python's match span does.
-- Not yet: lines that are empty or hold only spaces or tabs are still skipped before matching, where TTP can match them (#162).
 - `\r` is still trimmed from data lines, so with CRLF input `.*` doesn't capture the `\r` as it does in TTP (see `test/comparison/KNOWN_DIFFERENCES.md`).
 
 ### Added: Python type methods for match variables (refactor F2, #36)

@@ -1,0 +1,7 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[0,14],"record":{"descr":"uplink","port":"Gi1","state":"up"}},
+  {"group_path":"g","src_range":[14,23],"record":{"descr":"","port":"Gi2","state":"down"}},
+  {"group_path":"g","src_range":[23,40],"record":{"descr":"core link","port":"Gi3","state":"up"}}
+ ]
+}

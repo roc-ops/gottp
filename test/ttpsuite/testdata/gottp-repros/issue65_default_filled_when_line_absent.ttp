@@ -1,0 +1,5 @@
+<group name="g">
+interface {{ name }}
+  ip address {{ ip }}
+  description {{ d | default("none") }}
+</group>

@@ -9,6 +9,20 @@
    "issue": 136,
    "reason": "a \"text {{ _start_ }}\" line also matches lines with more text after it, so it splits the record"
   },
+  "gottp-repros/issue162_user_lazy_re_default_matches_blank": {
+   "issue": 165,
+   "reason": "default() replaces the matched empty value of a blank line with its default"
+  },
+  "gottp-repros/issue154_set_line_without_extra_text": {
+   "issue": 154,
+   "reason": "a set() variable matches text after the line's own text (\"mtu 9000\" for \"mtu {{ mtu | set(...) }}\"); TTP removes it from the regex"
+  },
+  "gottp-repros/issue64_default_last_column_empty": {
+   "reason": "design: a trailing default() variable matches an empty or missing last column, where TTP drops the line (#64)"
+  },
+  "gottp-repros/issue64_default_matches_text_with_spaces": {
+   "reason": "design: a default() variable without a regex matches any text, also with spaces, where TTP uses WORD (#64)"
+  },
   "test_N2G_formatter/test_n2g_formatter": {
    "issue": 80,
    "reason": "format=\"n2g\" is not supported"
@@ -24,19 +38,9 @@
   "test_answers_and_docs/test_docs_ttp_dictionary_usage_example": {
    "reason": "design: python macro (uses _ttp_[\"match\"][\"to_ip\"] and the ipaddress object API)"
   },
-  "test_answers_and_docs/test_github_issue_37_cleaned_data_template": {
-   "issue": 64,
-   "also": [
-    65
-   ],
-   "reason": "qos {{ sap_egress | default(\"1)\") }} captures the leading space (\" 11010\")"
-  },
   "test_answers_and_docs/test_github_issue_37_original_data_template": {
    "issue": 67,
-   "also": [
-    65
-   ],
-   "reason": "resub(r\"\\*\", \"qinq\") is a raw-string argument, so the sap path keeps the '*'; then ingress/egress lack their default() values (the macro also uses Python \"import re\")"
+   "reason": "resub(r\"\\*\", \"qinq\") is a raw-string argument, so the sap path keeps the '*' (the macro also uses Python \"import re\")"
   },
   "test_answers_and_docs/test_interface_template_not_collecting_all_data_solution": {
    "reason": "design: python macro (the macro uses a generator expression, sum() and bin())"
@@ -143,8 +147,8 @@
    "reason": "several inline <input> tags without names: only the first is parsed"
   },
   "test_group_functions/test_group_default_referencing_variable_parent_group_no_re_two_inputs": {
-   "issue": 91,
-   "reason": "group with no matching lines does not emit its default= values"
+   "issue": 70,
+   "reason": "several inline <input> tags without names: only the first is parsed"
   },
   "test_group_functions/test_group_macro_chaining": {
    "issue": 97,
@@ -274,21 +278,9 @@
    "issue": 71,
    "reason": "let() on a matched line is overridden by a later set()"
   },
-  "test_match_functions/test_match_variable_default_set_to_dictionary": {
-   "issue": 64,
-   "reason": "default() variable captures the leading space"
-  },
-  "test_match_functions/test_match_variable_default_set_to_list": {
-   "issue": 64,
-   "reason": "default() variable captures the leading space"
-  },
-  "test_match_functions/test_match_variable_default_set_to_string": {
-   "issue": 64,
-   "reason": "default() variable captures the leading space"
-  },
   "test_match_functions/test_match_variable_set_and_let_for_same_variable_with_special_chars": {
-   "issue": 64,
-   "reason": "default() variable captures the leading space"
+   "issue": 71,
+   "reason": "let() on a matched line is overridden by a later set()"
   },
   "test_match_functions/test_multiple_joinmatches": {
    "issue": 73,
@@ -300,10 +292,7 @@
   },
   "test_misc/test_groups_with_defaults_only_and_with_children_with_defaults_only": {
    "issue": 110,
-   "reason": "group-specific output= results are merged into the main result instead of added as a separate item",
-   "also": [
-    91
-   ]
+   "reason": "group-specific output= results are merged into the main result instead of added as a separate item"
   },
   "test_misc/test_hierarch_template": {
    "issue": 73,
@@ -316,13 +305,8 @@
    "issue": 97,
    "reason": "group macro that changes data in place and returns None: the change is lost"
   },
-  "test_misc/test_match_vars_set_with_hyphen": {
-   "issue": 64,
-   "reason": "default() variable captures the leading space"
-  },
   "test_misc/test_tail_match_no_group_functions_processing": {
-   "issue": 64,
-   "reason": "default() variable captures the leading space"
+   "reason": "design: python macro (the macro calls any() on a generator expression, which Starlark does not have)"
   },
   "test_misc/test_ttp_templates_dir_env_variable": {
    "issue": 95,
