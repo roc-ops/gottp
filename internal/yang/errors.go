@@ -11,7 +11,7 @@ type ValidationError struct {
 	Line      int
 	Column    int
 
-	once bool // a warning reported once per Validate call, not per item
+	once bool // reported once per group (Validate call, and across inputs), not per item
 }
 
 // Error implements the error interface

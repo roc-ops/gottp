@@ -19,6 +19,7 @@ type ModuleSet struct {
 	addedModules   map[string]bool       // Track which modules we've added (for error messages)
 	prefixToModule map[string]string     // Map prefix to module name (e.g., "cms" -> "example-cable-modem-state")
 	patternUses    map[string]patternUse // pattern string -> whether it is used with invert-match
+	orphans        map[string][]string   // module not loaded -> loaded submodules that belong to it
 }
 
 // NewModuleSet creates a new empty ModuleSet
@@ -121,6 +122,55 @@ func (ms *ModuleSet) ProcessAllModules() error {
 		}
 	}
 
+	return ms.registerSubmodules()
+}
+
+// registerSubmodules checks each loaded submodule against the module it
+// belongs to, as yangson and pyang do: a module may include only its own
+// submodules, whose content goyang then merges into the module's schema. A
+// submodule whose module is not loaded is not an error (yangson ignores a
+// submodule no module includes); it is remembered so that a path naming its
+// module says why the module is missing. A submodule's belongs-to prefix
+// also resolves to its module when no module uses that prefix.
+func (ms *ModuleSet) registerSubmodules() error {
+	var errs []string
+	for name, m := range ms.mset.Modules {
+		if name != m.Name {
+			continue // the same module under name@revision
+		}
+		for _, inc := range m.Include {
+			sub := inc.Module
+			if sub == nil || sub.BelongsTo == nil || sub.BelongsTo.Name == m.Name {
+				continue
+			}
+			errs = append(errs, fmt.Sprintf("module %s includes submodule %s, which belongs to %s (RFC 7950 7.1.6)",
+				m.Name, sub.Name, sub.BelongsTo.Name))
+		}
+	}
+	sort.Strings(errs)
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to process YANG modules: %s", strings.Join(errs, "; "))
+	}
+
+	ms.orphans = make(map[string][]string)
+	for name, sub := range ms.mset.SubModules {
+		if name != sub.Name || sub.BelongsTo == nil {
+			continue
+		}
+		parent := sub.BelongsTo.Name
+		if _, ok := ms.mset.Modules[parent]; !ok {
+			ms.orphans[parent] = append(ms.orphans[parent], sub.Name)
+			continue
+		}
+		if sub.BelongsTo.Prefix != nil && sub.BelongsTo.Prefix.Name != "" {
+			if _, taken := ms.prefixToModule[sub.BelongsTo.Prefix.Name]; !taken {
+				ms.prefixToModule[sub.BelongsTo.Prefix.Name] = parent
+			}
+		}
+	}
+	for _, subs := range ms.orphans {
+		sort.Strings(subs)
+	}
 	return nil
 }
 
@@ -179,6 +229,7 @@ func (ms *ModuleSet) Clear() {
 	ms.prefixToModule = make(map[string]string)
 	ms.mset = yang.NewModules() // Reset the shared Modules instance
 	ms.patternUses = nil
+	ms.orphans = nil
 }
 
 // FindSchemaByPath finds a schema entry by YANG path
@@ -202,8 +253,8 @@ func (ms *ModuleSet) FindSchemaByPath(path string) (*yang.Entry, error) {
 				moduleName = actualModuleName
 			} else {
 				// Not found as module name or prefix
-				return nil, fmt.Errorf("module or prefix '%s' not found (available modules: %v, available prefixes: %v)",
-					prefixOrModuleName, ms.getModuleNames(), ms.getPrefixes())
+				return nil, fmt.Errorf("module or prefix '%s' not found%s (available modules: %v, available prefixes: %v)",
+					prefixOrModuleName, ms.orphanHint(prefixOrModuleName), ms.getModuleNames(), ms.getPrefixes())
 			}
 		}
 	} else {
@@ -282,6 +333,19 @@ func (ms *ModuleSet) normalizePath(path, moduleName string) string {
 	}
 
 	return strings.Join(normalizedParts, "/")
+}
+
+// orphanHint explains why module name is missing when loaded submodules
+// belong to it: "; submodule S belongs to NAME, which is not loaded".
+func (ms *ModuleSet) orphanHint(name string) string {
+	subs := ms.orphans[name]
+	if len(subs) == 0 {
+		return ""
+	}
+	if len(subs) == 1 {
+		return fmt.Sprintf("; submodule %s belongs to %s, which is not loaded", subs[0], name)
+	}
+	return fmt.Sprintf("; submodules %s belong to %s, which is not loaded", strings.Join(subs, ", "), name)
 }
 
 // getModuleNames returns a list of all module names (helper for error messages)

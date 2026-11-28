@@ -54,22 +54,34 @@ func LoadModuleFromString(name, content string) (string, error) {
 	return content, nil
 }
 
-// ExtractModuleName extracts the module name from YANG content
+// ExtractModuleName extracts the name of the module or submodule in YANG
+// content: NAME in "module NAME {" or "submodule NAME {".
 func ExtractModuleName(content string) (string, error) {
-	lines := strings.Split(content, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "module ") {
-			// Extract module name: "module module-name {"
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				moduleName := strings.TrimSuffix(parts[1], "{")
-				moduleName = strings.TrimSpace(moduleName)
-				return moduleName, nil
-			}
+	_, name, err := ExtractModuleHeader(content)
+	return name, err
+}
+
+// ExtractModuleHeader returns the keyword ("module" or "submodule") and the
+// name of the module or submodule in YANG content. A submodule is loaded
+// like a module: it is registered under the module it belongs to, whose
+// include statements then resolve (RFC 7950 5.1).
+func ExtractModuleHeader(content string) (kind, name string, err error) {
+	for _, line := range strings.Split(content, "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) == 0 || (fields[0] != "module" && fields[0] != "submodule") {
+			// "module{" or "submodule{" with no space is not a header.
+			continue
+		}
+		if len(fields) < 2 {
+			continue
+		}
+		name = strings.TrimSuffix(fields[1], "{")
+		name = strings.Trim(strings.TrimSpace(name), `"'`)
+		if name != "" {
+			return fields[0], name, nil
 		}
 	}
-	return "", fmt.Errorf("module name not found in YANG content")
+	return "", "", fmt.Errorf("module or submodule name not found in YANG content")
 }
 
 // ExtractImports extracts all import statements from YANG content
@@ -95,4 +107,3 @@ func ExtractImports(content string) []string {
 	}
 	return imports
 }
-

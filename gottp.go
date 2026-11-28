@@ -2,6 +2,7 @@ package gottp
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/roc-ops/gottp/api/python"
 	"github.com/roc-ops/gottp/internal/compiled"
@@ -236,6 +237,9 @@ type VarRange struct {
 // create a new CompiledTemplate instance for each goroutine or use the
 // parallel parsing utilities.
 //
+// Parse does not validate: options.YANGModules is ignored (the modules are
+// not even loaded). Use ParseWithValidation for YANG validation results.
+//
 // Parameters:
 //   - inputs: Map of input names to input data strings
 //   - vars: Map of variable names to variable values (can be nil)
@@ -253,7 +257,8 @@ type VarRange struct {
 //		nil,
 //	)
 func (ct *CompiledTemplate) Parse(inputs Inputs, vars Vars, options *ParseOptions) (interface{}, error) {
-	result, err := ct.ParseWithValidation(inputs, vars, options)
+	rt := compiled.NewRuntimeWithCache(ct.compiled, ct.compileFunctions, ct.pipelines)
+	result, err := parseWith(rt, ct.compiled.Groups, inputs, vars, options, false)
 	if err != nil {
 		return nil, err
 	}
@@ -270,6 +275,11 @@ func (ct *CompiledTemplate) Parse(inputs Inputs, vars Vars, options *ParseOption
 //
 // Calling order: groups in template definition order; within a group,
 // matches in input scan order. No cross-group ordering guarantee.
+//
+// ParseStream does not validate. When options.YANGModules is set and the
+// template has a group with a yang= attribute, the template is not
+// streamable (*TemplateNotStreamableError, naming each such group): use
+// ParseWithValidation, or omit YANGModules to stream without validation.
 //
 // If fn returns non-nil, parsing aborts immediately: that error is
 // returned; no further fn invocations occur.
@@ -297,27 +307,20 @@ func (ct *CompiledTemplate) ParseStream(
 		varMap[k] = v
 	}
 
-	// Handle YANG modules and source map option
-	var opts *compiled.ParseOptions
-	if options != nil {
-		opts = &compiled.ParseOptions{
-			EnableSourceMap: options.EnableSourceMap,
-			Lookups:         options.Lookups,
-			Vars:            options.Vars,
-			Functions:       convertFunctions(options.Functions),
-		}
-
-		// Load YANG modules if provided
-		if options.YANGModules != nil {
-			moduleSet, err := loadYANGModules(options.YANGModules)
-			if err != nil {
-				return fmt.Errorf("failed to load YANG modules: %w", err)
-			}
-			opts.YANGModuleSet = moduleSet
+	// ParseStream does not validate: YANG validation needs a group's whole
+	// result. A template whose yang= groups would be validated is not
+	// streamable, as one whose custom group functions would be applied.
+	if options != nil && options.YANGModules != nil {
+		if reasons := yangStreamReasons(ct.compiled.Groups); len(reasons) > 0 {
+			return &TemplateNotStreamableError{Reasons: reasons}
 		}
 	}
+	opts, err := internalParseOptions(options, false)
+	if err != nil {
+		return err
+	}
 
-	err := r.ParseStream(inputMap, varMap, opts, fn)
+	err = r.ParseStream(inputMap, varMap, opts, fn)
 
 	// Translate the internal stream-gate error into the public one.
 	if reasons := compiled.StreamGateReasons(err); reasons != nil {
@@ -326,71 +329,149 @@ func (ct *CompiledTemplate) ParseStream(
 	return err
 }
 
-// ParseWithValidation parses and returns both data and validation results
+// ParseWithValidation parses like Parse and, when options.YANGModules is
+// set, validates the result of each group with a yang= attribute against
+// those modules. Validation is the only difference from Parse: Parse
+// neither loads the modules nor validates.
+//
+// ValidationResults has an entry for every yang= group, keyed by group
+// name (a nested group's by name and parent record index, "name[0]"). A
+// group that produced no records still gets one, so a yang= path that
+// names no schema node is reported. With several inputs a group's results
+// from each input are merged into its one entry. Without YANG modules
+// ValidationResults is empty.
 func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOptions) (*ParseResult, error) {
-	runtime := compiled.NewRuntimeWithCache(ct.compiled, ct.compileFunctions, ct.pipelines)
+	rt := compiled.NewRuntimeWithCache(ct.compiled, ct.compileFunctions, ct.pipelines)
+	return parseWith(rt, ct.compiled.Groups, inputs, vars, options, true)
+}
 
-	// Convert Inputs to map[string]string
-	inputMap := make(map[string]string)
+// parseWith runs one parse on rt. With validate set and YANG modules
+// supplied it loads them, validates the yang= groups and gives each of
+// groups' yang= groups an entry in ValidationResults; without, the modules
+// are not loaded.
+func parseWith(rt *compiled.Runtime, groups []*compiler.CompiledGroup, inputs Inputs, vars Vars, options *ParseOptions, validate bool) (*ParseResult, error) {
+	inputMap := make(map[string]string, len(inputs))
 	for k, v := range inputs {
 		inputMap[k] = v
 	}
-
-	// Convert Vars to map[string]interface{}
-	varMap := make(map[string]interface{})
+	varMap := make(map[string]interface{}, len(vars))
 	for k, v := range vars {
 		varMap[k] = v
 	}
 
-	// Handle YANG modules and source map option
-	var opts *compiled.ParseOptions
-	if options != nil {
-		opts = &compiled.ParseOptions{
-			EnableSourceMap: options.EnableSourceMap,
-			Lookups:         options.Lookups,
-			Vars:            options.Vars,
-			Functions:       convertFunctions(options.Functions),
-		}
-
-		// Load YANG modules if provided
-		if options.YANGModules != nil {
-			moduleSet, err := loadYANGModules(options.YANGModules)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load YANG modules: %w", err)
-			}
-			opts.YANGModuleSet = moduleSet
-		}
-	}
-
-	data, internalSourceMap, err := runtime.ParseWithSourceMap(inputMap, varMap, opts)
+	opts, err := internalParseOptions(options, validate)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get validation results
-	validationResults := runtime.GetValidationResults()
+	data, internalSourceMap, err := rt.ParseWithSourceMap(inputMap, varMap, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	validationResults := rt.GetValidationResults()
 	if validationResults == nil {
 		validationResults = make(map[string]*yang.ValidationResult)
 	}
+	if opts != nil && opts.YANGModuleSet != nil {
+		addMissingYANGEntries(groups, yang.NewValidator(opts.YANGModuleSet), validationResults)
+	}
 
-	// Convert internal source map to public source map
 	var sourceMap *SourceMap
 	if internalSourceMap != nil {
 		sourceMap = convertSourceMap(internalSourceMap)
 	}
 
-	// Get key fields from group declarations
-	keyFields := runtime.GetKeyFields()
+	keyFields := rt.GetKeyFields()
 	if keyFields == nil {
 		keyFields = make(map[string][]string)
 	}
 
 	return &ParseResult{
-		Data:             data,
+		Data:              data,
 		ValidationResults: validationResults,
-		SourceMap:        sourceMap,
-		KeyFields:        keyFields,
+		SourceMap:         sourceMap,
+		KeyFields:         keyFields,
 	}, nil
+}
+
+// internalParseOptions converts options for the runtime, loading the YANG
+// modules only when validate is set.
+func internalParseOptions(options *ParseOptions, validate bool) (*compiled.ParseOptions, error) {
+	if options == nil {
+		return nil, nil
+	}
+	opts := &compiled.ParseOptions{
+		EnableSourceMap: options.EnableSourceMap,
+		Lookups:         options.Lookups,
+		Vars:            options.Vars,
+		Functions:       convertFunctions(options.Functions),
+	}
+	if validate && options.YANGModules != nil {
+		moduleSet, err := loadYANGModules(options.YANGModules)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load YANG modules: %w", err)
+		}
+		opts.YANGModuleSet = moduleSet
+	}
+	return opts, nil
+}
+
+// walkYANGGroups calls fn for each group in groups and their descendants
+// that has a yang= attribute, in template order.
+func walkYANGGroups(groups []*compiler.CompiledGroup, fn func(g *compiler.CompiledGroup, path string)) {
+	seen := map[*compiler.CompiledGroup]bool{}
+	var walk func(gs []*compiler.CompiledGroup)
+	walk = func(gs []*compiler.CompiledGroup) {
+		for _, g := range gs {
+			if g == nil || seen[g] {
+				continue
+			}
+			seen[g] = true
+			if path := g.Attributes["yang"]; path != "" {
+				fn(g, path)
+			}
+			walk(g.Groups)
+		}
+	}
+	walk(groups)
+}
+
+// addMissingYANGEntries gives each yang= group that has no validation result
+// (it produced no records) one: its path validated with no data, which is
+// valid when the path names a schema node.
+func addMissingYANGEntries(groups []*compiler.CompiledGroup, v *yang.Validator, results map[string]*yang.ValidationResult) {
+	walkYANGGroups(groups, func(g *compiler.CompiledGroup, path string) {
+		if _, ok := results[g.Name]; ok {
+			return
+		}
+		for key := range results {
+			if strings.HasPrefix(key, g.Name+"[") {
+				return
+			}
+		}
+		results[g.Name] = v.Validate([]map[string]interface{}{}, path, g.Name)
+	})
+}
+
+// yangStreamReasons returns why a template is not streamable when YANG
+// modules are supplied: each yang= group, which ParseStream would not
+// validate, and the reasons the template fails the streamability check
+// anyway. It returns nil when the template has no yang= group.
+func yangStreamReasons(groups []*compiler.CompiledGroup) []string {
+	var reasons []string
+	walkYANGGroups(groups, func(g *compiler.CompiledGroup, _ string) {
+		reasons = append(reasons, fmt.Sprintf("group %q has yang=, and YANG validation needs the whole parse result; use ParseWithValidation, or pass no YANGModules to stream without validation", g.Name))
+	})
+	if len(reasons) == 0 {
+		return nil
+	}
+	for _, g := range groups {
+		if !g.IsNested && !g.Streamable {
+			reasons = append(reasons, g.NonStreamableReasons...)
+		}
+	}
+	return reasons
 }
 
 // Inputs represents input data for parsing
@@ -473,9 +554,14 @@ func loadYANGModules(yangMods *YANGModules) (*yang.ModuleSet, error) {
 	return moduleSet, nil
 }
 
-// YANGModules represents YANG modules for validation
+// YANGModules represents YANG modules for validation. Each source may hold
+// modules or submodules. A submodule is registered under the module named
+// by its belongs-to statement, so that module's include statements resolve
+// and yang= paths into the submodule's content validate under the module's
+// name or prefix ("parent:container/..."). Load the parent module together
+// with all the submodules it includes.
 type YANGModules struct {
-	Modules map[string]string // name -> content
+	Modules map[string]string // name -> content of a module or submodule
 	Files   []string          // file paths
 	URLs    []string          // URLs to fetch
 }
@@ -511,7 +597,11 @@ type Functions struct {
 
 // ParseOptions represents options for parsing
 type ParseOptions struct {
-	YANGModules     *YANGModules // YANG modules for validation
+	// YANGModules are the YANG modules (and submodules) that
+	// ParseWithValidation validates yang= groups against. Parse ignores
+	// them; ParseStream refuses a template with yang= groups when they are
+	// set.
+	YANGModules     *YANGModules
 	EnableSourceMap bool          // Enable source map collection (zero overhead when false)
 
 	// Lookups provides runtime lookup tables merged with compiled lookups at parse time.
@@ -531,6 +621,7 @@ type ParseOptions struct {
 // such as registering native Go macros before parsing
 type Runtime struct {
 	runtime *compiled.Runtime
+	groups  []*compiler.CompiledGroup // the template's groups, for YANG entries
 }
 
 // MacroRegistry provides access to register native Go macros
@@ -559,78 +650,20 @@ func (r *Runtime) GetMacroRegistry() *MacroRegistry {
 	}
 }
 
-// Parse executes the runtime with given inputs and variables
+// Parse executes the runtime with given inputs and variables. Like
+// CompiledTemplate.Parse it does not validate.
 func (r *Runtime) Parse(inputs Inputs, vars Vars, options *ParseOptions) (interface{}, error) {
-	result, err := r.ParseWithValidation(inputs, vars, options)
+	result, err := parseWith(r.runtime, r.groups, inputs, vars, options, false)
 	if err != nil {
 		return nil, err
 	}
 	return result.Data, nil
 }
 
-// ParseWithValidation parses and returns both data and validation results
+// ParseWithValidation parses and returns both data and validation results,
+// as CompiledTemplate.ParseWithValidation does.
 func (r *Runtime) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOptions) (*ParseResult, error) {
-	// Convert Inputs to map[string]string
-	inputMap := make(map[string]string)
-	for k, v := range inputs {
-		inputMap[k] = v
-	}
-
-	// Convert Vars to map[string]interface{}
-	varMap := make(map[string]interface{})
-	for k, v := range vars {
-		varMap[k] = v
-	}
-
-	// Handle YANG modules and source map option
-	var opts *compiled.ParseOptions
-	if options != nil {
-		opts = &compiled.ParseOptions{
-			EnableSourceMap: options.EnableSourceMap,
-			Lookups:         options.Lookups,
-			Vars:            options.Vars,
-			Functions:       convertFunctions(options.Functions),
-		}
-
-		// Load YANG modules if provided
-		if options.YANGModules != nil {
-			moduleSet, err := loadYANGModules(options.YANGModules)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load YANG modules: %w", err)
-			}
-			opts.YANGModuleSet = moduleSet
-		}
-	}
-
-	data, internalSourceMap, err := r.runtime.ParseWithSourceMap(inputMap, varMap, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get validation results
-	validationResults := r.runtime.GetValidationResults()
-	if validationResults == nil {
-		validationResults = make(map[string]*yang.ValidationResult)
-	}
-
-	// Convert internal source map to public source map
-	var sourceMap *SourceMap
-	if internalSourceMap != nil {
-		sourceMap = convertSourceMap(internalSourceMap)
-	}
-
-	// Get key fields from group declarations
-	keyFields := r.runtime.GetKeyFields()
-	if keyFields == nil {
-		keyFields = make(map[string][]string)
-	}
-
-	return &ParseResult{
-		Data:             data,
-		ValidationResults: validationResults,
-		SourceMap:        sourceMap,
-		KeyFields:        keyFields,
-	}, nil
+	return parseWith(r.runtime, r.groups, inputs, vars, options, true)
 }
 
 // NewRuntime creates a reusable Runtime instance for a compiled template.
@@ -643,6 +676,7 @@ func (r *Runtime) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOp
 func (ct *CompiledTemplate) NewRuntime() *Runtime {
 	return &Runtime{
 		runtime: compiled.NewRuntimeWithCache(ct.compiled, ct.compileFunctions, ct.pipelines),
+		groups:  ct.compiled.Groups,
 	}
 }
 

@@ -510,13 +510,14 @@ type yangJob struct {
 	data            interface{}
 }
 
-// validateYANG runs the YANG validations of one top group's result.
+// validateYANG runs the YANG validations of one top group's result. With
+// several inputs a group's results merge into its one entry.
 func (r *Runtime) validateYANG(jobs []yangJob) {
 	if r.yangValidator == nil {
 		return
 	}
 	for _, j := range jobs {
-		r.validationResults[j.key] = r.yangValidator.Validate(j.data, j.path, j.name)
+		r.validationResults[j.key] = yang.MergeResults(r.validationResults[j.key], r.yangValidator.Validate(j.data, j.path, j.name))
 	}
 }
 
