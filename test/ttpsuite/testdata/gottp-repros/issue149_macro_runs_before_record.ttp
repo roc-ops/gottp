@@ -1,0 +1,15 @@
+<template>
+<macro>
+def m(data):
+    data["desc"] = "fromm"
+    return data
+</macro>
+
+<group name="a" macro="m" record="desc, rd">
+a {{ x }}
+desc {{ desc }}
+</group>
+<group name="b" set="rd, seen">
+b {{ y }}
+</group>
+</template>

@@ -1,0 +1,4 @@
+object-group X
+ network-object A
+ network-object B
+ network-object C

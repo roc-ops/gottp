@@ -1,0 +1,6 @@
+<template>
+<group name="g" record="desc, rd" set="rd, desc">
+interface {{ name }}
+ description {{ desc }}
+</group>
+</template>

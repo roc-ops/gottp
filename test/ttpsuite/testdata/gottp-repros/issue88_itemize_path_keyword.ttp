@@ -1,0 +1,3 @@
+<group name="g" itemize="key='name', path='info.names'">
+interface {{ name }}
+</group>

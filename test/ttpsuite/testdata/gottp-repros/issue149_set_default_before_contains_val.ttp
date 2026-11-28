@@ -1,0 +1,7 @@
+<template>
+<group name="g" contains_val="desc, dflt">
+interface {{ name }}
+ description {{ desc }}
+ {{ desc | set("dflt") }}
+</group>
+</template>

@@ -1,0 +1,9 @@
+<template>
+<group name="a" void="" record="desc, rd">
+a {{ x }}
+desc {{ desc }}
+</group>
+<group name="b" set="rd, seen">
+b {{ y }}
+</group>
+</template>

@@ -1,0 +1,15 @@
+<template>
+<vars>
+fan = "zzz"
+</vars>
+
+<macro>
+def fan(data):
+    data["m"] = "ran"
+    return data
+</macro>
+
+<group name="g" macro="fan">
+a {{ x }}
+</group>
+</template>

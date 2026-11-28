@@ -1,0 +1,13 @@
+<template>
+<vars>
+ch = "contains('z')"
+</vars>
+
+<group name="a" chain="ch" record="x">
+a {{ x }}
+z {{ z }}
+</group>
+<group name="b" set="x">
+b {{ y }}
+</group>
+</template>

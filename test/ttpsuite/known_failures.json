@@ -9,6 +9,54 @@
    "issue": 136,
    "reason": "a \"text {{ _start_ }}\" line also matches lines with more text after it, so it splits the record"
   },
+  "gottp-repros/issue147_macro_named_like_var_child_group": {
+   "issue": 147,
+   "reason": "a child group's macro= named like a template var is resolved as the var and never runs"
+  },
+  "gottp-repros/issue147_macro_named_like_var_top_group": {
+   "issue": 147,
+   "reason": "a macro= named like a template var is resolved as the var and never runs"
+  },
+  "gottp-repros/issue149_chain_attr_before_record": {
+   "issue": 149,
+   "reason": "chain= runs after all the attributes, so record= before it records a record chain= drops"
+  },
+  "gottp-repros/issue149_functions_attr_before_record": {
+   "issue": 149,
+   "reason": "functions= runs after all the attributes, so record= before it records a record functions= drops"
+  },
+  "gottp-repros/issue149_functions_run_per_record": {
+   "issue": 149,
+   "reason": "each group function runs over all records instead of every function per record, so set= sees the last recorded value"
+  },
+  "gottp-repros/issue149_group_default_before_record": {
+   "issue": 149,
+   "reason": "group default= is filled in after the functions, so record= doesn't see the default"
+  },
+  "gottp-repros/issue149_itemize_then_contains_child": {
+   "issue": 149,
+   "reason": "itemize= returns early and skips the attributes after it (contains=)"
+  },
+  "gottp-repros/issue149_macro_runs_before_contains": {
+   "issue": 149,
+   "reason": "macro= runs after the attribute loop, so contains= drops records the macro would satisfy"
+  },
+  "gottp-repros/issue149_macro_runs_before_record": {
+   "issue": 149,
+   "reason": "macro= runs after the attribute loop, so record= records the value before the macro changes it"
+  },
+  "gottp-repros/issue149_set_default_before_contains_val": {
+   "issue": 149,
+   "reason": "a set() default is filled in after the functions, so contains_val= doesn't see it"
+  },
+  "gottp-repros/issue149_variable_default_before_contains_val": {
+   "issue": 149,
+   "reason": "a default() value is filled in after the functions, so contains_val= doesn't see it"
+  },
+  "gottp-repros/issue149_void_runs_before_record": {
+   "issue": 149,
+   "reason": "void= is handled apart from the attributes, so record= runs on a voided record"
+  },
   "gottp-repros/issue33_trailing_ignore_with_trailing_whitespace": {
    "issue": 33,
    "reason": "trailing {{ ignore(\".*\") }} fails when the data line has trailing whitespace"
@@ -17,9 +65,21 @@
    "issue": 36,
    "reason": "swapcase (str method fallback) is silently skipped"
   },
+  "gottp-repros/issue88_itemize_dynamic_path_argument": {
+   "issue": 88,
+   "reason": "itemize ignores its path argument (dynamic path)"
+  },
+  "gottp-repros/issue88_itemize_in_functions_with_path": {
+   "issue": 88,
+   "reason": "itemize(key=..., path=...) in functions= produces nothing"
+  },
   "gottp-repros/issue88_itemize_path_argument": {
    "issue": 88,
    "reason": "itemize ignores its path argument"
+  },
+  "gottp-repros/issue88_itemize_path_keyword": {
+   "issue": 88,
+   "reason": "itemize=\"key=..., path=...\" keyword form produces an empty list and ignores the path"
   },
   "test_N2G_formatter/test_n2g_formatter": {
    "issue": 80,

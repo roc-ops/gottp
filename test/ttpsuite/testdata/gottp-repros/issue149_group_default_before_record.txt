@@ -1,0 +1,4 @@
+interface A
+ description d1
+interface B
+b 0

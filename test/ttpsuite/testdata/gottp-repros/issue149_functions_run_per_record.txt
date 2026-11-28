@@ -1,0 +1,5 @@
+interface A
+ description z1
+interface B
+interface C
+ description z

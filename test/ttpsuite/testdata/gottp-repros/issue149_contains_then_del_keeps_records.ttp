@@ -1,0 +1,6 @@
+<template>
+<group name="a" contains="z" del="z">
+a {{ x }}
+z {{ z }}
+</group>
+</template>

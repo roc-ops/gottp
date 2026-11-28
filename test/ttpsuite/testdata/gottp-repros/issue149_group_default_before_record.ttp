@@ -1,0 +1,9 @@
+<template>
+<group name="a" default="dflt" record="desc, rd">
+interface {{ name }}
+ description {{ desc }}
+</group>
+<group name="b" set="rd, seen">
+b {{ y }}
+</group>
+</template>

@@ -1,0 +1,11 @@
+<template>
+<macro>
+def m(data):
+    data["mk"] = "M"
+    return data
+</macro>
+
+<group name="g" macro="m" contains="mk">
+a {{ x }}
+</group>
+</template>
