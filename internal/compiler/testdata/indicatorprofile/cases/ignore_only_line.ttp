@@ -1,0 +1,5 @@
+<group name="g">
+interface {{ name }}
+ {{ ignore }} {{ x | _start_ }}
+ {{ y }} {{ ignore }}
+</group>

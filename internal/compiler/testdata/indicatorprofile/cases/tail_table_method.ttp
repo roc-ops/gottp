@@ -1,0 +1,7 @@
+<group name="parent" method="table">
+row {{ a }}
+ <group name="child">
+ sub {{ b }}
+ </group>
+after {{ c }}
+</group>

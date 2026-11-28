@@ -1,0 +1,4 @@
+<group name="g">
+{{ _start_ }}
+line {{ a }}
+</group>

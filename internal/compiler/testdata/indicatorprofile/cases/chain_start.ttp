@@ -1,0 +1,7 @@
+<vars>
+chain_s = "_start_ | upper"
+</vars>
+<group name="g">
+interface {{ name }}
+ vrf {{ vrf | chain("chain_s") }}
+</group>

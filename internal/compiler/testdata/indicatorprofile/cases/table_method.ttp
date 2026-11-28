@@ -1,0 +1,5 @@
+<group name="t" method="table">
+{{ a }} {{ b }}
+{{ a }} {{ b }} {{ c }}
+end {{ _end_ }}
+</group>

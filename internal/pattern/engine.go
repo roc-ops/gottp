@@ -22,6 +22,41 @@ const (
 	PatternMAC      = `(?:[0-9a-fA-F]{2}(?::|\.|\-)){5}(?:[0-9a-fA-F]{2})|(?:[0-9a-fA-F]{4}(?::|\.|\-)){2}(?:[0-9a-fA-F]{4})`
 )
 
+// Names of the indicator variables and functions. A template marks a line
+// with these instead of capturing a value: {{ _start_ }}, {{ x | _end_ }}.
+const (
+	IndicatorStart      = "_start_"
+	IndicatorEnd        = "_end_"
+	IndicatorLine       = "_line_"
+	IndicatorHeaders    = "_headers_"
+	IndicatorExact      = "_exact_"
+	IndicatorExactSpace = "_exact_space_"
+	// VarIgnore is the variable name whose match is discarded.
+	VarIgnore = "ignore"
+)
+
+// IsIndicatorVar reports whether a variable (or result key) named name is
+// ignore, _start_, _end_ or _line_: a name whose match is never a result
+// value of its own.
+func IsIndicatorVar(name string) bool {
+	switch name {
+	case VarIgnore, IndicatorStart, IndicatorEnd, IndicatorLine:
+		return true
+	}
+	return false
+}
+
+// IsNonCapturingVar reports whether a variable named name captures nothing:
+// ignore, _start_, _end_, _exact_ or _exact_space_. Unlike IsIndicatorVar it
+// excludes _line_, which captures the whole line.
+func IsNonCapturingVar(name string) bool {
+	switch name {
+	case VarIgnore, IndicatorStart, IndicatorEnd, IndicatorExact, IndicatorExactSpace:
+		return true
+	}
+	return false
+}
+
 // MatchVariable represents a parsed match variable
 type MatchVariable struct {
 	Name                  string
@@ -41,6 +76,9 @@ type CompiledPattern struct {
 	Variables     map[string]*MatchVariable
 	VariableOrder []string // Order of variables as they appear in the pattern
 	Original      string
+	// Tail is true when the template line follows a child group (it is in
+	// the XML tail of a child, not the group's own text).
+	Tail bool
 
 	// Compile-time cached flags consumed by the runtime hot path. Populated by
 	// PopulateFlags after Variables and Regex are assigned.

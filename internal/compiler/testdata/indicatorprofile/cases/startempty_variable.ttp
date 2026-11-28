@@ -1,0 +1,4 @@
+<group name="peers">
+neighbor summary {{ _start_ }}
+{{ peer | IP }} {{ asn }}
+</group>

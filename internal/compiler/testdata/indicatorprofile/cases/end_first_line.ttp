@@ -1,0 +1,4 @@
+<group name="g">
+done {{ _end_ }}
+value {{ v }}
+</group>

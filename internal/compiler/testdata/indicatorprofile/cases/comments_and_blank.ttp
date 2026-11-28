@@ -1,0 +1,6 @@
+<group name="g">
+## a comment
+interface {{ name }}
+
+ ip {{ ip }}
+</group>

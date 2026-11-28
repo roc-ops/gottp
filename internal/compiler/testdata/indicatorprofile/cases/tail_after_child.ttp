@@ -1,0 +1,10 @@
+<group name="parent">
+router bgp {{ asn }}
+ <group name="nbr">
+ neighbor {{ ip }} remote-as {{ ras }}
+ neighbor {{ ip }} description {{ d }}
+ </group>
+ bgp router-id {{ rid }}
+ tailstart {{ ts | _start_ }}
+ tailend {{ te | _end_ }}
+</group>

@@ -1,0 +1,16 @@
+<template>
+<group name="a">
+a {{ x }}
+<group name="b">
+b {{ y }}
+ c {{ z | _start_ }}
+</group>
+<group name="d">
+{{ _start_ }}
+d {{ w }}
+</group>
+</group>
+<group name="e">
+e {{ v }}
+</group>
+</template>

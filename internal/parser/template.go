@@ -35,14 +35,20 @@ type VarsWithName struct {
 
 // Group represents a parsing group
 type Group struct {
-	Name       string
-	Input      string
-	Output     string
-	Method     string
-	Functions  string
-	Chain      string
-	Macro      string
-	Pattern    string
+	Name      string
+	Input     string
+	Output    string
+	Method    string
+	Functions string
+	Chain     string
+	Macro     string
+	Pattern   string
+	// TailStart is the byte offset in Pattern where the first child group
+	// begins, or -1 when the group has no child groups. Pattern is the
+	// group's own text followed by the text after each child (the XML tails);
+	// Python TTP treats every line from TailStart on as a tail line, which is
+	// never a start pattern.
+	TailStart  int
 	Groups     []*Group // nested groups
 	Attributes map[string]string
 }
@@ -353,6 +359,7 @@ doneParsingRoot:
 		implicitGroup := &Group{
 			Name:       "_anonymous_",
 			Pattern:    content,
+			TailStart:  -1,
 			Groups:     []*Group{},
 			Attributes: make(map[string]string),
 		}
@@ -467,12 +474,16 @@ func (t *Template) parseGroup(elem xmlElement) (*Group, error) {
 
 	// Set pattern/content
 	group.Pattern = elem.Content
+	group.TailStart = -1
 
 	// Parse nested groups
-	for _, child := range elem.Children {
+	for childIdx, child := range elem.Children {
 		if strings.ToLower(child.XMLName.Local) == "group" ||
 			strings.ToLower(child.XMLName.Local) == "g" ||
 			strings.ToLower(child.XMLName.Local) == "grp" {
+			if group.TailStart < 0 && childIdx < len(elem.ChildOffsets) {
+				group.TailStart = elem.ChildOffsets[childIdx]
+			}
 			nestedGroup, err := t.parseGroup(child)
 			if err != nil {
 				return nil, err
@@ -751,6 +762,7 @@ func parseChildTemplate(elem xmlElement) (*Template, error) {
 		implicitGroup := &Group{
 			Name:       "_anonymous_", // as above: Python TTP's implicit group name
 			Pattern:    content,
+			TailStart:  -1,
 			Groups:     []*Group{},
 			Attributes: make(map[string]string),
 		}
@@ -766,6 +778,8 @@ type xmlElement struct {
 	Attrs    map[string]string
 	Content  string
 	Children []xmlElement
+	// ChildOffsets[i] is the length of Content when Children[i] started.
+	ChildOffsets []int
 }
 
 // parseXMLElement recursively parses an XML element
@@ -794,8 +808,13 @@ func parseXMLElement(start xml.StartElement, decoder *xml.Decoder) xmlElement {
 
 		switch t := tok.(type) {
 		case xml.StartElement:
+			contentLen := 0
+			for _, part := range contentParts {
+				contentLen += len(part)
+			}
 			child := parseXMLElement(t, decoder)
 			elem.Children = append(elem.Children, child)
+			elem.ChildOffsets = append(elem.ChildOffsets, contentLen)
 		case xml.EndElement:
 			if t.Name == start.Name {
 				elem.Content = strings.Join(contentParts, "")
