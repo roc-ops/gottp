@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"intf","src_range":[0,21],"record":{"name":"Gi1","nv":"Gi1-A","vrf":"A"}},
+  {"group_path":"intf","src_range":[21,42],"record":{"name":"Gi2","nv":"Gi2-B","vrf":"B"}}
+ ]
+}

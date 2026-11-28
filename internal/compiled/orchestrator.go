@@ -2,7 +2,6 @@ package compiled
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,6 +27,10 @@ func (r *Runtime) applyParseOptions(vars map[string]interface{}, options *ParseO
 	}
 	if options != nil && options.Functions != nil {
 		r.runtimeFunctions = options.Functions
+	}
+	r.parseVars = vars
+	if options != nil {
+		r.parseOptVars = options.Vars
 	}
 
 	// Re-register compile-time macro functions (restore baseline after previous Parse)
@@ -384,7 +387,13 @@ func (r *Runtime) storeGroupResults(resultsMap map[string]interface{}, group *co
 			}
 		}
 		if err != nil || resolvedName == "" || resolvedName == group.Name {
-			r.storeAtPath(resultsMap, group.Name, groupResults)
+			name := group.Name
+			if _, itemized := groupResults.([]interface{}); itemized && strings.HasSuffix(name, "**") {
+				// itemize makes the path end in a single "*" (a list of
+				// the values), even after "**".
+				name = strings.TrimSuffix(name, "*")
+			}
+			r.storeAtPath(resultsMap, name, groupResults)
 			return
 		}
 		// A resolved dynamic path always stores a list.
@@ -476,32 +485,6 @@ func isBuiltinAttrGroupFunc(name string) bool {
 		}
 	}
 	return false
-}
-
-// groupFuncAttrs returns the attributes of group that postProcess runs as
-// group functions, in the order it runs them: template order, as TTP does,
-// or, for a group without one, the built-in ones in
-// builtinAttrGroupFunctions order and then the custom ones sorted.
-func (r *Runtime) groupFuncAttrs(group *compiler.CompiledGroup) []string {
-	custom := r.customAttrGroupFunctions(group)
-	var names []string
-	if group.AttrOrder == nil {
-		for _, b := range builtinAttrGroupFunctions {
-			if _, ok := group.Attributes[b]; ok {
-				names = append(names, b)
-			}
-		}
-		return append(names, custom...)
-	}
-	for _, a := range group.AttrOrder {
-		if _, ok := group.Attributes[a]; !ok {
-			continue
-		}
-		if isBuiltinAttrGroupFunc(a) || slices.Contains(custom, a) {
-			names = append(names, a)
-		}
-	}
-	return names
 }
 
 // customAttrGroupFunctions returns, sorted, the attributes of group that

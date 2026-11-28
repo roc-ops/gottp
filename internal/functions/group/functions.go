@@ -2,6 +2,7 @@ package group
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -65,16 +66,38 @@ func contains(data map[string]interface{}, args []string, kwargs map[string]inte
 	if len(args) < 1 {
 		return data, false, fmt.Errorf("contains requires at least one argument")
 	}
+	defaults := recordDefaults(kwargs)
 
-	// Check if at least one of the specified keys exists
+	// The first of the keys present decides: a value that is only the
+	// group's default for it doesn't count (TTP's contains).
 	for _, key := range args {
-		if _, exists := data[key]; exists {
+		if value, exists := data[key]; exists {
+			if d, ok := defaults[key]; ok && valuesEqual(d, value) {
+				return data, false, nil
+			}
 			return data, true, nil
 		}
 	}
 
 	// None of the keys found
 	return data, false, nil
+}
+
+// recordDefaults returns the record's group defaults the pipeline passes to
+// built-in functions as kwargs["_defaults"] (nil when there are none).
+func recordDefaults(kwargs map[string]interface{}) map[string]interface{} {
+	d, _ := kwargs["_defaults"].(map[string]interface{})
+	return d
+}
+
+// valuesEqual reports whether a and b are equal, for values that may not be
+// comparable with ==.
+func valuesEqual(a, b interface{}) bool {
+	if as, ok := a.(string); ok {
+		bs, ok := b.(string)
+		return ok && as == bs
+	}
+	return reflect.DeepEqual(a, b)
 }
 
 // set sets a variable in the data
@@ -325,15 +348,21 @@ func itemize(data map[string]interface{}, args []string, kwargs map[string]inter
 	return data, true, nil
 }
 
-// containsall checks if data contains ALL of the specified keys
+// containsall checks if data contains ALL of the specified keys. A key
+// whose value is only the group's default for it doesn't count (TTP's
+// containsall).
 func containsall(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error) {
 	if len(args) < 1 {
 		return data, false, fmt.Errorf("containsall requires at least one argument")
 	}
+	defaults := recordDefaults(kwargs)
 
-	// Check that ALL keys exist
 	for _, key := range args {
-		if _, exists := data[key]; !exists {
+		value, exists := data[key]
+		if !exists {
+			return data, false, nil
+		}
+		if d, ok := defaults[key]; ok && valuesEqual(d, value) {
 			return data, false, nil
 		}
 	}
@@ -341,15 +370,19 @@ func containsall(data map[string]interface{}, args []string, kwargs map[string]i
 	return data, true, nil
 }
 
-// exclude invalidates group results if ANY of the given keys are present
+// exclude invalidates group results if ANY of the given keys are present.
+// A key the group has a default for is not counted (TTP's exclude).
 func exclude(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error) {
 	if len(args) < 1 {
 		return data, true, nil // No keys to exclude, so valid
 	}
+	defaults := recordDefaults(kwargs)
 
-	// If ANY key exists, invalidate
 	for _, key := range args {
 		if _, exists := data[key]; exists {
+			if _, ok := defaults[key]; ok {
+				continue
+			}
 			return data, false, nil
 		}
 	}
@@ -357,27 +390,26 @@ func exclude(data map[string]interface{}, args []string, kwargs map[string]inter
 	return data, true, nil
 }
 
-// excludeall invalidates group results if ALL of the given keys are present
+// excludeall invalidates group results if ALL of the given keys are
+// present. A key the group has a default for is not counted (TTP's
+// excludeall).
 func excludeall(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error) {
 	if len(args) < 1 {
 		return data, true, nil // No keys to exclude, so valid
 	}
+	defaults := recordDefaults(kwargs)
 
-	// Check that ALL keys exist
-	allExist := true
 	for _, key := range args {
 		if _, exists := data[key]; !exists {
-			allExist = false
-			break
+			return data, true, nil
+		}
+		if _, ok := defaults[key]; ok {
+			return data, true, nil
 		}
 	}
 
-	// If all keys exist, invalidate
-	if allExist {
-		return data, false, nil
-	}
-
-	return data, true, nil
+	// All keys exist: invalidate
+	return data, false, nil
 }
 
 // equal verifies that a key's value equals the provided value
@@ -627,7 +659,7 @@ func items2dict(data map[string]interface{}, args []string, kwargs map[string]in
 	value, valueExists := data[valueName]
 
 	if !keyExists || !valueExists {
-		return data, true, nil // Missing keys, return as-is
+		return data, false, nil // a missing key drops the record, as in TTP
 	}
 
 	// Python TTP's items2dict does: data[data.pop(key_name)] = data.pop(value_name)

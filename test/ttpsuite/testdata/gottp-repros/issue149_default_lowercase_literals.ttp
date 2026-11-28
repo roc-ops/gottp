@@ -1,0 +1,9 @@
+<template>
+<group name="intf">
+interface {{ name }}
+ a:{{ a | default(none) }}
+ b:{{ b | default(true) }}
+ c:{{ c | default(false) }}
+ d:{{ d | default(NONE) }}
+</group>
+</template>

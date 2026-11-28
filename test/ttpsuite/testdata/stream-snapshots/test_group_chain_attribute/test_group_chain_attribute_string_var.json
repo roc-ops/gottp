@@ -1,6 +1,6 @@
 {
  "records": [
-  {"group_path":"","src_range":[35,94],"record":{"description":"test loopback0","interface":"Loopback0","set_key":"set_value"}},
-  {"group_path":"","src_range":[94,153],"record":{"description":"test loopback1","interface":"Loopback1","set_key":"set_value"}}
+  {"group_path":"","src_range":[35,94],"record":{"description":"test loopback0","interface":"Loopback0","set_key":"set_value","test_macro":"DONE"}},
+  {"group_path":"","src_range":[94,153],"record":{"description":"test loopback1","interface":"Loopback1","set_key":"set_value","test_macro":"DONE"}}
  ]
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/roc-ops/gottp/internal/compiler"
 	"github.com/roc-ops/gottp/internal/pattern"
+	"github.com/roc-ops/gottp/internal/variable"
 )
 
 // A top group with child groups is parsed as Python TTP 0.10.1 parses it
@@ -25,9 +26,10 @@ import (
 //   - All the matches are sorted by position, then by group in run_re's
 //     depth-first order and by pattern, and fed to one assembler
 //     (assembler.go), as TTP feeds one _results_class.
-//   - Each finished record is post-processed when it is saved, as TTP's
-//     processgrp runs: a parent before its children. It is then saved with a
-//     port of save_curelements: the top group's records form the group's
+//   - Each finished record runs its group's pipeline (pipeline.go) when it
+//     is saved, as TTP's processgrp runs: a parent before its children. It
+//     is then saved with a port of save_curelements: the top group's
+//     records form the group's
 //     result, and a descendant's record goes to its PATH below the top
 //     group's, under the last record there (dict_by_path follows the last
 //     item of every list on the way). A record of a group whose PATH is the
@@ -193,13 +195,42 @@ func defaultsRecord(group *compiler.CompiledGroup) map[string]interface{} {
 				start := strings.Index(funcStr, "(")
 				end := strings.LastIndex(funcStr, ")")
 				if start >= 0 && end > start {
-					out[varName] = strings.Trim(strings.TrimSpace(funcStr[start+1:end]), `"'`)
+					out[varName] = defaultArg(funcStr[start+1 : end])
 				}
 				break
 			}
 		}
 	}
 	return out
+}
+
+// defaultArg is the value of default(arg), as TTP evaluates it: a quoted
+// string is the string, an unquoted Python literal (True, False, None, a
+// number, a list or a dict) is that literal, none/true/false in any case
+// are None/True/False, any other word is the word, and no argument is
+// "None".
+func defaultArg(arg string) interface{} {
+	arg = strings.TrimSpace(arg)
+	if arg == "" {
+		return "None"
+	}
+	if len(arg) >= 2 && (arg[0] == '"' || arg[0] == '\'') && arg[len(arg)-1] == arg[0] {
+		return arg[1 : len(arg)-1]
+	}
+	if v, ok := variable.PythonLiteral(arg); ok {
+		return v
+	}
+	// TTP evaluates arguments with _UndefSubst (get_attributes.py), which
+	// maps an undefined name to False, True or None case-insensitively.
+	switch strings.ToLower(arg) {
+	case "none":
+		return nil
+	case "true":
+		return true
+	case "false":
+		return false
+	}
+	return strings.Trim(arg, `"'`)
 }
 
 // hasStartReDefault is TTP's has_start_re_default: a variable of a start
@@ -279,6 +310,9 @@ type treeRun struct {
 	smByMap map[uintptr]*smRecord    // the smRecord of each saved record map
 	lastSM  map[*treeGroup]*smRecord // the smRecord of each group's last record
 
+	// ic is where itemize with a path saves (the input's results).
+	ic itemizeCtx
+
 	// yangOrder and yangLists collect each nested group's records per
 	// parent record, for YANG validation once the tree is complete.
 	yangOrder []yangKey
@@ -291,7 +325,7 @@ type yangKey struct {
 }
 
 // parseTree parses a top group with child groups (see the top of this file).
-func (r *Runtime) parseTree(top *compiler.CompiledGroup, inputData string, vars map[string]interface{}) (interface{}, error) {
+func (r *Runtime) parseTree(top *compiler.CompiledGroup, inputData string, vars map[string]interface{}) (interface{}, []yangJob, error) {
 	root, groups := buildTree(top)
 	t := &treeRun{
 		r:       r,
@@ -308,6 +342,7 @@ func (r *Runtime) parseTree(top *compiler.CompiledGroup, inputData string, vars 
 	if t.results == nil {
 		t.results = make(map[string]interface{})
 	}
+	t.ic = itemizeCtx{root: t.results, dyn: t.dyn}
 	if t.obs != nil {
 		t.obs.lastNodes = nil
 		t.smByMap = make(map[uintptr]*smRecord)
@@ -346,11 +381,11 @@ func (r *Runtime) parseTree(top *compiler.CompiledGroup, inputData string, vars 
 	for i := range t.matches {
 		m := &t.matches[i]
 		if err := asm.add(asmMatch{idx: i, group: m.group, pattern: m.patternIdx, start: m.spanStart, end: m.spanEnd, result: m.result}); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	if err := asm.finish(len(inputData)); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return t.result()
 }
@@ -397,13 +432,13 @@ func (t *treeRun) runRe(tg *treeGroup, start, end int) {
 	if !found {
 		if t.hasStartReDefault(tg) {
 			// TTP saves an empty record that processgrp fills with the
-			// group's defaults; gottp's post-processing adds only default=
-			// and set() defaults, so the record starts with default()'s.
-			// The virtual start pattern (index len(Patterns)) keeps them
-			// even when the start line is a startempty one.
+			// group's defaults. The record starts with the default()
+			// values so the assembler keeps it (the pipeline adds the
+			// rest), and the virtual start pattern (index len(Patterns))
+			// keeps them even when the start line is a startempty one.
 			result := make(map[string]interface{}, len(tg.defaults))
 			for k, v := range tg.defaults {
-				result[k] = v
+				result[k] = t.r.resolveDefault(v, t.vars)
 			}
 			t.matches = append(t.matches, patternMatch{group: tg.asm.id, patternIdx: len(tg.cg.Patterns), spanStart: t.nextDef, spanEnd: t.nextDef, result: result})
 			t.nextDef++
@@ -480,33 +515,23 @@ func (t *treeRun) save(rec asmRecord) error {
 		}
 	}
 
-	var recs []*smRecord
-	if smr != nil {
-		recs = []*smRecord{smr}
-	}
-	out, err := r.postProcess(tg.cg, []map[string]interface{}{result}, recs, t.varsFor(tg), postOpts{perRecord: true, mergeWithLast: rec.mergeWithLast})
+	pl := r.pipelineFor(tg.cg, t.vars)
+	value, keep, itemized, err := r.runPipeline(pl, result, t.vars, rec.mergeWithLast, &t.ic)
 	if err != nil {
 		return err
 	}
-	if t.obs != nil {
-		recs = t.obs.takeNodes()
-	}
-	if tg.void {
-		smDrop(recs)
-		return nil
-	}
-
-	switch v := out.(type) {
-	case []interface{}: // itemize
-		smr := smAt(recs, 0)
-		for _, item := range v {
-			t.saveItem(tg, item, smr)
+	if !keep || (tg == t.top && !r.topPathFormable(pl, value, t.vars)) {
+		if smr != nil {
+			smr.dropped = true
 		}
 		return nil
-	case []map[string]interface{}:
-		for i, m := range v {
-			t.saveRecord(tg, m, smAt(recs, i), target)
-		}
+	}
+	if itemized {
+		t.saveItem(tg, value, smr)
+		return nil
+	}
+	if m, ok := value.(map[string]interface{}); ok {
+		t.saveRecord(tg, m, smr, target)
 	}
 	return nil
 }
@@ -738,24 +763,6 @@ func lastMap(v interface{}) (map[string]interface{}, bool) {
 	return m, ok
 }
 
-// varsFor returns the variables tg's group functions and paths see: the
-// parse's vars and the recorded vars (record() and the record= attribute).
-// As in TTP, an ancestor's record is not among them: a child's default=,
-// contains_val= or macro= name resolves only against template variables.
-func (t *treeRun) varsFor(tg *treeGroup) map[string]interface{} {
-	if len(t.r.recordedVars) == 0 {
-		return t.vars
-	}
-	out := make(map[string]interface{}, len(t.vars)+len(t.r.recordedVars))
-	for k, v := range t.vars {
-		out[k] = v
-	}
-	for k, v := range t.r.recordedVars {
-		out[k] = v
-	}
-	return out
-}
-
 // pathPart is one resolved path segment and its formatter ("", "*" or
 // "**").
 type pathPart struct {
@@ -809,11 +816,12 @@ func (t *treeRun) resolveSegment(seg string, m map[string]interface{}) (string, 
 // result is the top group's result, as parseGroup returns it: one record as
 // a map, several as a list, or the itemized values. It also validates the
 // tree's YANG paths.
-func (t *treeRun) result() (interface{}, error) {
+func (t *treeRun) result() (interface{}, []yangJob, error) {
 	r := t.r
+	var jobs []yangJob
 	if r.yangValidator != nil {
 		if t.top.yang != "" && len(t.top0) > 0 {
-			r.validationResults[t.top.cg.Name] = r.yangValidator.Validate(t.top0, t.top.yang, t.top.cg.Name)
+			jobs = append(jobs, yangJob{key: t.top.cg.Name, path: t.top.yang, name: t.top.cg.Name, data: t.top0})
 		}
 		for _, key := range t.yangOrder {
 			list := t.yangLists[key]
@@ -821,25 +829,25 @@ func (t *treeRun) result() (interface{}, error) {
 			if len(list) == 1 {
 				data = list[0]
 			}
-			r.validationResults[fmt.Sprintf("%s[%d]", key.g.cg.Name, key.parent)] = r.yangValidator.Validate(data, key.g.yang, key.g.cg.Name)
+			jobs = append(jobs, yangJob{key: fmt.Sprintf("%s[%d]", key.g.cg.Name, key.parent), path: key.g.yang, name: key.g.cg.Name, data: data})
 		}
 	}
 	if t.isItemized {
 		if t.obs != nil {
 			t.obs.lastNodes = []*smRecord{t.obs.smCollapse(t.top.cg, t.topRecs)}
 		}
-		return t.itemized, nil
+		return t.itemized, jobs, nil
 	}
 	if t.obs != nil {
 		t.obs.lastNodes = t.topRecs
 	}
 	switch {
 	case len(t.top0) == 0:
-		return nil, nil
+		return nil, jobs, nil
 	case len(t.top0) == 1 && !t.topStar:
-		return t.top0[0], nil
+		return t.top0[0], jobs, nil
 	default:
-		return t.top0, nil
+		return t.top0, jobs, nil
 	}
 }
 

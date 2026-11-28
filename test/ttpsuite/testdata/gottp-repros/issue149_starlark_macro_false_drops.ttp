@@ -1,0 +1,10 @@
+<template>
+<macro>
+def m_drop(data):
+    return "drop" not in data.get("desc", "")
+</macro>
+<group name="intf" macro="m_drop">
+interface {{ name }}
+ description {{ desc | ORPHRASE }}
+</group>
+</template>

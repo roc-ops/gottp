@@ -127,6 +127,11 @@ The comparison test suite includes:
 - **Note**: Requires CGO and Python development headers
 - **Test Status**: Skipped unless Python macro support is enabled
 
+### Group functions after `itemize` without a path
+- **gottp:** after `itemize` without a path, the record is the itemized value, and the functions after it run on an empty record. They can only drop the item: `contains`, `containsall` and another `itemize` always drop it, while `del`, `set` or a macro have no effect.
+- **Python TTP 0.10.1:** the functions after it get the value itself. For a string value, `contains('x')` tests whether `x` is a substring, and functions that expect a dict raise an error.
+- **Test status:** `gottp-repros/issue149_itemize_then_contains_child` pins the case where both drop every item.
+
 ### Output macro lists (gottp extension)
 - **gottp:** `<output macro="a, b">` and `<output functions="macro('a', 'b')">` run each macro in order, each on the result of the one before.
 - **Python TTP 0.10.1:** both raise `TypeError`, because `macro=` becomes the call `macro(data, "a", "b")` and TTP's output `macro()` takes one name. Use `functions="macro('a') | macro('b')"` in templates that must run in both.

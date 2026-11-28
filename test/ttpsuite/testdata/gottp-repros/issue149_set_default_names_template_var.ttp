@@ -1,0 +1,9 @@
+<template>
+<vars>
+hostname="R1"
+</vars>
+<group name="intf">
+interface {{ name }}
+{{ hn | set("hostname") }}
+</group>
+</template>

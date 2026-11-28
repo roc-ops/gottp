@@ -264,7 +264,10 @@ func (e *StarlarkEngine) ExecuteMacroStarlark(name string, dataVal starlark.Valu
 }
 
 // ExecuteMacroStarlarkBatch executes multiple Starlark macros in sequence on the same data
-// This is optimized for chaining macros without recreating threads
+// This is optimized for chaining macros without recreating threads.
+// A macro returning False stops the chain and the result is starlark.False
+// (drop the data); True keeps the data for the next macro, and any other
+// value replaces it.
 func (e *StarlarkEngine) ExecuteMacroStarlarkBatch(names []string, dataVal starlark.Value, ttpContext map[string]interface{}) (starlark.Value, error) {
 	e.mu.RLock()
 	
@@ -374,7 +377,7 @@ func (e *StarlarkEngine) ExecuteMacroStarlarkBatch(names []string, dataVal starl
 		// Check if result is a bool (filter)
 		if boolVal, ok := result.(starlark.Bool); ok {
 			if !bool(boolVal) {
-				return starlark.None, nil // Signal filtering
+				return starlark.False, nil // filtered: the caller drops the data
 			}
 			// Keep original data, continue with next macro
 			continue

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"slices"
 	"sort"
 	"strings"
 
@@ -44,6 +43,18 @@ type Runtime struct {
 	// child group with an absolute path outside its top group's saves its
 	// records (tree.go); set by the orchestrator before each parseGroup.
 	treeResults map[string]interface{}
+	// pipelines holds each group's per-record steps for this parse
+	// (pipeline.go), built on first use.
+	pipelines map[*compiler.CompiledGroup]*groupPipeline
+	// shared holds the pipelines built once for the template, shared by
+	// every per-parse copy (and, through NewRuntimeWithCache, by every
+	// Runtime of the template); nil for a Runtime not made by NewRuntime*.
+	shared *PipelineCache
+	// parseVars and parseOptVars are the vars passed to this parse (Parse's
+	// vars argument and ParseOptions.Vars), which decide whether it can use
+	// the shared pipelines.
+	parseVars    map[string]interface{}
+	parseOptVars map[string]interface{}
 }
 
 // NewRuntime creates a new runtime for a compiled template
@@ -56,6 +67,16 @@ func NewRuntime(compiled *compiler.CompiledTemplate) *Runtime {
 //
 //	built-ins < compileFunctions < runtimeFunctions (ParseOptions)
 func NewRuntimeWithFunctions(compiled *compiler.CompiledTemplate, compileFns *RuntimeFunctions) *Runtime {
+	return NewRuntimeWithCache(compiled, compileFns, nil)
+}
+
+// NewRuntimeWithCache is NewRuntimeWithFunctions with the template's
+// PipelineCache, which every Runtime made for the same compiled template and
+// compile-time functions may share; nil gives the Runtime its own.
+func NewRuntimeWithCache(compiled *compiler.CompiledTemplate, compileFns *RuntimeFunctions, cache *PipelineCache) *Runtime {
+	if cache == nil {
+		cache = NewPipelineCache()
+	}
 	rt := &Runtime{
 		compiled:          compiled,
 		matchRegistry:     match.NewRegistry(),
@@ -69,6 +90,7 @@ func NewRuntimeWithFunctions(compiled *compiler.CompiledTemplate, compileFns *Ru
 		keyFields:         make(map[string][]string),
 		compileFunctions:  compileFns,
 		lastParse:         &lastParseResults{},
+		shared:            cache,
 	}
 
 	// Register macros from compiled template
@@ -429,39 +451,47 @@ type patternMatch struct {
 	sm         *smMatchInfo // submatch indices, for the source map; nil when it is off
 }
 
-// assembleGroup assembles the records of a group without children from its
-// sorted matches with the TTP port (assembler.go). It returns the records
-// parseGroup keeps and, with trackUsed, the allMatches indices each one took.
-func (r *Runtime) assembleGroup(group *compiler.CompiledGroup, allMatches []patternMatch, inputLen int, trackUsed bool) ([]map[string]interface{}, [][]int, error) {
-	var records []map[string]interface{}
-	var used [][]int
-	asm := newAssembler(newAsmGroup(group), trackUsed, func(rec asmRecord) error {
-		records = append(records, rec.result)
-		if trackUsed {
-			used = append(used, rec.used)
-		}
-		r.pathResolver.UpdateCache(rec.result)
-		r.matchCollector.Clear()
-		return nil
-	})
-	for i, m := range allMatches {
-		if err := asm.add(asmMatch{idx: i, pattern: m.patternIdx, start: m.spanStart, end: m.spanEnd, result: m.result}); err != nil {
-			return nil, nil, err
-		}
+// parseGroup parses a top group: one without children with parseFlat, one
+// with children with parseTree (tree.go). Either way each record runs the
+// group's pipeline (pipeline.go) when it is saved; YANG validation then runs
+// once on the group's result.
+func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, vars map[string]interface{}) (interface{}, error) {
+	var result interface{}
+	var jobs []yangJob
+	var err error
+	if len(group.Groups) > 0 {
+		result, jobs, err = r.parseTree(group, inputData, vars)
+	} else {
+		result, jobs, err = r.parseFlat(group, inputData, vars)
 	}
-	if err := asm.finish(inputLen); err != nil {
-		return nil, nil, err
+	if err != nil {
+		return nil, err
 	}
-	return records, used, nil
+	r.validateYANG(jobs)
+	return result, nil
 }
 
-// parseGroup parses a top group without children, assembling its records
-// with the TTP port in assembler.go. A group with children goes through
-// parseTree (tree.go).
-func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, vars map[string]interface{}) (interface{}, error) {
-	if len(group.Groups) > 0 {
-		return r.parseTree(group, inputData, vars)
+// yangJob is one YANG validation of a group's records: data validated
+// against path and stored in the validation results under key.
+type yangJob struct {
+	key, path, name string
+	data            interface{}
+}
+
+// validateYANG runs the YANG validations of one top group's result.
+func (r *Runtime) validateYANG(jobs []yangJob) {
+	if r.yangValidator == nil {
+		return
 	}
+	for _, j := range jobs {
+		r.validationResults[j.key] = r.yangValidator.Validate(j.data, j.path, j.name)
+	}
+}
+
+// parseFlat parses a top group without children, assembling its records
+// with the TTP port in assembler.go and running each through the group's
+// pipeline as it is saved.
+func (r *Runtime) parseFlat(group *compiler.CompiledGroup, inputData string, vars map[string]interface{}) (interface{}, []yangJob, error) {
 	// obs records the source map; nil (and every hook skipped) when source
 	// maps are off.
 	obs := r.smObs
@@ -469,7 +499,7 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		obs.lastNodes = nil
 	}
 	if len(group.Patterns) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	in := newInputLines(inputData)
@@ -490,15 +520,92 @@ func (r *Runtime) parseGroup(group *compiler.CompiledGroup, inputData string, va
 		return allMatches[i].spanStart < allMatches[j].spanStart
 	})
 
-	mergedMatches, used, err := r.assembleGroup(group, allMatches, len(inputData), obs != nil)
-	if err != nil {
-		return nil, err
+	pl := r.pipelineFor(group, vars)
+	ic := &itemizeCtx{root: r.treeResults, dyn: r.pathResolver.dynPathCache}
+	var records []map[string]interface{}
+	var items []interface{}
+	var used [][]int // source map: every assembled record's matches
+	var kept []int   // source map: the indices of the records kept
+	n := 0
+	asm := newAssembler(newAsmGroup(group), obs != nil, func(rec asmRecord) error {
+		r.pathResolver.UpdateCache(rec.result)
+		r.matchCollector.Clear()
+		idx := n
+		n++
+		if obs != nil {
+			used = append(used, rec.used)
+		}
+		value, keep, itemized, err := r.runPipeline(pl, rec.result, vars, false, ic)
+		if err != nil {
+			return err
+		}
+		if !keep || !r.topPathFormable(pl, value, vars) {
+			return nil
+		}
+		if obs != nil {
+			kept = append(kept, idx)
+		}
+		if itemized {
+			items = append(items, value)
+			return nil
+		}
+		if m, ok := value.(map[string]interface{}); ok {
+			records = append(records, m)
+		}
+		return nil
+	})
+	for i, m := range allMatches {
+		if err := asm.add(asmMatch{idx: i, pattern: m.patternIdx, start: m.spanStart, end: m.spanEnd, result: m.result}); err != nil {
+			return nil, nil, err
+		}
 	}
+	if err := asm.finish(len(inputData)); err != nil {
+		return nil, nil, err
+	}
+
 	var recs []*smRecord
 	if obs != nil {
-		recs = obs.recordMatches(group, allMatches, used)
+		recs = smKeep(obs.recordMatches(group, allMatches, used), kept)
 	}
-	return r.postProcess(group, mergedMatches, recs, vars, postOpts{})
+	if pl.itemizes {
+		// The group's result is the list of itemized values (TTP's itemize
+		// makes the record's path end in "*").
+		if obs != nil {
+			obs.lastNodes = []*smRecord{obs.smCollapse(group, recs)}
+		}
+		if len(items) == 0 {
+			return nil, nil, nil
+		}
+		return items, nil, nil
+	}
+	return r.finishFlat(group, pl, records, recs)
+}
+
+// topPathFormable is step 4 of the pipeline for a top group with a dynamic
+// path: a record whose path variables have no value in the record, the
+// dynamic-path cache, the recorded vars or the vars can't be saved, so TTP
+// drops it.
+func (r *Runtime) topPathFormable(pl *groupPipeline, value interface{}, vars map[string]interface{}) bool {
+	if len(pl.pathVars) == 0 {
+		return true
+	}
+	m, _ := value.(map[string]interface{})
+	for _, name := range pl.pathVars {
+		if _, ok := m[name]; ok {
+			continue
+		}
+		if _, ok := r.pathResolver.dynPathCache[name]; ok {
+			continue
+		}
+		if _, ok := r.recordedVars[name]; ok {
+			continue
+		}
+		if _, ok := vars[name]; ok {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // inputLines is one input's data split into lines, with each line's offset
@@ -618,448 +725,39 @@ func (r *Runtime) matchPattern(group *compiler.CompiledGroup, patternIdx, groupI
 	return dst
 }
 
-// postOpts says how postProcess runs.
-type postOpts struct {
-	// perRecord: the records are one record of a tree group (tree.go),
-	// processed as TTP's processgrp does when the record is saved. The
-	// list-level steps (YANG, the records made when nothing matched,
-	// dropping empty records) are left to the caller, and the
-	// result is always the []map[string]interface{} of kept records, or the
-	// itemized values.
-	perRecord bool
-	// mergeWithLast: the record is TTP's merge_with_last, a group's lines
-	// after another group's record, merged into the group's last record; TTP
-	// adds no defaults to it.
-	mergeWithLast bool
-}
-
-// postProcess runs a group's post-processing on its assembled records:
-// record=, group function attributes, functions/chain, macro, defaults,
-// YANG validation and the result's shape. recs (source maps only) are the
-// records' smRecords; postProcess leaves the ones behind its result in
-// r.smObs.lastNodes.
-func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map[string]interface{}, recs []*smRecord, vars map[string]interface{}, opts postOpts) (interface{}, error) {
+// finishFlat forms the result of a top group without children from its kept
+// records: the record a group that kept nothing gets (from default= or its
+// start line's default() values), the group's YANG validation, and the
+// result's shape. recs (source maps only) are the records' smRecords;
+// finishFlat leaves the ones behind its result in r.smObs.lastNodes.
+func (r *Runtime) finishFlat(group *compiler.CompiledGroup, pl *groupPipeline, records []map[string]interface{}, recs []*smRecord) (interface{}, []yangJob, error) {
 	obs := r.smObs
-	// Run the group's function attributes (record, contains, del, sformat,
-	// custom group functions, ...) in template order, as TTP does: each
-	// sees only the records the ones before it kept, so record= after
-	// contains= records nothing for a record contains= drops.
-	for _, attrName := range r.groupFuncAttrs(group) {
-		builtin := isBuiltinAttrGroupFunc(attrName)
-		// Special handling for expand - empty string means expand all dot-separated keys
-		if attrName == "expand" {
-			if _, ok := group.Attributes[attrName]; ok {
-				// expand="" or expand="target" - both should work
-				attrValue := group.Attributes[attrName]
-				// If empty string, expand all dot-separated keys
-				// Otherwise, expand only specified keys
-				// Always process expand if the attribute exists
-				// Get the function from registry (checks runtime overrides first)
-				fn, ok := r.getGroupFunc(attrName)
-				if !ok {
-					continue
-				}
 
-				// Prepare kwargs
-				kwargs := make(map[string]interface{})
-				for k, v := range vars {
-					kwargs[k] = v
-				}
-				if r.recordedVars != nil {
-					for k, v := range r.recordedVars {
-						kwargs[k] = v
-					}
-				}
-
-				// Apply expand to all matches
-				var expandedMatches []map[string]interface{}
-				var kept []int
-				for mi, match := range mergedMatches {
-					// Make a copy
-					data := make(map[string]interface{})
-					for k, v := range match {
-						data[k] = v
-					}
-
-					// Execute expand function
-					// If attrValue is empty, expand all; otherwise use as args
-					args := []string{}
-					if attrValue != "" {
-						args = strings.Split(attrValue, ",")
-						for i := range args {
-							args[i] = strings.TrimSpace(args[i])
-						}
-					}
-
-					newData, keep, err := fn(data, args, kwargs)
-					if err != nil {
-						return nil, fmt.Errorf("group function %s failed: %w", attrName, err)
-					}
-
-					if keep {
-						expandedMatches = append(expandedMatches, newData)
-						if obs != nil {
-							kept = append(kept, mi)
-						}
-					}
-				}
-				mergedMatches = expandedMatches
-				if obs != nil {
-					recs = smKeep(recs, kept)
-				}
-				continue // Continue to next attribute in the loop
-			}
+	// A group that kept no record, with a default= string, gives a record
+	// of every variable set to it (Python TTP's default start).
+	if len(records) == 0 && pl.hasDefaultStr && len(pl.defaultVars) > 0 {
+		m := make(map[string]interface{}, len(pl.defaultVars))
+		for _, name := range pl.defaultVars {
+			m[name] = pl.defaultString
 		}
-
-		if attrValue, ok := group.Attributes[attrName]; ok && (attrValue != "" || !builtin) {
-			var args []string
-			kwargs := make(map[string]interface{})
-
-			// Special handling for sformat which uses keyword arguments
-			if attrName == "sformat" {
-				// Parse keyword arguments: string='...', add_field='...'
-				// Format: string='{hostname}.{fqdn},{domain}', add_field='fqdn'
-				// We need to parse this manually to handle commas inside quoted strings
-				var current strings.Builder
-				inQuotes := false
-				quoteChar := byte(0)
-				parts := []string{}
-
-				for i := 0; i < len(attrValue); i++ {
-					char := attrValue[i]
-					if !inQuotes && (char == '"' || char == '\'') {
-						inQuotes = true
-						quoteChar = char
-						current.WriteByte(char)
-					} else if inQuotes && char == quoteChar {
-						inQuotes = false
-						quoteChar = 0
-						current.WriteByte(char)
-					} else if !inQuotes && char == ',' {
-						// Split on comma only if not in quotes
-						part := strings.TrimSpace(current.String())
-						if part != "" {
-							parts = append(parts, part)
-						}
-						current.Reset()
-					} else {
-						current.WriteByte(char)
-					}
-				}
-				// Add last part
-				part := strings.TrimSpace(current.String())
-				if part != "" {
-					parts = append(parts, part)
-				}
-
-				// Extract string and add_field from keyword args
-				for _, part := range parts {
-					if strings.HasPrefix(part, "string=") {
-						// Extract value after string=
-						value := strings.TrimPrefix(part, "string=")
-						value = strings.Trim(value, `"'`)
-						args = append(args, value)
-					} else if strings.HasPrefix(part, "add_field=") {
-						// Extract value after add_field=
-						value := strings.TrimPrefix(part, "add_field=")
-						value = strings.Trim(value, `"'`)
-						args = append(args, value)
-					}
-				}
-			} else if attrValue != "" {
-				// Parse comma-separated arguments for other functions
-				args = strings.Split(attrValue, ",")
-				for i := range args {
-					args[i] = strings.TrimSpace(args[i])
-					// Remove quotes if present
-					args[i] = strings.Trim(args[i], `"'`)
-				}
-			}
-
-			// Get the function from registry (checks runtime overrides first)
-			fn, ok := r.getGroupFunc(attrName)
-			if !ok {
-				continue // Function not found, skip
-			}
-
-			// Prepare kwargs (include template variables and recorded vars)
-			// Order: 1) compiled template vars (from <vars> tag), 2) runtime vars, 3) recorded vars
-			// Recorded vars override runtime vars, which override template vars
-			// First add compiled template vars (from <vars> tag)
-			if r.compiled.Vars != nil {
-				for k, v := range r.compiled.Vars {
-					kwargs[k] = v
-				}
-			}
-			// Then add runtime vars (override template vars)
-			for k, v := range vars {
-				kwargs[k] = v
-			}
-			// Finally add recorded vars (from record() function) - these override everything
-			if r.recordedVars != nil {
-				for k, v := range r.recordedVars {
-					kwargs[k] = v
-				}
-			}
-			// Pass r.recordedVars to the built-in record function so it can
-			// store values globally. Custom attribute functions don't get the
-			// live map, so user code can't change internal state through it.
-			if slices.Contains(builtinAttrGroupFunctions, attrName) {
-				kwargs["_recorded_vars"] = r.recordedVars
-			}
-
-			// Special handling for itemize - it needs to collect values and return a list
-			if attrName == "itemize" {
-				// Collect all itemized values
-				var itemizedValues []interface{}
-				for _, match := range mergedMatches {
-					// Make a copy to avoid modifying the original
-					data := make(map[string]interface{})
-					for k, v := range match {
-						data[k] = v
-					}
-
-					// Execute function
-					newData, keep, err := fn(data, args, kwargs)
-					if err != nil {
-						return nil, fmt.Errorf("group function %s failed: %w", attrName, err)
-					}
-
-					// If function returns true and has _itemize_value, collect it
-					if keep {
-						if itemizeValue, ok := newData["_itemize_value"]; ok {
-							itemizedValues = append(itemizedValues, itemizeValue)
-						}
-					}
-				}
-				if obs != nil {
-					obs.lastNodes = []*smRecord{obs.smCollapse(group, recs)}
-				}
-				// Return the list of itemized values directly
-				if len(itemizedValues) > 0 {
-					return itemizedValues, nil
-				}
-				// If no values, return empty list
-				return []interface{}{}, nil
-			}
-
-			// Apply function to filter matches
-			var filteredMatches []map[string]interface{}
-			var kept []int
-			for mi, match := range mergedMatches {
-				// Make a copy to avoid modifying the original
-				data := make(map[string]interface{})
-				for k, v := range match {
-					data[k] = v
-				}
-
-				// Execute function
-				newData, keep, err := fn(data, args, kwargs)
-				if err != nil {
-					if !builtin {
-						return nil, fmt.Errorf("custom group function %s failed: %w", attrName, err)
-					}
-					return nil, fmt.Errorf("group function %s failed: %w", attrName, err)
-				}
-
-				// If function returns true, keep this match
-				if keep {
-					filteredMatches = append(filteredMatches, newData)
-					if obs != nil {
-						kept = append(kept, mi)
-					}
-				}
-			}
-			mergedMatches = filteredMatches
-			if obs != nil {
-				recs = smKeep(recs, kept)
-			}
-		}
-	}
-
-	// Process group functions (chain or functions attribute)
-	// chain and functions are the same - pipe-separated function calls
-	chainStr := group.Chain
-	if chainStr == "" {
-		chainStr = group.Functions
-	}
-
-	if chainStr != "" {
-		// Parse and apply chain functions
-		var kept *[]int
-		var onKeep func(int)
+		records = append(records, m)
 		if obs != nil {
-			kept = new([]int)
-			onKeep = func(i int) { *kept = append(*kept, i) }
-		}
-		processedMatches, err := r.processGroupFunctions(mergedMatches, chainStr, vars, onKeep)
-		if err != nil {
-			return nil, fmt.Errorf("failed to process group functions: %w", err)
-		}
-		mergedMatches = processedMatches
-		if obs != nil {
-			recs = smKeep(recs, *kept)
-		}
-
-		// Check if itemize was used - if so, return the value directly
-		if len(mergedMatches) > 0 {
-			if itemizeValue, ok := mergedMatches[0]["_itemize_value"]; ok {
-				// itemize returns the value directly, not as a map
-				// Return the value as-is (it's already wrapped in a list)
-				if obs != nil {
-					obs.lastNodes = []*smRecord{obs.smCollapse(group, recs)}
-				}
-				return itemizeValue, nil
-			}
+			recs = append(recs, obs.newRecord(group))
 		}
 	}
 
-	// Process group macro if specified
-	if group.Macro != "" {
-		var kept *[]int
-		var onKeep func(int)
-		if obs != nil {
-			kept = new([]int)
-			onKeep = func(i int) { *kept = append(*kept, i) }
-		}
-		processedMatches, err := r.processGroupMacro(mergedMatches, group.Macro, vars, onKeep)
-		if err != nil {
-			return nil, fmt.Errorf("failed to process group macro: %w", err)
-		}
-		mergedMatches = processedMatches
-		if obs != nil {
-			recs = smKeep(recs, *kept)
-		}
-	}
-
-	// Apply group defaults (from unconditional set() functions)
-	// These are set during compilation when a variable with set() is on a line with no other text
-	// Python TTP: when set() is used without text to match, it sets skip_regex_dict = True
-	// and adds the value to group.defaults, which is applied to all matches
-	// This should be applied BEFORE the default attribute, so defaults from set() can be overridden by default attribute
-	if len(group.Defaults) > 0 && !opts.mergeWithLast {
-		for _, match := range mergedMatches {
-			for varName, defaultValue := range group.Defaults {
-				// Only set if key doesn't exist in match (matches Python TTP behavior)
-				if _, exists := match[varName]; !exists {
-					match[varName] = defaultValue
-				}
-			}
-		}
-	}
-
-	// Apply default attribute if specified
-	if defaultAttr, ok := group.Attributes["default"]; ok && defaultAttr != "" && !opts.mergeWithLast {
-		// Get default value - could be a literal string or a template variable name
-		var defaultValue interface{}
-
-		// Check if it's a template variable - check both runtime vars and compiled template vars
-		// Runtime vars take precedence over template vars
-		var varValue interface{} = defaultAttr // default to literal string
-		foundVar := false
-		if vars != nil {
-			if val, exists := vars[defaultAttr]; exists {
-				varValue = val
-				foundVar = true
-			} else if r.compiled.Vars != nil {
-				// Check compiled template vars (from <vars> tag)
-				if val, exists := r.compiled.Vars[defaultAttr]; exists {
-					varValue = val
-					foundVar = true
-				}
-			}
-		} else if r.compiled.Vars != nil {
-			// No runtime vars, check compiled template vars
-			if val, exists := r.compiled.Vars[defaultAttr]; exists {
-				varValue = val
-				foundVar = true
-			}
-		}
-
-		// If we found a variable value, use it; otherwise use as literal string
-		if foundVar {
-			defaultValue = varValue
-		} else {
-			defaultValue = defaultAttr
-		}
-
-		// Apply default to each match
-		if defaultValue != nil {
-			// If default is a dictionary/map, merge it into each match
-			if defaultMap, isMap := defaultValue.(map[string]interface{}); isMap {
-				// Merge default dictionary into each match result
-				for _, match := range mergedMatches {
-					// Merge default values into match (don't overwrite existing values)
-					for k, v := range defaultMap {
-						// Only set if key doesn't exist in match (matches Python TTP behavior)
-						if _, exists := match[k]; !exists {
-							match[k] = v
-						}
-					}
-				}
-			} else if defaultStr, isStr := defaultValue.(string); isStr {
-				// If default is a string, apply it to all unmatched variables in each match
-				// Collect all variable names from all patterns in the group
-				allVarNames := make(map[string]bool)
-				for _, cp := range group.Patterns {
-					for varName := range cp.Variables {
-						// Skip special variables that don't get defaults
-						if !pattern.IsIndicatorVar(varName) {
-							allVarNames[varName] = true
-						}
-					}
-				}
-
-				// Apply default to unmatched variables in each match
-				for _, match := range mergedMatches {
-					for varName := range allVarNames {
-						if _, exists := match[varName]; !exists {
-							match[varName] = defaultStr
-						}
-					}
-				}
-
-				// If group has no matches but has a default string, create a result with all variables set to default
-				// This matches Python TTP behavior when a group with default has no matches
-				if len(mergedMatches) == 0 && len(allVarNames) > 0 && !opts.perRecord {
-					defaultMatch := make(map[string]interface{})
-					for varName := range allVarNames {
-						defaultMatch[varName] = defaultStr
-					}
-					mergedMatches = append(mergedMatches, defaultMatch)
-					if obs != nil {
-						recs = append(recs, obs.newRecord(group))
-					}
-				}
-			}
-		}
-	}
-
-	if opts.perRecord {
-		// One record of a tree group (tree.go): the list-level steps below
-		// are the caller's.
-		if obs != nil {
-			obs.lastNodes = recs
-		}
-		return mergedMatches, nil
-	}
-
-	// YANG validation for parent group (after functions and macros, before returning)
-	if r.yangValidator != nil && mergedMatches != nil {
+	var jobs []yangJob
+	if r.yangValidator != nil && records != nil {
 		if yangPath, ok := group.Attributes["yang"]; ok && yangPath != "" {
-			validationResult := r.yangValidator.Validate(mergedMatches, yangPath, group.Name)
-			// Store validation result
-			r.validationResults[group.Name] = validationResult
+			jobs = append(jobs, yangJob{key: group.Name, path: yangPath, name: group.Name, data: records})
 		}
 	}
 
-	// Check if group has no matches but has variables with default() function
-	// If the start pattern has variables with default(), create a result with defaults
-	// This matches Python TTP behavior: if no matches found for start REs but has_start_re_default,
-	// create a result structure populated with default values
-	if len(mergedMatches) == 0 {
+	// A group that kept no record, with default() on its start line, gives
+	// a record of those defaults (TTP's has_start_re_default).
+	if len(records) == 0 {
 		if defaultMatch := startLineDefaultsRecord(group); defaultMatch != nil {
-			mergedMatches = append(mergedMatches, defaultMatch)
+			records = append(records, defaultMatch)
 			if obs != nil {
 				recs = append(recs, obs.newRecord(group))
 			}
@@ -1071,18 +769,18 @@ func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map
 	// the next one, an empty record after the first becomes a list item,
 	// and after that empty records are dropped (topSaver).
 	saver := newTopSaver(group.Name)
-	filteredMatches := make([]map[string]interface{}, 0, len(mergedMatches))
+	filtered := make([]map[string]interface{}, 0, len(records))
 	var kept []int
-	for mi, match := range mergedMatches {
+	for mi, match := range records {
 		switch saver.add(len(match) == 0) {
 		case topAppend:
-			filteredMatches = append(filteredMatches, match)
+			filtered = append(filtered, match)
 			if obs != nil {
 				kept = append(kept, mi)
 			}
 		case topMerge:
 			for k, v := range match {
-				filteredMatches[0][k] = v
+				filtered[0][k] = v
 			}
 			if obs != nil {
 				if rec := smAt(recs, mi); rec != nil {
@@ -1091,22 +789,14 @@ func (r *Runtime) postProcess(group *compiler.CompiledGroup, mergedMatches []map
 			}
 		}
 	}
-	mergedMatches = filteredMatches
 	if obs != nil {
-		recs = smKeep(recs, kept)
-		obs.lastNodes = recs
+		obs.lastNodes = smKeep(recs, kept)
 	}
 
-	// Return results based on method
-	switch group.Method {
-	case "table":
-		return mergedMatches, nil
-	default:
-		if len(mergedMatches) == 1 {
-			return mergedMatches[0], nil
-		}
-		return mergedMatches, nil
+	if group.Method != "table" && len(filtered) == 1 {
+		return filtered[0], jobs, nil
 	}
+	return filtered, jobs, nil
 }
 
 // startLineDefaultsRecord returns the record Parse gives for a group that
@@ -1156,65 +846,6 @@ func startLineDefaultsRecord(group *compiler.CompiledGroup) map[string]interface
 	return defaultValues
 }
 
-// applyGroupFilterStreaming runs the group's chain/functions attribute against
-// a single record. Returns nil to indicate the record should be dropped (e.g.
-// containsall failed). Implemented by wrapping the per-record value in a
-// single-element slice and calling processGroupFunctions, which is the same
-// path batch mode uses (preserving behavior).
-//
-// For streamable groups the allowlist guarantees these functions are
-// per-record (no aggregation), so a single-record invocation is well-defined.
-func (r *Runtime) applyGroupFilterStreaming(
-	record map[string]interface{},
-	group *compiler.CompiledGroup,
-	vars map[string]interface{},
-) (map[string]interface{}, error) {
-	chainStr := group.Chain
-	if chainStr == "" {
-		chainStr = group.Functions
-	}
-	if chainStr == "" {
-		return record, nil
-	}
-	out, err := r.processGroupFunctions([]map[string]interface{}{record}, chainStr, vars, nil)
-	if err != nil {
-		return nil, err
-	}
-	if len(out) == 0 {
-		return nil, nil
-	}
-	if out[0] == nil {
-		// Kept but empty: distinct from dropped (nil).
-		return map[string]interface{}{}, nil
-	}
-	return out[0], nil
-}
-
-// applyGroupMacroStreaming applies the group's macro chain to a single record.
-// Implemented by wrapping in a single-element slice and calling
-// processGroupMacro, which preserves the macro semantics used by batch mode.
-func (r *Runtime) applyGroupMacroStreaming(
-	record map[string]interface{},
-	group *compiler.CompiledGroup,
-	vars map[string]interface{},
-) (map[string]interface{}, error) {
-	if group.Macro == "" {
-		return record, nil
-	}
-	out, err := r.processGroupMacro([]map[string]interface{}{record}, group.Macro, vars, nil)
-	if err != nil {
-		return nil, err
-	}
-	if len(out) == 0 {
-		return nil, nil
-	}
-	if out[0] == nil {
-		// Kept but empty: distinct from dropped (nil).
-		return map[string]interface{}{}, nil
-	}
-	return out[0], nil
-}
-
 // parseGroupStream is the streaming variant of parseGroup. It matches the
 // input a line at a time and feeds the matches to the same record assembler
 // parseGroup uses for a group without children (assembler.go), invoking fn
@@ -1245,27 +876,25 @@ func (r *Runtime) parseGroupStream(
 	// Parse gives a record of start-line defaults (see the end of this
 	// function).
 	kept := false
+	pl := r.pipelineFor(group, vars)
 
 	asm := newAssembler(newAsmGroup(group), false, func(rec asmRecord) error {
 		r.pathResolver.UpdateCache(rec.result)
 		r.matchCollector.Clear()
-		// Apply per-record group filter and macro that parseGroup applies
-		// post-merge. For streamable groups the allowlist guarantees these
-		// are per-record (no aggregation).
-		filtered, err := r.applyGroupFilterStreaming(rec.result, group, vars)
+		// The same per-record steps Parse runs (pipeline.go). The
+		// streamability gate keeps out itemize, whose result is not a
+		// stream of records.
+		value, keep, itemized, err := r.runPipeline(pl, rec.result, vars, false, nil)
 		if err != nil {
 			return err
 		}
-		if filtered == nil {
-			return nil // dropped by filter
+		if !keep {
+			return nil // dropped by a group function
 		}
-		filtered, err = r.applyGroupMacroStreaming(filtered, group, vars)
-		if err != nil {
-			return err
+		if itemized {
+			return fmt.Errorf("parseGroupStream: group %q itemizes its records; streamability classifier bug", group.Name)
 		}
-		if filtered == nil {
-			return nil // dropped by macro
-		}
+		filtered, _ := value.(map[string]interface{})
 		// The record survived the chain and macro, so Parse would not make
 		// its record of start-line defaults, even if the record is empty.
 		kept = true
@@ -1949,115 +1578,6 @@ func resolveVariable(arg string, vars map[string]interface{}) string {
 	return arg
 }
 
-// processGroupFunctions processes group functions from chain/functions attribute
-// Functions are pipe-separated: "contains('ip') | set('key', 'value')"
-// Returns filtered/processed matches
-//
-// onKeep, when not nil, is called with the index of every match that is kept.
-func (r *Runtime) processGroupFunctions(matches []map[string]interface{}, chainStr string, vars map[string]interface{}, onKeep func(int)) ([]map[string]interface{}, error) {
-	// Check if chainStr references a template variable
-	if varValue, ok := vars[chainStr]; ok {
-		// It's a variable reference - use its value
-		if strValue, ok := varValue.(string); ok {
-			chainStr = strValue
-		} else if listValue, ok := varValue.([]interface{}); ok {
-			// Variable is a list of function strings
-			var funcStrs []string
-			for _, item := range listValue {
-				if strItem, ok := item.(string); ok {
-					funcStrs = append(funcStrs, strItem)
-				}
-			}
-			return r.applyGroupFunctions(matches, funcStrs, vars, onKeep)
-		}
-	}
-
-	// Parse pipe-separated function calls
-	funcStrs := strings.Split(chainStr, "|")
-	for i := range funcStrs {
-		funcStrs[i] = strings.TrimSpace(funcStrs[i])
-	}
-
-	return r.applyGroupFunctions(matches, funcStrs, vars, onKeep)
-}
-
-// applyGroupFunctions applies a list of group functions to matches
-func (r *Runtime) applyGroupFunctions(matches []map[string]interface{}, funcStrs []string, vars map[string]interface{}, onKeep func(int)) ([]map[string]interface{}, error) {
-	var result []map[string]interface{}
-
-	for mi, match := range matches {
-		// Make a copy to avoid modifying the original
-		data := make(map[string]interface{})
-		for k, v := range match {
-			data[k] = v
-		}
-
-		// Apply each function in the chain
-		shouldKeep := true
-		for _, funcStr := range funcStrs {
-			if funcStr == "" {
-				continue
-			}
-
-			// Parse function call (e.g., "contains('ip')", "set('key', 'value')")
-			// For group functions, we need to parse arguments without resolving variables
-			// because arguments like 'ip' and 'mask' should be literal strings, not variable names
-			funcName, args, err := parseFunctionWithoutResolve(funcStr)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse group function %s: %w", funcStr, err)
-			}
-
-			// Get function from registry (checks runtime overrides first)
-			fn, ok := r.getGroupFunc(funcName)
-			if !ok {
-				// Function not found - skip it (could be a macro or custom function)
-				continue
-			}
-
-			// Prepare kwargs for functions that need variable/schema access
-			kwargs := make(map[string]interface{})
-			// Always pass template variables to group functions so they can resolve variable references
-			// This is needed for functions like set('key', 'var_name') where var_name should be resolved
-			for k, v := range vars {
-				kwargs[k] = v
-			}
-			// Add recorded vars (from record() function) - these override template vars
-			if r.recordedVars != nil {
-				for k, v := range r.recordedVars {
-					kwargs[k] = v
-				}
-			}
-			// Pass r.recordedVars to record() function so it can store values globally
-			kwargs["_recorded_vars"] = r.recordedVars
-
-			// Execute function
-			newData, keep, err := fn(data, args, kwargs)
-			if err != nil {
-				return nil, fmt.Errorf("group function %s failed: %w", funcName, err)
-			}
-
-			// If function returns false, discard this match
-			if !keep {
-				shouldKeep = false
-				break
-			}
-
-			// Update data with function result
-			data = newData
-		}
-
-		// Only keep matches that passed all functions
-		if shouldKeep {
-			result = append(result, data)
-			if onKeep != nil {
-				onKeep(mi)
-			}
-		}
-	}
-
-	return result, nil
-}
-
 // macroErrorIsNotFound reports whether err represents an unregistered macro
 // name - matching Python TTP's behavior of silently continuing with the
 // original data when a referenced macro doesn't exist - as opposed to a
@@ -2072,169 +1592,6 @@ func macroErrorIsNotFound(err error) bool {
 		return false
 	}
 	return strings.Contains(err.Error(), "not found")
-}
-
-// processGroupMacro processes group macro on each match
-// Macro can be a single macro name or comma-separated list
-// Optimized to chain Starlark macros without Go↔Starlark conversions
-//
-// onKeep, when not nil, is called with the index of every match that is kept.
-func (r *Runtime) processGroupMacro(matches []map[string]interface{}, macroStr string, vars map[string]interface{}, onKeep func(int)) ([]map[string]interface{}, error) {
-	// Parse macro string (can be comma-separated list)
-	macroNames := strings.Split(macroStr, ",")
-	for i := range macroNames {
-		macroNames[i] = strings.TrimSpace(macroNames[i])
-	}
-
-	// Check if all macros are Starlark (for optimization)
-	allStarlark := true
-	for _, macroName := range macroNames {
-		if macroName == "" {
-			continue
-		}
-		actualMacroName := resolveVariable(macroName, vars)
-		if r.macroRegistry.HasGoMacro(actualMacroName) {
-			allStarlark = false
-			break
-		}
-	}
-
-	// Determine macro language
-	macroLang := "starlark" // default
-	for _, m := range r.compiled.Macros {
-		if m.Language != "" {
-			macroLang = m.Language
-			break
-		}
-	}
-
-	var result []map[string]interface{}
-
-	for mi, match := range matches {
-		processedMatch := match
-
-		// Optimization: If all macros are Starlark, chain them without Go↔Starlark conversions
-		if allStarlark && macroLang == "starlark" {
-			// Convert to Starlark once
-			starlarkEngine := r.macroRegistry.GetStarlarkEngine()
-			if starlarkEngine != nil {
-				dataVal := starlarkEngine.GoToStarlark(processedMatch)
-
-				// Collect actual macro names (resolved from vars)
-				actualMacroNames := make([]string, 0, len(macroNames))
-				for _, macroName := range macroNames {
-					if macroName == "" {
-						continue
-					}
-					actualMacroNames = append(actualMacroNames, resolveVariable(macroName, vars))
-				}
-
-				// Execute all macros in batch (optimized)
-				if len(actualMacroNames) > 0 {
-					resultVal, err := starlarkEngine.ExecuteMacroStarlarkBatch(actualMacroNames, dataVal, nil)
-					if err != nil {
-						if !macroErrorIsNotFound(err) {
-							return nil, fmt.Errorf("group macro %v failed: %w", actualMacroNames, err)
-						}
-						// Macro not found, continue with original data
-						// Fall through to original method
-					} else {
-						// Check if result is None - in Python TTP, None means "continue with original data", NOT filter
-						if resultVal == starlark.None {
-							// Continue with original data (don't filter)
-							// processedMatch stays the same
-						} else {
-							// Convert back to Go once
-							if resultMap, ok := starlarkEngine.StarlarkToGo(resultVal).(map[string]interface{}); ok {
-								processedMatch = resultMap
-							}
-						}
-						// Skip the original method
-						goto addResult
-					}
-				}
-			}
-		}
-
-		// Original method (for Go macros, mixed languages, or if optimization failed)
-		{
-			// Apply each macro in sequence
-			for _, macroName := range macroNames {
-				if macroName == "" {
-					continue
-				}
-
-				// Resolve macro name from vars if it's a variable reference
-				actualMacroName := resolveVariable(macroName, vars)
-
-				var macroResult interface{}
-				var err error
-
-				// Check if macro is registered as native Go macro first (priority)
-				if r.macroRegistry.HasGoMacro(actualMacroName) {
-					macroResult, err = r.macroRegistry.ExecuteMacro("go", actualMacroName, processedMatch, nil)
-				} else {
-					// Execute language-based macro on the match data
-					macroResult, err = r.macroRegistry.ExecuteMacro(macroLang, actualMacroName, processedMatch, nil)
-				}
-
-				if err != nil {
-					if !macroErrorIsNotFound(err) {
-						return nil, fmt.Errorf("macro %s failed: %w", actualMacroName, err)
-					}
-					// If macro not found, continue with original data (don't fail)
-					// This matches Python TTP behavior
-					continue
-				}
-
-				// Handle macro result
-				// Macro can return:
-				// - nil/None: continue with original data
-				// - dict/map: replace match data
-				// - bool: filter (true = keep, false = discard)
-				// - tuple: (data, additional_fields) - not fully supported yet
-
-				switch v := macroResult.(type) {
-				case bool:
-					// Boolean result: filter the match
-					if !v {
-						// Discard this match
-						processedMatch = nil
-						break
-					}
-					// Keep match as-is
-				case map[string]interface{}:
-					// Dict result: replace match data
-					processedMatch = v
-				case nil:
-					// None/nil: continue with original data
-					// processedMatch stays the same
-				default:
-					// Other types: try to convert to map or keep as-is
-					if mapResult, ok := v.(map[string]interface{}); ok {
-						processedMatch = mapResult
-					}
-					// Otherwise keep original
-				}
-
-				// If match was discarded, break out of macro loop
-				if processedMatch == nil {
-					break
-				}
-			}
-		}
-
-	addResult:
-		// Only add match if it wasn't discarded
-		if processedMatch != nil {
-			result = append(result, processedMatch)
-			if onKeep != nil {
-				onKeep(mi)
-			}
-		}
-	}
-
-	return result, nil
 }
 
 // processInputFunctions processes input functions for a given input

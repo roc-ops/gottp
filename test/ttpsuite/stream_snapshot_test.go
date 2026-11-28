@@ -174,12 +174,14 @@ func streamCase(c ttpCase) ([]streamRow, interface{}, error) {
 func checkStreamMatchesParse(t *testing.T, rows []streamRow, parsed interface{}) {
 	t.Helper()
 	var got, want []string
+	streamed := map[string]bool{}
 	for _, r := range rows {
 		b, _ := json.Marshal(r.Record)
 		got = append(got, string(b))
+		streamed[string(b)] = true
 	}
 	var leaves []map[string]interface{}
-	collectLeafRecords(parsed, &leaves)
+	collectLeafRecords(parsed, streamed, &leaves)
 	for _, m := range leaves {
 		b, _ := json.Marshal(m)
 		want = append(want, string(b))
@@ -191,15 +193,22 @@ func checkStreamMatchesParse(t *testing.T, rows []streamRow, parsed interface{})
 	}
 }
 
-// collectLeafRecords collects every non-empty map whose values hold no maps
-// (directly or in a list): the records of groups without children.
-func collectLeafRecords(v interface{}, out *[]map[string]interface{}) {
+// collectLeafRecords collects the records of groups without children: every
+// map equal to a streamed record, and every other non-empty map whose values
+// hold no maps (directly or in a list). The first rule keeps a record whose
+// value is a dict (a default({...}), say) from being taken apart; a record
+// Parse has and the stream doesn't still turns up through the second.
+func collectLeafRecords(v interface{}, streamed map[string]bool, out *[]map[string]interface{}) {
 	switch t := v.(type) {
 	case []interface{}:
 		for _, item := range t {
-			collectLeafRecords(item, out)
+			collectLeafRecords(item, streamed, out)
 		}
 	case map[string]interface{}:
+		if b, err := json.Marshal(t); err == nil && len(t) > 0 && streamed[string(b)] {
+			*out = append(*out, t)
+			return
+		}
 		leaf := true
 		for _, val := range t {
 			switch vt := val.(type) {
@@ -220,7 +229,7 @@ func collectLeafRecords(v interface{}, out *[]map[string]interface{}) {
 			return
 		}
 		for _, val := range t {
-			collectLeafRecords(val, out)
+			collectLeafRecords(val, streamed, out)
 		}
 	}
 }
