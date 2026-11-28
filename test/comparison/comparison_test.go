@@ -3,6 +3,7 @@ package comparison
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -256,12 +257,13 @@ func normalizeJSON(data interface{}, unwrapSingleLists bool) interface{} {
 }
 
 // roundFloat rounds a float to the specified number of decimal places
+// (half away from zero, so -1 stays -1).
 func roundFloat(f float64, decimals int) float64 {
 	multiplier := 1.0
 	for i := 0; i < decimals; i++ {
 		multiplier *= 10
 	}
-	return float64(int(f*multiplier+0.5)) / multiplier
+	return math.Round(f*multiplier) / multiplier
 }
 
 // compareResults compares two results and returns true if they match

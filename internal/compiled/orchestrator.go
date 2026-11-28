@@ -202,6 +202,9 @@ func (r *Runtime) parse(inputs map[string]string, vars map[string]interface{}, o
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse group %s: %w", group.Name, err)
 			}
+			if err := r.raised.get(); err != nil {
+				return nil, err
+			}
 			var recs []*smRecord // source map: the records behind groupResults
 			if obs != nil {
 				recs = obs.takeNodes()

@@ -1,7 +1,6 @@
 {
  "records": [
   {"group_path":"r","src_range":[0,6],"record":{"v":"abc"}},
-  {"group_path":"r","src_range":[6,12],"record":{"v":"ab1"}},
   {"group_path":"r","src_range":[12,18],"record":{"v":"def"}}
  ]
 }

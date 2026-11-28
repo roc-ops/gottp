@@ -13,6 +13,7 @@ import (
 	"github.com/roc-ops/gottp/internal/functions/match"
 	"github.com/roc-ops/gottp/internal/functions/output"
 	"github.com/roc-ops/gottp/internal/pattern"
+	"github.com/roc-ops/gottp/internal/pymethod"
 )
 
 // Function calls are read at compile time with package call, the one call
@@ -95,12 +96,11 @@ var scopeNames = sync.OnceValue(func() map[Scope]knownNames {
 })
 
 // matchTypeMethodName reports whether name is a method or attribute of a
-// match value's type, which Python TTP falls back to for a name that isn't
-// a match function (getattr(data, name), ttp.py:2464). Such a name isn't
-// unknown. Refactor F2 (#36) ports the type methods; until then no name is
-// one.
+// match value's type that gottp ports, which Python TTP falls back to for a
+// name that isn't a match function (getattr(data, name), ttp.py:2464).
+// Such a name isn't unknown.
 func matchTypeMethodName(name string) bool {
-	return false
+	return pymethod.IsName(name)
 }
 
 // callChecker collects what checkCalls finds.
@@ -258,9 +258,18 @@ func (c *callChecker) variable(groupScope string, v *pattern.MatchVariable) erro
 				return err
 			}
 		}
-		if !matchTypeMethodName(cl.Name) {
-			c.checkName(scope, ScopeMatch, "match variable", cl.Name)
+		if scopeNames()[ScopeMatch].known[cl.Name] || matchTypeMethodName(cl.Name) {
+			continue
 		}
+		if w, ok := pymethod.NotPorted(scope, cl.Name); ok {
+			// A Python method gottp doesn't port: the value is kept. A
+			// custom function of the name drops the warning, as for an
+			// unknown name.
+			c.unknown = append(c.unknown, UnknownCall{Scope: ScopeMatch, Name: cl.Name, Warning: w})
+			c.warnings = append(c.warnings, w)
+			continue
+		}
+		c.checkName(scope, ScopeMatch, "match variable", cl.Name)
 	}
 	v.Calls() // read once, now
 	return nil

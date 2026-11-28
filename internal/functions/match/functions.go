@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"unicode"
 )
 
 // Cached compiled regexes for performance
@@ -53,14 +52,10 @@ func (r *Registry) Get(name string) (Function, bool) {
 
 // registerBuiltins registers all built-in match functions
 func (r *Registry) registerBuiltins() {
-	r.Register("upper", upper)
-	r.Register("lower", lower)
-	r.Register("strip", strip)
-	r.Register("lstrip", lstrip)
-	r.Register("rstrip", rstrip)
-	r.Register("split", split)
+	// upper, lower, strip, lstrip, rstrip, split, replace, startswith and
+	// endswith are not TTP match functions: TTP runs the str methods of
+	// those names (getattr fallback), as gottp does (package pymethod).
 	r.Register("join", join)
-	r.Register("replace", replace)
 	r.Register("IP", ip)
 	r.Register("mac_eui", macEUI)
 
@@ -71,61 +66,11 @@ func (r *Registry) registerBuiltins() {
 	r.RegisterConditionFunctions()
 }
 
-// upper converts string to uppercase
-func upper(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	str := fmt.Sprintf("%v", value)
-	return strings.ToUpper(str), nil
-}
 
-// lower converts string to lowercase
-func lower(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	str := fmt.Sprintf("%v", value)
-	return strings.ToLower(str), nil
-}
 
-// strip, lstrip and rstrip follow Python's str.strip/lstrip/rstrip(chars):
-// with an argument they remove any of its characters (a set, not a
-// substring) from both ends, the start or the end; without one they remove
-// whitespace.
-func strip(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	str := fmt.Sprintf("%v", value)
-	if len(args) > 0 {
-		return strings.Trim(str, args[0]), nil
-	}
-	return strings.TrimSpace(str), nil
-}
 
-func lstrip(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	str := fmt.Sprintf("%v", value)
-	if len(args) > 0 {
-		return strings.TrimLeft(str, args[0]), nil
-	}
-	return strings.TrimLeftFunc(str, unicode.IsSpace), nil
-}
 
-func rstrip(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	str := fmt.Sprintf("%v", value)
-	if len(args) > 0 {
-		return strings.TrimRight(str, args[0]), nil
-	}
-	return strings.TrimRightFunc(str, unicode.IsSpace), nil
-}
 
-// split splits a string by delimiter
-func split(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	str := fmt.Sprintf("%v", value)
-	delim := ","
-	if len(args) > 0 {
-		delim = args[0]
-	}
-	parts := strings.Split(str, delim)
-	// Return as slice
-	result := make([]interface{}, len(parts))
-	for i, part := range parts {
-		result[i] = strings.TrimSpace(part)
-	}
-	return result, nil
-}
 
 // join joins a slice of strings
 func join(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
@@ -150,16 +95,6 @@ func join(value interface{}, args []string, kwargs map[string]interface{}) (inte
 	return strings.Join(parts, delim), nil
 }
 
-// replace replaces occurrences of old with new
-func replace(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {
-	str := fmt.Sprintf("%v", value)
-	if len(args) < 2 {
-		return str, nil
-	}
-	old := args[0]
-	new := args[1]
-	return strings.ReplaceAll(str, old, new), nil
-}
 
 // ip validates and normalizes IP address
 func ip(value interface{}, args []string, kwargs map[string]interface{}) (interface{}, error) {

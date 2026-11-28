@@ -6,8 +6,10 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync/atomic"
 
 	"github.com/roc-ops/gottp/internal/call"
+	"github.com/roc-ops/gottp/internal/pymethod"
 
 	"go.starlark.net/starlark"
 
@@ -57,6 +59,34 @@ type Runtime struct {
 	// the shared pipelines.
 	parseVars    map[string]interface{}
 	parseOptVars map[string]interface{}
+	// raised holds the first Python exception a match variable's type
+	// method raised in this parse, which fails the parse as it fails Python
+	// TTP's; nil on a Runtime not made by beginParse.
+	raised *methodRaise
+}
+
+// methodRaise is the first Python exception a type method raised in a
+// parse (matchTypeMethod). Groups may parse in parallel, so the first one
+// set wins.
+type methodRaise struct {
+	err atomic.Pointer[error]
+}
+
+func (m *methodRaise) set(err error) {
+	if m != nil {
+		m.err.CompareAndSwap(nil, &err)
+	}
+}
+
+// get returns the exception, or nil.
+func (m *methodRaise) get() error {
+	if m == nil {
+		return nil
+	}
+	if p := m.err.Load(); p != nil {
+		return *p
+	}
+	return nil
 }
 
 // NewRuntime creates a new runtime for a compiled template
@@ -381,6 +411,15 @@ func (r *Runtime) ParseStream(
 
 	inputOrder := r.prepareInputs(inputs)
 
+	// A type method that raised fails the parse (as it fails Python
+	// TTP's): no record is emitted after it.
+	emit := func(record map[string]interface{}, srcRange [2]int, groupPath string) error {
+		if err := r.raised.get(); err != nil {
+			return err
+		}
+		return fn(record, srcRange, groupPath)
+	}
+
 	// --- Drive parseGroupStream for each top-level group ---
 
 	for _, g := range r.compiled.Groups {
@@ -404,7 +443,10 @@ func (r *Runtime) ParseStream(
 				return fmt.Errorf("failed to process input functions for %s: %w", inputName, err)
 			}
 
-			if err := r.parseGroupStream(g, processedInputData, vars, fn); err != nil {
+			if err := r.parseGroupStream(g, processedInputData, vars, emit); err != nil {
+				return err
+			}
+			if err := r.raised.get(); err != nil {
 				return err
 			}
 		}
@@ -1016,14 +1058,25 @@ func (r *Runtime) processFunctions(value interface{}, calls []*call.Call, vars m
 		if !ok {
 			newResult, handled, err := r.matchTypeMethod(result, c)
 			if err != nil {
+				err = fmt.Errorf("match variable %q: %s: %w (Python TTP's parse fails with this exception)", varName, c.Text, err)
+				r.raised.set(err)
 				return nil, err
 			}
 			if !handled {
-				// Not a function: skipped, keeping the value, as TTP does
-				// (the compiler warned about the name).
+				// Not a function, nor a method of the value's type: skipped,
+				// keeping the value, as TTP does (the compiler warned about
+				// a name that is a method of no type).
 				continue
 			}
-			fn = func(interface{}, []string, map[string]interface{}) (interface{}, error) { return newResult, nil }
+			if b, isBool := newResult.(bool); isBool {
+				// True or False is a filter.
+				if !b {
+					return nil, fmt.Errorf("condition_failed")
+				}
+				continue
+			}
+			result = newResult
+			continue
 		}
 
 		// Only create kwargs map if function needs it (chain, macro, or functions that use vars)
@@ -1260,11 +1313,14 @@ func (r *Runtime) extractMatchTTP(match []string, compiledPattern *pattern.Compi
 
 // matchTypeMethod is the fallback for a match function name that isn't a
 // match function: Python TTP then runs the value's own method or attribute
-// of that name (getattr(data, name), ttp.py:2464). Refactor F2 (#36) ports
-// the type methods here (and compiler.matchTypeMethodName); until then
-// nothing is handled, and the caller skips the name, keeping the value.
+// of that name (getattr(data, name), ttp.py:2464), a Python 3.12 method of
+// str, int, float, bool, list or dict ported by package pymethod. handled
+// is false when the value's type has no such method (TTP's AttributeError,
+// which keeps the value). A bool result is a filter. err is a Python
+// exception, which fails TTP's parse. The arguments are the call's Python
+// values, as TTP passes them (template variables don't replace them).
 func (r *Runtime) matchTypeMethod(value interface{}, c *call.Call) (result interface{}, handled bool, err error) {
-	return value, false, nil
+	return pymethod.Call(value, c.Name, c.Args, c.Kwargs)
 }
 
 // macroErrorIsNotFound reports whether err represents an unregistered macro

@@ -153,6 +153,26 @@ The comparison test suite includes:
 - **Why:** gottp reads literals, not Python. Only broken syntax (an unterminated quote, unbalanced brackets) and the calls TTP raises `TypeError` on are compile errors.
 - **Test status:** `TestRawTextArguments` in `test/function_calls_test.go`; `TestParseRawArgs` in `internal/call`.
 
+### Type methods that change the value in place (F2, deliberate)
+- **gottp:** a match variable function that is a Python list or dict method changing the value in place (`sort`, `reverse`, `pop`, `extend`, `insert`, `remove`, `clear`, `update`, `setdefault`, `popitem`) isn't ported. `GetWarnings()` names it at compile time and the value is kept unchanged.
+- **Python TTP 0.10.1:** calls the method through its `getattr` fallback (`ttp.py:2464`). The method returns `None`, which TTP saves as the value: `{{ v | split(",") | sort }}` saves `null`.
+- **Why:** the fallback is meant for methods that return a new value; saving `None` is never what a template wants.
+- **Test status:** `TestTypeMethodWarnings` in `test/function_calls_test.go`; `TestListMethods` and `TestDictMethods` in `internal/pymethod`.
+
+### Type method results with no JSON form (F2)
+- **gottp:** `str.encode`, `int.to_bytes` (bytes), and the class methods `int.from_bytes`, `float.fromhex` and `dict.fromkeys` aren't ported; they warn at compile time and keep the value. `keys()`, `values()` and `items()` on a dict (an `ip_info` value) give lists, `items()` as `[key, value]` lists, in key order (gottp's maps keep no order).
+- **Python TTP 0.10.1:** saves the bytes or the `dict_keys`/`dict_values`/`dict_items` object, in insertion order. Its JSON and YAML outputs can't write them (`TypeError: Object of type dict_keys is not JSON serializable`).
+- **Test status:** `TestDictMethods` in `internal/pymethod`.
+
+### `get(x)` as a match variable function (F2)
+- **gottp:** runs `dict.get(x)` on a dict value; on any other value it is skipped (the value is kept).
+- **Python TTP 0.10.1:** reads `get(x)` as `re(x)`: its pattern lookup (`ttp/patterns/get_pattern.py`) looks the name up in its own module, where `get` is the lookup function, so `x` becomes the variable's regex. `get` without arguments fails with `TypeError`. `dict.get` is never reached.
+- **Test status:** `TestDictMethods` in `internal/pymethod`.
+
+### Type method arguments (F2)
+- **gottp:** a dict literal's keys are strings, so `translate({97: "x"})` maps the key `"97"` (the code point 97) and `dict.get(1)` finds nothing. A list literal is accepted where Python takes only a tuple (`startswith(["a", "b"])`).
+- **Python TTP 0.10.1:** keeps int keys, and `startswith(["a", "b"])` raises `TypeError`.
+
 ## Recent Fixes and Improvements
 
 ### Fixed During Testing (2024)

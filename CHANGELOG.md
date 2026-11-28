@@ -4,6 +4,22 @@ All notable changes to GoTTP will be documented in this file.
 
 ## [Unreleased]
 
+### Added: Python type methods for match variables (refactor F2, #36)
+A match variable function that isn't a match function now runs the value's own Python 3.12 method or attribute of that name, as Python TTP 0.10.1's `getattr` fallback does (`ttp.py:2464`). The methods are Go ports in `internal/pymethod`: every `str` method except `encode`, the `int`/`bool` methods `bit_length`, `bit_count`, `conjugate`, `as_integer_ratio` and `is_integer` and attributes `real`, `imag`, `numerator` and `denominator`, the `float` methods `is_integer`, `conjugate`, `as_integer_ratio` and `hex` and attributes `real` and `imag`, `list.count`, `index` and `copy`, and `dict.get`, `keys`, `values`, `items` and `copy`. See "Python type methods" in the match variable functions docs.
+- **True or False filters the match**, any other result replaces the value: `{{ v | isalpha }}`, `{{ v | title }}`, `{{ v | zfill(9) }}`, `{{ v | to_int | bit_length }}`, `{{ v | split(",") | index("b") }}`. They were skipped.
+- **Python 3.12 semantics, Unicode included:** full case mappings (`upper("straße")` is `STRASSE`), final sigma, Python's `title`, the `is*` character classes and its whitespace set. The Unicode tables are generated from Python 3.12 (`internal/pymethod/gen_unicode.py`) and checked against it for every code point.
+- **A method that raises fails the parse**, as in TTP, which catches only `AttributeError`: `index("z")` with no `z` (`ValueError`), `center("a")` (`TypeError`). `Parse` returns the exception. A name the value's type doesn't have keeps the value, as before.
+- **Such a name no longer warns as unknown.** A name that is a method of no type still does. Methods that change the value in place (`sort`, `reverse`, `pop`, `update`, ...) and methods whose result has no JSON form (`encode`, `to_bytes`, ...) aren't ported: they warn at compile time and keep the value (Python TTP saves `None` for the first kind; see `test/comparison/KNOWN_DIFFERENCES.md`).
+
+### Changed (breaking: `upper`, `lower`, `strip`, `lstrip`, `rstrip`, `split`, `replace`, `startswith` and `endswith` are Python's)
+These are not TTP match functions, so in TTP they are the `str` methods. gottp's own versions are gone and the methods run instead:
+- `split` no longer trims each part, and without an argument splits on runs of whitespace (it split on `,`). `split(",", 1)` and `maxsplit=` work.
+- `replace(old, new, count)` honours the count.
+- `startswith`/`endswith` take a tuple of prefixes and start/end, and without an argument fail the parse with `TypeError`, as in TTP (they passed).
+- `strip(None)` strips whitespace (it stripped the characters `N`, `o`, `n`, `e`).
+- `upper`/`lower` use Python's full case mappings.
+- On a value that isn't a string (after `to_int`, `split`, ...) they keep the value, as Python's `AttributeError` does. They turned it into a string first.
+
 ### Changed (breaking: one function-call reader)
 Every function call is now read by one module, `internal/call`, the way Python TTP 0.10.1's `get_attributes` reads it (refactor F1, #36): match variable functions, group attributes and `functions=`/`chain=`, input functions and output functions. Calls are read once, when the template compiles; nothing is parsed per match any more. The separate parsers are gone: `parseFunction` and the quote/comma splitters in the runtime, the match `chain` interpreter, the group `sformatArgs`/`itemize` splitters, and the `default()`, `set()`, `joinmatches()` and `re()` string slicing in the compiler and pattern engine.
 - **Arguments are Python call arguments.** Each value is a Python literal: strings with Python's escapes, `r"..."` raw strings and adjacent-literal concatenation, ints, floats, `True`/`False`/`None`, lists, tuples and dicts. A bare word is its own text, and `true`/`false`/`none` in any case are `True`/`False`/`None` (TTP's `_UndefSubst`). So:

@@ -13,58 +13,6 @@
    "issue": 33,
    "reason": "trailing {{ ignore(\".*\") }} fails when the data line has trailing whitespace"
   },
-  "gottp-repros/issue36_int_bit_length": {
-   "issue": 36,
-   "reason": "bit_length after to_int (int method fallback) is silently skipped"
-  },
-  "gottp-repros/issue36_int_imag_attribute": {
-   "issue": 36,
-   "reason": "imag after to_int (int attribute fallback) is silently skipped"
-  },
-  "gottp-repros/issue36_list_index": {
-   "issue": 36,
-   "reason": "index(\"b\") after split (list method fallback) is silently skipped"
-  },
-  "gottp-repros/issue36_str_casefold": {
-   "issue": 36,
-   "reason": "casefold (str method fallback) is silently skipped"
-  },
-  "gottp-repros/issue36_str_center": {
-   "issue": 36,
-   "reason": "center(12, \"*\") (str method fallback) is silently skipped"
-  },
-  "gottp-repros/issue36_str_find_returns_int": {
-   "issue": 36,
-   "reason": "find(\"2\") (str method fallback) is silently skipped; TTP saves the int"
-  },
-  "gottp-repros/issue36_str_isalpha_filters": {
-   "issue": 36,
-   "reason": "isalpha (str method fallback) is skipped, so its False result doesn't drop the match"
-  },
-  "gottp-repros/issue36_str_isupper_filters": {
-   "issue": 36,
-   "reason": "isupper (str method fallback) is skipped, so its False result doesn't drop the match"
-  },
-  "gottp-repros/issue36_str_partition_returns_tuple": {
-   "issue": 36,
-   "reason": "partition(\",\") (str method fallback) is silently skipped; TTP saves the tuple as a list"
-  },
-  "gottp-repros/issue36_str_removesuffix": {
-   "issue": 36,
-   "reason": "removesuffix(\",\") (str method fallback) is silently skipped"
-  },
-  "gottp-repros/issue36_str_title": {
-   "issue": 36,
-   "reason": "title (str method fallback) is silently skipped"
-  },
-  "gottp-repros/issue36_str_zfill": {
-   "issue": 36,
-   "reason": "zfill(9) (str method fallback) is silently skipped"
-  },
-  "gottp-repros/issue36_unknown_function_falls_back_to_str_method": {
-   "issue": 36,
-   "reason": "swapcase (str method fallback) is silently skipped"
-  },
   "test_N2G_formatter/test_n2g_formatter": {
    "issue": 80,
    "reason": "format=\"n2g\" is not supported"
