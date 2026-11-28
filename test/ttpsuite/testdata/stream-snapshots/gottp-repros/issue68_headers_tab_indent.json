@@ -1,0 +1,6 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[18,37],"record":{"Name":"foo","Port":"Gi0/1","Status":"up"}},
+  {"group_path":"g","src_range":[37,52],"record":{"Name":"up","Port":"Gi0/1 foo","Status":""}}
+ ]
+}

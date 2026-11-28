@@ -1,0 +1,4 @@
+interface a
+Gi0/1  foo   up
+Gi0/2  bar   up
+interface b

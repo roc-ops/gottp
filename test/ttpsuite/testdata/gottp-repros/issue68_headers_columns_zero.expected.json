@@ -1,0 +1,18 @@
+[
+ [
+  {
+   "g": [
+    {
+     "Port": "Gi0/1",
+     "Name": "foo",
+     "Status": "up"
+    },
+    {
+     "Port": "Gi0/2",
+     "Name": "",
+     "Status": ""
+    }
+   ]
+  }
+ ]
+]

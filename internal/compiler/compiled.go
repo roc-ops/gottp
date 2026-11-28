@@ -578,10 +578,18 @@ func (c *Compiler) compilePatternWithVars(line string, exactSpace, exact bool, v
 	// Extract variables with vars access
 	variables := c.patternEngine.ExtractVariablesWithVars(line, vars)
 
-	// Generate regex pattern
-	regexStr, err := c.patternEngine.GenerateRegexFromVariables(line, variables, exactSpace, exact)
+	// A {{ _headers_ }} line captures its columns by position (#68).
+	regexStr, headerVars, isHeaders, err := c.patternEngine.HeadersLine(line, variables)
 	if err != nil {
 		return nil, err
+	}
+	if isHeaders {
+		variables = headerVars
+	} else {
+		regexStr, err = c.patternEngine.GenerateRegexFromVariables(line, variables, exactSpace, exact)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Compile regex
@@ -603,6 +611,7 @@ func (c *Compiler) compilePatternWithVars(line string, exactSpace, exact bool, v
 		Variables:     varMap,
 		VariableOrder: varOrder,
 		Original:      line,
+		Headers:       isHeaders,
 	}
 	cp.PopulateFlags()
 	return cp, nil

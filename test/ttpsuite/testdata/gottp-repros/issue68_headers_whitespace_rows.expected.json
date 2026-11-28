@@ -1,0 +1,33 @@
+[
+ [
+  {
+   "g": [
+    {
+     "Port": "Gi0/1",
+     "Name": "foo",
+     "Status": "up"
+    },
+    {
+     "Port": "",
+     "Name": "",
+     "Status": ""
+    },
+    {
+     "Port": "",
+     "Name": "",
+     "Status": ""
+    },
+    {
+     "Port": "",
+     "Name": "",
+     "Status": ""
+    },
+    {
+     "Port": "Gi0/2",
+     "Name": "bar",
+     "Status": "down"
+    }
+   ]
+  }
+ ]
+]

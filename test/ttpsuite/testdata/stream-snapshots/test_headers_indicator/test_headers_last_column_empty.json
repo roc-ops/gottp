@@ -1,3 +1,7 @@
 {
- "records": []
+ "records": [
+  {"group_path":"","src_range":[69,141],"record":{"Available":"1457328","Filesystem":"tmpfs","K1_blocks":"1457328","Mounted_on":"/sys/fs/cgroup","Use_":"0%","Used":"0"}},
+  {"group_path":"","src_range":[141,197],"record":{"Available":"8251560","Filesystem":"/dev/mapper/centos-root","K1_blocks":"14034944","Mounted_on":"","Use_":"2%","Used":"5783384"}},
+  {"group_path":"","src_range":[197,264],"record":{"Available":"817732","Filesystem":"/dev/sda1","K1_blocks":"1038336","Mounted_on":"/boot","Use_":"22%","Used":"220604"}}
+ ]
 }

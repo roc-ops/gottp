@@ -234,6 +234,12 @@ func lineProfile(cp *pattern.CompiledPattern) PatternProfile {
 			action = varAction
 		}
 	}
+	// TTP's line ACTION comes from the line's own variables: for a
+	// {{ _headers_ }} line that is _headers_, a start (its header
+	// variables are sub-variables).
+	if cp.Headers {
+		action = ActionStart
+	}
 	pp.Action = action
 	pp.Indicated = action.isStartAction()
 	pp.MatchesBlank = regexMatchesBlank(cp)

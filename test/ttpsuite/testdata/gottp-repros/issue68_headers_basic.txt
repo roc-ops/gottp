@@ -1,0 +1,3 @@
+Port      Name    Status
+Gi0/1     foo     up
+Gi0/2             down

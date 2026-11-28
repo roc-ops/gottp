@@ -1,0 +1,18 @@
+[
+ [
+  {
+   "g": [
+    {
+     "Pört": "Gé0/1",
+     "Name": "foo",
+     "Status": "up"
+    },
+    {
+     "Pört": "Gi0/2",
+     "Name": "bär",
+     "Status": "down"
+    }
+   ]
+  }
+ ]
+]

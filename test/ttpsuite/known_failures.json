@@ -57,14 +57,6 @@
    "issue": 112,
    "reason": "chain(var) naming a <vars> list is ignored"
   },
-  "test_answers_and_docs/test_issue_57_headers_parsing": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
-  "test_answers_and_docs/test_issue_57_headers_parsing_using_columns": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
   "test_answers_and_docs/test_issue_89": {
    "issue": 76,
    "reason": "dynamic-path value \"Bundle-Ether801.101\" is split on the dot"
@@ -205,50 +197,6 @@
   "test_group_lookup/test_group_lookup_using_lookup_table_action_update": {
    "issue": 75,
    "reason": "group-level lookup= attribute is ignored"
-  },
-  "test_headers_indicator/test_headers_docs_example": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
-  "test_headers_indicator/test_headers_indicator_columns_merged": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
-  "test_headers_indicator/test_headers_indicator_left_aligned": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
-  "test_headers_indicator/test_headers_indicator_multiline_header": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
-  "test_headers_indicator/test_headers_indicator_space_indented_header": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
-  "test_headers_indicator/test_headers_indicator_tab_indented_header": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
-  "test_headers_indicator/test_headers_last_column_empty": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
-  "test_headers_indicator/test_headers_on_tabular_output": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
-  "test_headers_indicator/test_headers_shorter_lines": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
-  "test_headers_indicator/test_headers_with_column": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
-  },
-  "test_headers_indicator/test_with_garbage": {
-   "issue": 68,
-   "reason": "_headers_ indicator unimplemented"
   },
   "test_inputs/test_group_inputs": {
    "issue": 94,

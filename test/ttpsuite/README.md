@@ -2,17 +2,17 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (baseline cluster 1: #162, #64):
+Current result (baseline cluster 6: #68):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 109 / skipped-by-issue 85 / design 6 of 200
-gottp repros: pass 157 / skipped-by-issue 3 / design 2 of 162
-source-map parity: same 365 / diverge 0 of 365
-stream snapshots: 173 streamable of 365 cases
+TTP 0.10.1 suite: pass 122 / skipped-by-issue 72 / design 6 of 200
+gottp repros: pass 167 / skipped-by-issue 4 / design 2 of 173
+source-map parity: same 376 / diverge 0 of 376
+stream snapshots: 184 streamable of 376 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -70,6 +70,16 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue162_re_spaces_matches_blank` | passes; `re("[ ]+")` matches a blank line (#162) |
 | `issue162_re_dotstar_matches_empty_line` | passes; `re(".*")` matches empty lines (#162) |
 | `issue162_indented_start_blank_line` | passes; an indented `{{ _start_ }}` keeps its indent and sees the blank line as it is (#162) |
+| `issue68_headers_basic` | passes; the issue's example: fixed-width columns, an empty middle column (#68) |
+| `issue68_headers_exclude_substring` | passes; a row with a header's name inside that header's column is dropped, as is the header row (#68) |
+| `issue68_headers_whitespace_rows` | passes; a row of only spaces matches with empty values; an empty line doesn't (#68) |
+| `issue68_headers_short_and_long_rows` | passes; short rows fill the optional columns with ""; the last column takes the rest; a too-long value spills into the next column (#68) |
+| `issue68_headers_text_after_indicator` | passes; text after `{{ _headers_ }}` is dropped (#68) |
+| `issue68_headers_tab_indent` | passes; a tab in the header row's indent counts as 4 characters (#68) |
+| `issue68_headers_columns_all` | passes; `columns(N)` above the header count makes every column mandatory (#68) |
+| `issue68_headers_columns_zero` | passes; `columns(0)` is read as `columns(1)` (#68) |
+| `issue68_headers_after_other_line` | passes; a `_headers_` line that isn't the first line still starts records (#68) |
+| `issue68_headers_unicode` | passes; column widths count characters, not bytes (#68) |
 
 Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Since refactor C1 gottp assembles records with a port of `_results_class` (`internal/compiled/assembler.go`), and since C2 a group with children and all its descendants go through one assembler (`internal/compiled/tree.go`), so most of them pass. Those gottp still gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
 

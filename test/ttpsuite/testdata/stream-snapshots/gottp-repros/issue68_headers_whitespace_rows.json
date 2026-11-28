@@ -1,0 +1,9 @@
+{
+ "records": [
+  {"group_path":"g","src_range":[25,46],"record":{"Name":"foo","Port":"Gi0/1","Status":"up"}},
+  {"group_path":"g","src_range":[46,67],"record":{"Name":"","Port":"","Status":""}},
+  {"group_path":"g","src_range":[67,78],"record":{"Name":"","Port":"","Status":""}},
+  {"group_path":"g","src_range":[78,81],"record":{"Name":"","Port":"","Status":""}},
+  {"group_path":"g","src_range":[81,104],"record":{"Name":"bar","Port":"Gi0/2","Status":"down"}}
+ ]
+}

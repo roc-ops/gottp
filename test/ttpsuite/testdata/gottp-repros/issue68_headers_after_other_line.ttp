@@ -1,0 +1,4 @@
+<group name="g">
+interface {{ intf }}
+Port   Name  Status {{ _headers_ }}
+</group>

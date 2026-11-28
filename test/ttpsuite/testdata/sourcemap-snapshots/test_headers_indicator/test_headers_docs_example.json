@@ -3,9 +3,9 @@
   "Default_Input": [
    {"LineNumber":0,"Matched":false,"Matches":[]},
    {"LineNumber":1,"Matched":false,"Matches":[]},
-   {"LineNumber":2,"Matched":false,"Matches":[]},
-   {"LineNumber":3,"Matched":false,"Matches":[]},
-   {"LineNumber":4,"Matched":false,"Matches":[]},
+   {"LineNumber":2,"Matched":true,"Matches":[{"StartCol":0,"EndCol":84,"GroupName":"","PatternIndex":0,"Variables":{"Duplex":{"StartCol":53,"EndCol":61},"Name":{"StartCol":10,"EndCol":29},"Port":{"StartCol":0,"EndCol":10},"Speed":{"StartCol":61,"EndCol":67},"Status":{"StartCol":29,"EndCol":42},"Type":{"StartCol":67,"EndCol":84},"Vlan":{"StartCol":42,"EndCol":53}},"ResultPath":"_anonymous_[0]"}]},
+   {"LineNumber":3,"Matched":true,"Matches":[{"StartCol":0,"EndCol":84,"GroupName":"","PatternIndex":0,"Variables":{"Duplex":{"StartCol":53,"EndCol":61},"Name":{"StartCol":10,"EndCol":29},"Port":{"StartCol":0,"EndCol":10},"Speed":{"StartCol":61,"EndCol":67},"Status":{"StartCol":29,"EndCol":42},"Type":{"StartCol":67,"EndCol":84},"Vlan":{"StartCol":42,"EndCol":53}},"ResultPath":"_anonymous_[1]"}]},
+   {"LineNumber":4,"Matched":true,"Matches":[{"StartCol":0,"EndCol":82,"GroupName":"","PatternIndex":0,"Variables":{"Duplex":{"StartCol":53,"EndCol":61},"Name":{"StartCol":10,"EndCol":29},"Port":{"StartCol":0,"EndCol":10},"Speed":{"StartCol":61,"EndCol":67},"Status":{"StartCol":29,"EndCol":42},"Type":{"StartCol":67,"EndCol":82},"Vlan":{"StartCol":42,"EndCol":53}},"ResultPath":"_anonymous_[2]"}]},
    {"LineNumber":5,"Matched":false,"Matches":[]}
   ]
  }

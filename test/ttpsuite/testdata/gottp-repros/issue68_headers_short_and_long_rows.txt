@@ -1,0 +1,6 @@
+Port      Name    Status  Speed
+Gi0/1
+Gi0/2     foo
+Gi0/3     foo     u
+Gi0/4     foo     up      1000   extra   stuff   
+Gi0/56789012345 foo

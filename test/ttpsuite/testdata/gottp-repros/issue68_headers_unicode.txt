@@ -1,0 +1,2 @@
+Gé0/1  foo   up
+Gi0/2  bär   down
