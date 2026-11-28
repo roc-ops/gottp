@@ -359,6 +359,7 @@ func (ms *ModuleSet) ListModules() []string {
 	for name := range ms.modules {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
 }
 
@@ -501,6 +502,7 @@ func (ms *ModuleSet) getModuleNames() []string {
 	for name := range ms.schemas {
 		names = append(names, name)
 	}
+	sort.Strings(names) // stable error text, so merged results dedupe
 	return names
 }
 
@@ -510,6 +512,7 @@ func (ms *ModuleSet) getPrefixes() []string {
 	for prefix := range ms.prefixToModule {
 		prefixes = append(prefixes, prefix)
 	}
+	sort.Strings(prefixes)
 	return prefixes
 }
 

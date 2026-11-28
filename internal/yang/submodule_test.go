@@ -155,3 +155,27 @@ func TestAmbiguousBelongsToPrefix(t *testing.T) {
 		}
 	}
 }
+
+// The "module or prefix not found" error lists modules and prefixes in sorted
+// order, so the same error from two inputs or two same-named groups is equal
+// and MergeResults keeps one copy.
+func TestModuleNotFoundErrorIsStable(t *testing.T) {
+	ms := NewModuleSet()
+	for _, n := range []string{"m1", "m2", "m3", "m4", "m5", "m6"} {
+		if err := ms.AddModule(n, "module "+n+" { namespace \"urn:"+n+"\"; prefix "+n+"p; container c { leaf l { type string; } } }"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := ms.ProcessAllModules(); err != nil {
+		t.Fatal(err)
+	}
+	_, first := ms.FindSchemaByPath("nope:c/l")
+	if first == nil {
+		t.Fatal("want an error")
+	}
+	for i := 0; i < 20; i++ {
+		if _, err := ms.FindSchemaByPath("nope:c/l"); err == nil || err.Error() != first.Error() {
+			t.Fatalf("error text changed between calls:\n%v\n%v", first, err)
+		}
+	}
+}
