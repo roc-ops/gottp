@@ -1,0 +1,6 @@
+<template>
+<group name="intf" items2dict="name, desc">
+interface {{ name }}
+ description {{ desc }}
+</group>
+</template>

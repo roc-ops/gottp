@@ -1,0 +1,6 @@
+<template>
+<group name="intf" functions="sformat(string='{name}-{vrf}', add_field='nv')">
+interface {{ name }}
+ vrf {{ vrf }}
+</group>
+</template>

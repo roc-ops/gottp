@@ -56,7 +56,7 @@ func CompileTemplate(templateText string) (*CompiledTemplate, error) {
 		return nil, fmt.Errorf("failed to compile template: %w", err)
 	}
 
-	return &CompiledTemplate{compiled: compiled}, nil
+	return newCompiledTemplate(compiled), nil
 }
 
 // CompileOptions contains options for template compilation.
@@ -105,7 +105,7 @@ func CompileTemplateWithOptions(templateText string, options *CompileOptions) (*
 		return nil, fmt.Errorf("failed to compile template: %w", err)
 	}
 
-	result := &CompiledTemplate{compiled: ct}
+	result := newCompiledTemplate(ct)
 
 	// Convert and store compile-time functions
 	if options != nil && options.Functions != nil {
@@ -127,6 +127,14 @@ func CompileTemplateWithOptions(templateText string, options *CompileOptions) (*
 type CompiledTemplate struct {
 	compiled         *compiler.CompiledTemplate
 	compileFunctions *compiled.RuntimeFunctions // compile-time custom function overrides from CompileOptions
+	// pipelines holds the group pipelines every parse of this template
+	// shares (built on first use); nil (a CompiledTemplate built by hand)
+	// gives every parse its own.
+	pipelines *compiled.PipelineCache
+}
+
+func newCompiledTemplate(ct *compiler.CompiledTemplate) *CompiledTemplate {
+	return &CompiledTemplate{compiled: ct, pipelines: compiled.NewPipelineCache()}
 }
 
 // GetWarnings returns compilation warnings (non-fatal issues like Python-specific syntax in Starlark macros)
@@ -233,7 +241,7 @@ func (ct *CompiledTemplate) ParseStream(
 		return fmt.Errorf("ParseStream: callback is nil")
 	}
 
-	r := compiled.NewRuntimeWithFunctions(ct.compiled, ct.compileFunctions)
+	r := compiled.NewRuntimeWithCache(ct.compiled, ct.compileFunctions, ct.pipelines)
 
 	// Convert Inputs to map[string]string
 	inputMap := make(map[string]string)
@@ -278,7 +286,7 @@ func (ct *CompiledTemplate) ParseStream(
 
 // ParseWithValidation parses and returns both data and validation results
 func (ct *CompiledTemplate) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOptions) (*ParseResult, error) {
-	runtime := compiled.NewRuntimeWithFunctions(ct.compiled, ct.compileFunctions)
+	runtime := compiled.NewRuntimeWithCache(ct.compiled, ct.compileFunctions, ct.pipelines)
 
 	// Convert Inputs to map[string]string
 	inputMap := make(map[string]string)
@@ -592,7 +600,7 @@ func (r *Runtime) ParseWithValidation(inputs Inputs, vars Vars, options *ParseOp
 // compatibility.
 func (ct *CompiledTemplate) NewRuntime() *Runtime {
 	return &Runtime{
-		runtime: compiled.NewRuntimeWithFunctions(ct.compiled, ct.compileFunctions),
+		runtime: compiled.NewRuntimeWithCache(ct.compiled, ct.compileFunctions, ct.pipelines),
 	}
 }
 
@@ -677,7 +685,7 @@ func LoadCompiledTemplate(data []byte, format string) (*CompiledTemplate, error)
 	if err != nil {
 		return nil, err
 	}
-	return &CompiledTemplate{compiled: compiled}, nil
+	return newCompiledTemplate(compiled), nil
 }
 
 // SerializationFormat represents the format for serialization
@@ -700,7 +708,7 @@ func LoadCompiledTemplateFromBytes(data []byte, format SerializationFormat) (*Co
 	if err != nil {
 		return nil, err
 	}
-	return &CompiledTemplate{compiled: compiled}, nil
+	return newCompiledTemplate(compiled), nil
 }
 
 // convertFunctions converts public Functions to internal RuntimeFunctions.

@@ -1,0 +1,4 @@
+interface Gi1
+ vrf A
+interface Gi2
+ vrf B

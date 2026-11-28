@@ -659,7 +659,7 @@ func items2dict(data map[string]interface{}, args []string, kwargs map[string]in
 	value, valueExists := data[valueName]
 
 	if !keyExists || !valueExists {
-		return data, true, nil // Missing keys, return as-is
+		return data, false, nil // a missing key drops the record, as in TTP
 	}
 
 	// Python TTP's items2dict does: data[data.pop(key_name)] = data.pop(value_name)

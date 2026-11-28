@@ -206,8 +206,9 @@ func defaultsRecord(group *compiler.CompiledGroup) map[string]interface{} {
 
 // defaultArg is the value of default(arg), as TTP evaluates it: a quoted
 // string is the string, an unquoted Python literal (True, False, None, a
-// number, a list or a dict) is that literal, any other word is the word,
-// and no argument is "None".
+// number, a list or a dict) is that literal, none/true/false in any case
+// are None/True/False, any other word is the word, and no argument is
+// "None".
 func defaultArg(arg string) interface{} {
 	arg = strings.TrimSpace(arg)
 	if arg == "" {
@@ -218,6 +219,16 @@ func defaultArg(arg string) interface{} {
 	}
 	if v, ok := variable.PythonLiteral(arg); ok {
 		return v
+	}
+	// TTP evaluates arguments with _UndefSubst (get_attributes.py), which
+	// maps an undefined name to False, True or None case-insensitively.
+	switch strings.ToLower(arg) {
+	case "none":
+		return nil
+	case "true":
+		return true
+	case "false":
+		return false
 	}
 	return strings.Trim(arg, `"'`)
 }
@@ -427,7 +438,7 @@ func (t *treeRun) runRe(tg *treeGroup, start, end int) {
 			// keeps them even when the start line is a startempty one.
 			result := make(map[string]interface{}, len(tg.defaults))
 			for k, v := range tg.defaults {
-				result[k] = v
+				result[k] = t.r.resolveDefault(v, t.vars)
 			}
 			t.matches = append(t.matches, patternMatch{group: tg.asm.id, patternIdx: len(tg.cg.Patterns), spanStart: t.nextDef, spanEnd: t.nextDef, result: result})
 			t.nextDef++

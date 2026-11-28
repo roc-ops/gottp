@@ -28,6 +28,10 @@ func (r *Runtime) applyParseOptions(vars map[string]interface{}, options *ParseO
 	if options != nil && options.Functions != nil {
 		r.runtimeFunctions = options.Functions
 	}
+	r.parseVars = vars
+	if options != nil {
+		r.parseOptVars = options.Vars
+	}
 
 	// Re-register compile-time macro functions (restore baseline after previous Parse)
 	if r.compileFunctions != nil && r.compileFunctions.Macro != nil {

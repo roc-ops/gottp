@@ -190,10 +190,6 @@
    "issue": 97,
    "reason": "group macro that returns None: the next macro gets None"
   },
-  "test_group_functions/test_group_macro_returns_false": {
-   "issue": 97,
-   "reason": "group macro that returns False keeps the record (macro return handling, triaged with #97)"
-  },
   "test_group_functions/test_group_to_int_for_non_integer": {
    "issue": 72,
    "reason": "group to_int has no float fallback"

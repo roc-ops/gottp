@@ -9,10 +9,10 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 ```
 
 ```
-TTP 0.10.1 suite: pass 83 / skipped-by-issue 112 / design 5 of 200
-gottp repros: pass 87 / skipped-by-issue 4 / design 0 of 91
-source-map parity: same 294 / diverge 0 of 294
-stream snapshots: 116 streamable of 294 cases
+TTP 0.10.1 suite: pass 84 / skipped-by-issue 111 / design 5 of 200
+gottp repros: pass 96 / skipped-by-issue 4 / design 0 of 100
+source-map parity: same 303 / diverge 0 of 303
+stream snapshots: 121 streamable of 303 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -135,6 +135,20 @@ Group-function order pins for refactor E (#149), recorded from TTP 0.10.1. TTP's
 | `issue147_macro_named_like_var_top_group` | `macro="fan"` with `<vars>fan = "zzz"</vars>` runs the macro | fails |
 | `issue147_macro_named_like_var_child_group` | the same on a child group | fails |
 
+Fixes from the review of E1 (#153), each recorded from TTP 0.10.1; all pass:
+
+| Repro | Rule |
+|---|---|
+| `issue149_default_names_template_var` | `default("hostname")` with `<vars>hostname="R1"</vars>` fills `"R1"` (TTP's `update_groups_runs`) |
+| `issue149_set_default_names_template_var` | the same for an unconditional `{{ hn \| set("hostname") }}` line |
+| `issue149_default_names_template_var_contains` | `contains="hn"` compares with the resolved default, so it keeps no record |
+| `issue149_default_names_template_var_exclude` | `exclude="hn"` keeps every record, with the resolved default |
+| `issue149_default_lowercase_literals` | `default(none)`, `default(true)`, `default(false)` and `default(NONE)` are `null`/`true`/`false` (TTP's `_UndefSubst`) |
+| `issue149_starlark_macro_false_drops` | a Starlark `macro=` returning `False` drops the record |
+| `issue149_starlark_macro_false_drops_in_chain` | the same for `macro()` in `chain=` |
+| `issue149_sformat_keywords_in_functions` | `functions="sformat(string='{name}-{vrf}', add_field='nv')"` saves under `nv` |
+| `issue149_items2dict_missing_key_drops` | `items2dict=` drops a record without one of its keys |
+
 ## Source-map parity
 
 `CompiledTemplate.Parse` and `ParseWithValidation` run one parse pipeline (`Runtime.parse`, `internal/compiled/orchestrator.go`) whether source maps are on or off; with `ParseOptions{EnableSourceMap: true}` it also records the source map, from the matches `parseGroup` actually uses (`internal/compiled/sourcemap_observer.go`). Before refactor A1 (#60) source maps on ran a separate copy of the orchestration that had drifted, and before A2 the source map came from a second, out-of-step matching pass. The editor turns source maps on when its source-map toggle is on. `TestSourceMapParity` parses every case (suite, repros and `testdata/sourcemap-parity`) through `CompiledTemplate.ParseWithValidation` both ways and requires the same data and the same `KeyFields`, or the same error. The source map itself isn't compared here, and it doesn't matter whether the data matches TTP.
@@ -193,7 +207,7 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 | #98 | 6 |  | Formatter output from <output> gets an extra list level |
 | #75 | 5 |  | Group-level lookup= attribute is ignored (replace, add_field, update) |
 | #70 | 4 | 1 | Several inline <input load="text"> tags without names: only the first is parsed |
-| #97 | 4 |  | A group macro that returns None loses its in-place changes, and the next chained macro gets None |
+| #97 | 3 |  | A group macro that returns None loses its in-place changes, and the next chained macro gets None |
 | #110 | 4 |  | Group-specific output= results are merged into the main result instead of added as a separate item |
 | #112 | 4 |  | A chain stored in <vars> as a list is ignored (group chain= and chain()) |
 | #73 | 3 | 1 | Getters: gethostname through set(), and get_date/get_time/getfilename/get_timestamp* missing |
@@ -222,10 +236,10 @@ Cases per issue (first strict difference), and how many more cases hit the issue
 
 ## Python macros (design)
 
-23 cases use `<macro>`. gottp runs `<macro>` code as Starlark unless the tag says `language="python"` (`internal/parser/template.go`, `parseMacro`), and TTP's templates never set it. 2 of the 23 pass (`test_group_macro_returns_none` and `test_group_macro_returns_true`).
+23 cases use `<macro>`. gottp runs `<macro>` code as Starlark unless the tag says `language="python"` (`internal/parser/template.go`, `parseMacro`), and TTP's templates never set it. 6 of the 23 pass (`test_group_macro_returns_none`, `test_group_macro_returns_true`, `test_group_macro_returns_false`, `test_group_chain_attribute_string_var`, `test_group_chain_attribute_string_inline` and `test_issue_52_answer`).
 
-- **4 are skipped as `design: python macro`**: their macro code isn't valid Starlark (`import re`/`import ipaddress`, f-strings, `_ttp_["match"]["to_ip"]` with the `ipaddress` object API).
-- The other 17 fail first on a gottp bug and are tracked by that issue: #97 (a group macro that returns `None` loses its changes), #80 (`validate_yangson`), #113 (`macro()` inside a group `chain=`) and others. Two of them also contain Python-only macro code that would fail next: `bin()` in `test_answers_and_docs/test_interface_template_not_collecting_all_data_solution` and a generator expression inside `any()` in `test_misc/test_tail_match_no_group_functions_processing`.
+- **5 are skipped as `design: python macro`**: their macro code isn't valid Starlark (`import ipaddress`, f-strings, `bin()`, `_ttp_["match"]["to_ip"]` with the `ipaddress` object API).
+- The other 12 fail first on a gottp bug and are tracked by that issue: #80 (`validate_yangson`, 4), #97 (a group macro that returns `None` loses its changes, 3), and one each for #64, #67, #68, #76 and #112. `test_misc/test_tail_match_no_group_functions_processing` also contains Python-only macro code that would fail next (a generator expression inside `any()`).
 
 The `python` build tag doesn't help as it stands. `go build -tags python ./...` fails: cgo can't use CPython's type-check macros (`could not determine what C.PyBool_Check refers to` and five more in `internal/macro/python.go`), and `python_init.go` redefines `initPythonEngine`, which `starlark.go` already defines. Even when it builds, these templates would still run as Starlark, because they don't set `language="python"`. Whether TTP-style `<macro>` should run as Python is a policy decision for #60.
 

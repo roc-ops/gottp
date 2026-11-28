@@ -1,10 +1,13 @@
 package compiled
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/roc-ops/gottp/internal/compiler"
+	"github.com/roc-ops/gottp/internal/functions/group"
 	"github.com/roc-ops/gottp/internal/parser"
 )
 
@@ -103,6 +106,9 @@ func TestDefaultArg(t *testing.T) {
 		`[]`:                 []interface{}{},
 		`{"defined": False}`: map[string]interface{}{"defined": false},
 		`word`:               "word",
+		`none`:               nil,
+		`true`:               true,
+		`FALSE`:              false,
 	}
 	for in, want := range cases {
 		got := defaultArg(in)
@@ -112,5 +118,54 @@ func TestDefaultArg(t *testing.T) {
 		if !reflect.DeepEqual(got, want) {
 			t.Errorf("defaultArg(%q) = %#v, want %#v", in, got, want)
 		}
+	}
+}
+
+// A parse uses the template's shared pipeline unless its vars name a
+// variable the pipeline depends on, or ParseOptions.Functions overrides a
+// group function; those parses build their own and leave the shared one
+// alone.
+func TestSharedPipelineOverrides(t *testing.T) {
+	compiled := compileForTest(t, `<template>
+<vars>
+hostname="R1"
+ch="set('x', 'tag')"
+</vars>
+<group name="intf" chain="ch">
+interface {{ name }}
+ hn:{{ hn | default("hostname") }}
+</group>
+</template>`)
+	r := NewRuntime(compiled)
+	inputs := map[string]string{"Default_Input": "interface Gi1\n"}
+	parse := func(vars map[string]interface{}, opts *ParseOptions) string {
+		t.Helper()
+		res, err := r.Parse(inputs, vars, opts)
+		if err != nil {
+			t.Fatalf("parse: %v", err)
+		}
+		return fmt.Sprint(res)
+	}
+	plain := parse(nil, nil)
+	if !strings.Contains(plain, "hn:R1") || !strings.Contains(plain, "tag:x") {
+		t.Fatalf("plain parse = %s", plain)
+	}
+	if got := parse(map[string]interface{}{"hostname": "R2"}, nil); !strings.Contains(got, "hn:R2") {
+		t.Errorf("vars hostname=R2: %s", got)
+	}
+	if got := parse(nil, &ParseOptions{Vars: map[string]interface{}{"ch": "set('y', 'tag')"}}); !strings.Contains(got, "tag:y") {
+		t.Errorf("ParseOptions.Vars ch: %s", got)
+	}
+	setY := func(data map[string]interface{}, args []string, kwargs map[string]interface{}) (map[string]interface{}, bool, error) {
+		data["tag"] = "custom"
+		return data, true, nil
+	}
+	if got := parse(nil, &ParseOptions{Functions: &RuntimeFunctions{Group: map[string]group.Function{"set": setY}}}); !strings.Contains(got, "tag:custom") {
+		t.Errorf("ParseOptions.Functions set: %s", got)
+	}
+	// An unrelated var keeps the shared pipeline, and the overrides above
+	// didn't change it.
+	if got := parse(map[string]interface{}{"other": "z"}, nil); got != plain {
+		t.Errorf("after overrides = %s, want %s", got, plain)
 	}
 }

@@ -1,0 +1,22 @@
+[
+ [
+  {
+   "intf": [
+    {
+     "name": "Gi1",
+     "a": null,
+     "b": true,
+     "c": false,
+     "d": null
+    },
+    {
+     "name": "Gi2",
+     "a": null,
+     "b": true,
+     "c": false,
+     "d": null
+    }
+   ]
+  }
+ ]
+]

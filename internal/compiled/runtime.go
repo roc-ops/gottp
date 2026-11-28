@@ -46,6 +46,15 @@ type Runtime struct {
 	// pipelines holds each group's per-record steps for this parse
 	// (pipeline.go), built on first use.
 	pipelines map[*compiler.CompiledGroup]*groupPipeline
+	// shared holds the pipelines built once for the template, shared by
+	// every per-parse copy (and, through NewRuntimeWithCache, by every
+	// Runtime of the template); nil for a Runtime not made by NewRuntime*.
+	shared *PipelineCache
+	// parseVars and parseOptVars are the vars passed to this parse (Parse's
+	// vars argument and ParseOptions.Vars), which decide whether it can use
+	// the shared pipelines.
+	parseVars    map[string]interface{}
+	parseOptVars map[string]interface{}
 }
 
 // NewRuntime creates a new runtime for a compiled template
@@ -58,6 +67,16 @@ func NewRuntime(compiled *compiler.CompiledTemplate) *Runtime {
 //
 //	built-ins < compileFunctions < runtimeFunctions (ParseOptions)
 func NewRuntimeWithFunctions(compiled *compiler.CompiledTemplate, compileFns *RuntimeFunctions) *Runtime {
+	return NewRuntimeWithCache(compiled, compileFns, nil)
+}
+
+// NewRuntimeWithCache is NewRuntimeWithFunctions with the template's
+// PipelineCache, which every Runtime made for the same compiled template and
+// compile-time functions may share; nil gives the Runtime its own.
+func NewRuntimeWithCache(compiled *compiler.CompiledTemplate, compileFns *RuntimeFunctions, cache *PipelineCache) *Runtime {
+	if cache == nil {
+		cache = NewPipelineCache()
+	}
 	rt := &Runtime{
 		compiled:          compiled,
 		matchRegistry:     match.NewRegistry(),
@@ -71,6 +90,7 @@ func NewRuntimeWithFunctions(compiled *compiler.CompiledTemplate, compileFns *Ru
 		keyFields:         make(map[string][]string),
 		compileFunctions:  compileFns,
 		lastParse:         &lastParseResults{},
+		shared:            cache,
 	}
 
 	// Register macros from compiled template

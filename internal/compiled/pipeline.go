@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	"go.starlark.net/starlark"
 
@@ -32,7 +33,8 @@ import (
 //     be formed drops it.
 //
 // Parse (parseFlat, parseTree) and ParseStream (parseGroupStream) run the
-// same steps. The steps of a group are built once per parse (pipelineFor).
+// same steps. The steps of a group are built once per template, or once per
+// parse when the parse's vars or functions change them (pipelineFor).
 
 // stepKind says what a pipeline step runs.
 type stepKind uint8
@@ -78,18 +80,57 @@ type groupPipeline struct {
 	// itemizes is true when a step itemizes without a path, which makes the
 	// group's result the list of itemized values.
 	itemizes bool
-	// macro language and whether every macro is Starlark, for the batch
-	// fast path.
-	macroLang   string
-	allStarlark bool
+	// macroLang is the template's macro language, and macroNames every
+	// macro the steps name: when none of them is a Go macro (checked when
+	// the macros run, since ParseOptions.Functions can register one), the
+	// Starlark batch fast path runs them.
+	macroLang  string
+	macroNames []string
+	// varDeps are the variable names the build looked up (default=, a
+	// chain= naming a variable, default values naming a variable). A parse
+	// that passes one of them can't use the template's shared pipeline.
+	varDeps []string
 }
 
-// pipelineFor returns group's pipeline for this parse, building it on first
-// use. vars are the parse's vars (template <vars> overridden by the passed
-// ones), which a chain= naming a variable and default= resolve against.
+// PipelineCache holds the group pipelines built from a template's own
+// <vars> and compile-time functions, for every parse of the template to
+// share. It is safe for concurrent use: a pipeline is read-only once built.
+// One cache belongs to one compiled template and one set of compile-time
+// functions.
+type PipelineCache struct {
+	m sync.Map // *compiler.CompiledGroup -> *groupPipeline
+}
+
+// NewPipelineCache returns an empty PipelineCache.
+func NewPipelineCache() *PipelineCache {
+	return &PipelineCache{}
+}
+
+// pipelineFor returns group's pipeline for this parse. vars are the parse's
+// vars (template <vars> overridden by the passed ones), which a chain=
+// naming a variable and default= resolve against.
+//
+// A parse without group functions in ParseOptions.Functions (macro
+// overrides are looked up when the macros run) whose passed vars name none
+// of the variables the pipeline depends on uses the pipeline built once for the
+// template (r.shared, a PipelineCache); any other parse builds its own on
+// first use.
 func (r *Runtime) pipelineFor(group *compiler.CompiledGroup, vars map[string]interface{}) *groupPipeline {
 	if pl, ok := r.pipelines[group]; ok {
 		return pl
+	}
+	if r.shared != nil && (r.runtimeFunctions == nil || len(r.runtimeFunctions.Group) == 0) {
+		var pl *groupPipeline
+		if v, ok := r.shared.m.Load(group); ok {
+			pl = v.(*groupPipeline)
+		} else {
+			built := r.buildPipeline(group, r.compiled.Vars)
+			v, _ := r.shared.m.LoadOrStore(group, built)
+			pl = v.(*groupPipeline)
+		}
+		if !r.parseVarsOverride(pl.varDeps) {
+			return pl
+		}
 	}
 	pl := r.buildPipeline(group, vars)
 	if r.pipelines == nil {
@@ -99,8 +140,22 @@ func (r *Runtime) pipelineFor(group *compiler.CompiledGroup, vars map[string]int
 	return pl
 }
 
+// parseVarsOverride reports whether the parse passed (as Parse's vars or
+// ParseOptions.Vars) any of names.
+func (r *Runtime) parseVarsOverride(names []string) bool {
+	for _, name := range names {
+		if _, ok := r.parseVars[name]; ok {
+			return true
+		}
+		if _, ok := r.parseOptVars[name]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Runtime) buildPipeline(g *compiler.CompiledGroup, vars map[string]interface{}) *groupPipeline {
-	pl := &groupPipeline{macroLang: "starlark", allStarlark: true}
+	pl := &groupPipeline{macroLang: "starlark"}
 	for _, m := range r.compiled.Macros {
 		if m.Language != "" {
 			pl.macroLang = m.Language
@@ -195,6 +250,7 @@ func (r *Runtime) buildDefaults(pl *groupPipeline, g *compiler.CompiledGroup, va
 	defaults := make(map[string]interface{})
 	var dict map[string]interface{}
 	if attr, ok := g.Attributes["default"]; ok && attr != "" {
+		pl.varDeps = append(pl.varDeps, attr)
 		var value interface{} = attr
 		if v, ok := vars[attr]; ok {
 			value = v
@@ -238,9 +294,37 @@ func (r *Runtime) buildDefaults(pl *groupPipeline, g *compiler.CompiledGroup, va
 	for k, v := range dict {
 		defaults[k] = v
 	}
+	for k, v := range defaults {
+		if s, ok := v.(string); ok {
+			pl.varDeps = append(pl.varDeps, s)
+		}
+		defaults[k] = r.resolveDefault(v, vars)
+	}
 	if len(defaults) > 0 {
 		pl.defaults = defaults
 	}
+}
+
+// resolveDefault is TTP's update_groups_runs (ttp.py:2616) for one default
+// value: a value equal to the name of a template variable (or a variable
+// passed to the parse, which overrides it) becomes that variable's value.
+// The records the defaults fill and the _defaults that contains/exclude
+// compare against both get the resolved value.
+//
+// TTP also resolves against _ttp_["global_vars"] first (values recorded by
+// record() so far); that isn't ported.
+func (r *Runtime) resolveDefault(v interface{}, vars map[string]interface{}) interface{} {
+	s, ok := v.(string)
+	if !ok {
+		return v
+	}
+	if rv, ok := vars[s]; ok {
+		return rv
+	}
+	if rv, ok := r.compiled.Vars[s]; ok {
+		return rv
+	}
+	return v
 }
 
 // attrFunctionArgs splits a function attribute's value into arguments.
@@ -298,14 +382,43 @@ func sformatArgs(value string) []string {
 	if part := strings.TrimSpace(current.String()); part != "" {
 		parts = append(parts, part)
 	}
-	var args []string
+	return sformatOrderArgs(parts)
+}
+
+// sformatOrderArgs puts sformat's arguments in the order of its signature,
+// sformat(string, add_field): positional arguments fill the slots in order,
+// and string=/add_field= keyword arguments go to their own slot. Quotes
+// around a value are removed.
+func sformatOrderArgs(parts []string) []string {
+	var slots [2]string
+	var set [2]bool
+	pos := 0
 	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		i := -1
 		switch {
 		case strings.HasPrefix(part, "string="):
-			args = append(args, strings.Trim(strings.TrimPrefix(part, "string="), `"'`))
+			i, part = 0, strings.TrimPrefix(part, "string=")
 		case strings.HasPrefix(part, "add_field="):
-			args = append(args, strings.Trim(strings.TrimPrefix(part, "add_field="), `"'`))
+			i, part = 1, strings.TrimPrefix(part, "add_field=")
+		default:
+			for pos < len(slots) && set[pos] {
+				pos++
+			}
+			if pos >= len(slots) {
+				continue
+			}
+			i = pos
 		}
+		slots[i] = strings.Trim(strings.TrimSpace(part), `"'`)
+		set[i] = true
+	}
+	var args []string
+	for i := range slots {
+		if !set[i] {
+			break
+		}
+		args = append(args, slots[i])
 	}
 	return args
 }
@@ -315,6 +428,7 @@ func sformatArgs(value string) []string {
 // itself the "|"-separated chain (TTP's extract_chain).
 func (pl *groupPipeline) addChain(r *Runtime, chain string, vars map[string]interface{}) {
 	items := []string{chain}
+	pl.varDeps = append(pl.varDeps, chain)
 	if v, ok := vars[chain]; ok {
 		switch val := v.(type) {
 		case string:
@@ -348,6 +462,9 @@ func (pl *groupPipeline) addChain(r *Runtime, chain string, vars map[string]inte
 					// Not a group function: skipped, as before (TTP logs it).
 					continue
 				}
+				if name == "sformat" {
+					args = sformatOrderArgs(args)
+				}
 				pl.steps = append(pl.steps, groupStep{
 					kind:    stepFunc,
 					name:    name,
@@ -378,11 +495,7 @@ func (pl *groupPipeline) addMacro(r *Runtime, names []string) {
 	if len(names) == 0 {
 		return
 	}
-	for _, name := range names {
-		if r.macroRegistry.HasGoMacro(name) {
-			pl.allStarlark = false
-		}
-	}
+	pl.macroNames = append(pl.macroNames, names...)
 	pl.steps = append(pl.steps, groupStep{kind: stepMacro, name: "macro", macros: names})
 }
 
@@ -587,10 +700,21 @@ func (r *Runtime) itemizeToPath(ic *itemizeCtx, path []string, rec map[string]in
 func (r *Runtime) runMacros(pl *groupPipeline, names []string, rec map[string]interface{}) (map[string]interface{}, bool, error) {
 	// All Starlark: chain the macros without converting between Go and
 	// Starlark in between.
-	if pl.allStarlark && pl.macroLang == "starlark" {
+	allStarlark := pl.macroLang == "starlark"
+	for _, name := range pl.macroNames {
+		if !allStarlark {
+			break
+		}
+		allStarlark = !r.macroRegistry.HasGoMacro(name)
+	}
+	if allStarlark {
 		if engine := r.macroRegistry.GetStarlarkEngine(); engine != nil {
 			resultVal, err := engine.ExecuteMacroStarlarkBatch(names, engine.GoToStarlark(rec), nil)
 			if err == nil {
+				// False drops the record (TTP's macro(): res is False).
+				if b, ok := resultVal.(starlark.Bool); ok && !bool(b) {
+					return nil, false, nil
+				}
 				// None means "keep the original data" in TTP, not "drop".
 				if resultVal != starlark.None {
 					if m, ok := engine.StarlarkToGo(resultVal).(map[string]interface{}); ok {
