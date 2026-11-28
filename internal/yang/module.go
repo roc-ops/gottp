@@ -1,7 +1,9 @@
 package yang
 
 import (
+	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -207,18 +209,25 @@ func (ms *ModuleSet) FindSchemaByPath(path string) (*yang.Entry, error) {
 	} else {
 		nodePath = path
 		// Try to find in all modules
+		var endErr error
 		for name, schema := range ms.schemas {
-			entry := ms.findNodeInSchema(schema, nodePath)
-			if entry != nil {
-				return entry, nil
-			}
-			// Also try with module name prefix
+			candidates := []string{nodePath}
 			if strings.HasPrefix(nodePath, name+":") {
-				entry := ms.findNodeInSchema(schema, strings.TrimPrefix(nodePath, name+":"))
-				if entry != nil {
+				candidates = append(candidates, strings.TrimPrefix(nodePath, name+":"))
+			}
+			for _, p := range candidates {
+				entry, err := resolvePath(schema, p)
+				if err == nil {
 					return entry, nil
 				}
+				var se *schemaNodeEndError
+				if errors.As(err, &se) && endErr == nil {
+					endErr = fmt.Errorf("path '%s' in module '%s' %v", path, name, err)
+				}
 			}
+		}
+		if endErr != nil {
+			return nil, endErr
 		}
 		return nil, fmt.Errorf("path '%s' not found in any module", path)
 	}
@@ -232,43 +241,14 @@ func (ms *ModuleSet) FindSchemaByPath(path string) (*yang.Entry, error) {
 	// Normalize path: convert dots to slashes, remove wildcards, and strip any prefixes
 	normalizedPath := ms.normalizePath(nodePath, moduleName)
 
-	// Find the node in the schema
-	entry := ms.findNodeInSchema(schema, normalizedPath)
-	if entry == nil {
-		// Provide helpful error message with available paths
-		parts := strings.Split(strings.Trim(normalizedPath, "/"), "/")
-		var current *yang.Entry = schema
-		var pathSoFar []string
-		var availableChildren []string
-
-		// Try to find where the path fails
-		for i, part := range parts {
-			if current == nil || current.Dir == nil {
-				break
-			}
-			pathSoFar = append(pathSoFar, part)
-			if child, ok := current.Dir[part]; ok {
-				current = child
-			} else {
-				// This is where it failed - list available children
-				for name := range current.Dir {
-					availableChildren = append(availableChildren, name)
-				}
-				return nil, fmt.Errorf("path '%s' not found in module '%s': node '%s' not found at path '%s' (available children: %v)",
-					normalizedPath, moduleName, part, strings.Join(pathSoFar[:i], "/"), availableChildren)
-			}
+	entry, err := resolvePath(schema, normalizedPath)
+	if err != nil {
+		var se *schemaNodeEndError
+		if errors.As(err, &se) {
+			return nil, fmt.Errorf("path '%s' in module '%s' %v", normalizedPath, moduleName, err)
 		}
-
-		// If we got here, the path was traversed but entry is nil
-		if len(availableChildren) == 0 && schema.Dir != nil {
-			for name := range schema.Dir {
-				availableChildren = append(availableChildren, name)
-			}
-		}
-		return nil, fmt.Errorf("path '%s' not found in module '%s' (root children: %v)",
-			normalizedPath, moduleName, availableChildren)
+		return nil, fmt.Errorf("path '%s' not found in module '%s': %v", normalizedPath, moduleName, err)
 	}
-
 	return entry, nil
 }
 
@@ -322,42 +302,74 @@ func (ms *ModuleSet) getPrefixes() []string {
 	return prefixes
 }
 
-// findNodeInSchema recursively finds a node in the schema tree
-func (ms *ModuleSet) findNodeInSchema(schema *yang.Entry, path string) *yang.Entry {
+// schemaNodeEndError reports a path that ends on a choice or case node.
+type schemaNodeEndError struct {
+	entry *yang.Entry
+}
+
+func (e *schemaNodeEndError) Error() string {
+	kind := "choice"
+	if e.entry.IsCase() {
+		kind = "case"
+	}
+	return fmt.Sprintf("names a %s ('%s'), which is not a data node (RFC 7950 7.9); name a node under it instead (available: %v)",
+		kind, e.entry.Name, dataNodeNames(e.entry))
+}
+
+// resolvePath walks path (slash-separated node names) down from schema.
+// At each step a data node of that name is looked up first, descending
+// through choice and case nodes, which are not data nodes (RFC 7950 7.9):
+// "c/bc" names container bc in "choice ch { case b { container bc } }".
+// Failing that, the step may name a choice or case directly under the
+// current node, so the schema-node form "c/ch/b/bc" resolves too. A path
+// that ends on a choice or case names no data node and is an error.
+func resolvePath(schema *yang.Entry, path string) (*yang.Entry, error) {
 	if schema == nil {
-		return nil
+		return nil, fmt.Errorf("no schema")
 	}
-
-	// Trim whitespace and split path
-	path = strings.TrimSpace(path)
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) == 0 || (len(parts) == 1 && parts[0] == "") {
-		return schema
-	}
-
 	current := schema
-	for _, part := range parts {
-		// Trim whitespace from each part
+	var pathSoFar []string
+	for _, part := range strings.Split(strings.Trim(strings.TrimSpace(path), "/"), "/") {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
 		}
-		// Check direct children
-		found := false
-		if current.Dir != nil {
-			for name, child := range current.Dir {
-				if name == part {
-					current = child
-					found = true
-					break
-				}
-			}
+		child, ok := lookupChild(current, part)
+		if !ok {
+			child, ok = current.Dir[part]
+			ok = ok && (child.IsChoice() || child.IsCase())
 		}
-		if !found {
-			// Return nil - error message will be provided in FindSchemaByPath
-			return nil
+		if !ok {
+			return nil, fmt.Errorf("node '%s' not found at path '%s' (available children: %v)",
+				part, strings.Join(pathSoFar, "/"), dataNodeNames(current))
+		}
+		current = child
+		pathSoFar = append(pathSoFar, part)
+	}
+	if current.IsChoice() || current.IsCase() {
+		return nil, &schemaNodeEndError{entry: current}
+	}
+	return current, nil
+}
+
+// dataNodeNames returns, sorted, the names of the data nodes that are
+// children of entry in the data tree: its own children, and those under
+// its choices and cases.
+func dataNodeNames(entry *yang.Entry) []string {
+	var names []string
+	var collect func(e *yang.Entry)
+	collect = func(e *yang.Entry) {
+		for _, child := range e.Dir {
+			if child.IsChoice() || child.IsCase() {
+				collect(child)
+				continue
+			}
+			names = append(names, child.Name)
 		}
 	}
-
-	return current
+	if entry != nil {
+		collect(entry)
+	}
+	sort.Strings(names)
+	return names
 }
