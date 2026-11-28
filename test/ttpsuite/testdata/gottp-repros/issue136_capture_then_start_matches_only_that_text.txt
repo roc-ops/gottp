@@ -1,0 +1,4 @@
+interface Gi1 extra
+ v x
+interface Gi2
+ v y

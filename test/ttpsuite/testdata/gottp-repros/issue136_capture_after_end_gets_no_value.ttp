@@ -1,0 +1,5 @@
+<group name="g">
+interface {{ name | _start_ }}
+ v {{ v }}
+exit {{ _end_ }} {{ w }}
+</group>

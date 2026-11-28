@@ -1,0 +1,4 @@
+interface Gi1
+ v x
+exit
+ v z

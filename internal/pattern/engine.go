@@ -143,6 +143,67 @@ func firstArg(f string) (string, bool) {
 	return c.Strs[0], true
 }
 
+// CutIndex returns the index in variables of the variable a line's regex is
+// cut at, or -1. Python TTP's regex_deleteVar ends the regex just before a
+// variable named _start_ or _end_ ("interface {{ _start_ }}" is
+// \ninterface[\t ]*(?=\n|\r\n)), so the line matches only its text up to
+// there, and variables after it capture nothing. A _start_ or _end_
+// variable with its own re() is not cut: matching the regex is a gottp
+// extension (TTP ignores the re()).
+func CutIndex(variables []*MatchVariable) int {
+	for i, v := range variables {
+		if v.Name != IndicatorStart && v.Name != IndicatorEnd {
+			continue
+		}
+		if !hasReFunction(v) {
+			return i
+		}
+	}
+	return -1
+}
+
+func hasReFunction(v *MatchVariable) bool {
+	for _, f := range v.Functions {
+		if FunctionName(f) == "re" {
+			return true
+		}
+	}
+	return false
+}
+
+// CutVariables returns the indicator (_start_ or _end_) cp's regex is cut at
+// (see CutIndex) and the names of the variables after it, in template order,
+// that would capture a value if they weren't cut: not indicators, ignore,
+// _exact_ or set() variables (set() sets its value without a capture).
+func CutVariables(cp *CompiledPattern) (indicator string, names []string) {
+	vars := make([]*MatchVariable, 0, len(cp.VariableOrder))
+	for _, name := range cp.VariableOrder {
+		if v := cp.Variables[name]; v != nil {
+			vars = append(vars, v)
+		}
+	}
+	cut := CutIndex(vars)
+	if cut < 0 {
+		return "", nil
+	}
+	for _, v := range vars[cut+1:] {
+		if IsNonCapturingVar(v.Name) {
+			continue
+		}
+		hasSet := false
+		for _, f := range v.Functions {
+			if FunctionName(f) == "set" {
+				hasSet = true
+				break
+			}
+		}
+		if !hasSet {
+			names = append(names, v.Name)
+		}
+	}
+	return vars[cut].Name, names
+}
+
 // CompiledPattern represents a compiled regex pattern with variable information
 type CompiledPattern struct {
 	Regex         *regexp.Regexp
@@ -567,14 +628,27 @@ func (e *Engine) GenerateRegexFromVariables(line string, variables []*MatchVaria
 	// Build regex by replacing variables and escaping text
 	regexParts := []string{indent}
 	lastEnd := 0
+	cut := CutIndex(variables)
 
 	for i, match := range matches {
+		if i == cut {
+			// TTP's regex_deleteVar: keep the regex before the variable,
+			// less one trailing [ \t]+ (a space kept by _exact_space_
+			// stays), and end the line there.
+			if match[0] > lastEnd {
+				escaped := e.escapeText(line[lastEnd:match[0]], exactSpace, exact)
+				regexParts = append(regexParts, strings.TrimSuffix(escaped, `[ \t]+`))
+			}
+			lastEnd = len(line)
+			break
+		}
 		// Text before variable
 		if match[0] > lastEnd {
 			text := line[lastEnd:match[0]]
 			escaped := e.escapeText(text, exactSpace, exact)
-			// If this variable is _start_ or _end_, make trailing space optional
-			// Also make trailing space optional if variable has default() or set() function
+			// Make the space before the variable optional for a _start_ or
+			// _end_ variable with its own re() (any other is cut above) and
+			// for a variable with default() or set().
 			if i < len(variables) {
 				hasDefault := false
 				hasSet := false

@@ -87,3 +87,23 @@ y {{ w | ORPHRASE | _line_ | _exact_ }}
 		}
 	}
 }
+
+// A capture variable after {{ _start_ }} or {{ _end_ }} gets a compile
+// warning: the line's regex ends at the indicator, so it captures nothing
+// (#136).
+func TestCutVariableWarning(t *testing.T) {
+	ct := compileText(t, `<group name="g">
+interface {{ _start_ }} {{ name }}
+ v {{ v }}
+exit {{ _end_ }}
+</group>`)
+	var got []string
+	for _, w := range ct.Warnings {
+		if strings.Contains(w, "captures nothing") {
+			got = append(got, w)
+		}
+	}
+	if len(got) != 1 || !strings.Contains(got[0], `variable "name" comes after {{ _start_ }}`) {
+		t.Errorf("want one warning about name, got %q", got)
+	}
+}

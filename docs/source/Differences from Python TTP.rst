@@ -220,6 +220,10 @@ Function calls are read as Python TTP reads them (see :doc:`Match Variables/Func
 * A line made only of ``default()`` variables without their own regex doesn't match blank lines, as in TTP. One with an explicit ``re(".*?")`` does.
 * Give the variable a regex (``{{ col | WORD | default("") }}``) to get TTP's behaviour.
 
+**{{ _start_ | re(...) }} (gottp extension, #136):** a line's regex ends at a ``{{ _start_ }}`` or ``{{ _end_ }}`` variable, as in Python TTP, except when that variable has its own ``re()``. gottp then matches the ``re()`` in its place: ``interface {{ _start_ | re("Gi\\S+") }}`` matches ``interface Gi1`` and not ``interface Te1``. Python TTP ignores the ``re()``, so that line matches only ``interface``. Templates that use it rely on the regex; drop the ``re()`` to get TTP's behaviour.
+
+**Variables after {{ _start_ }} or {{ _end_ }} (#136):** such a variable captures nothing, and ``GetWarnings()`` names it when the template compiles. Python TTP doesn't capture it from the data either, but on a line with no other capture, such as ``exit {{ _end_ }} {{ w }}``, it saves the whole matched line, newline first, in the variable and in ``_end_`` (``{"_end_": "\nexit", "w": "\nexit"}``). gottp saves neither.
+
 **Blank data lines:** a data line that is empty or holds only spaces and tabs is matched like any other line, as in Python TTP, so ``{{ x | _line_ }}``, ``re(".*")`` and ``re("[ ]+")`` can match it (#162). gottp skips such a line only for a template line whose regex can't match it.
 
 Performance

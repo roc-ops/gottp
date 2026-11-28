@@ -2,7 +2,7 @@
 
 Python TTP 0.10.1's own test suite (`test/pytest` in [dmulyalin/ttp](https://github.com/dmulyalin/ttp)), replayed through gottp. This is the compliance measure for the baseline (#60).
 
-Current result (baseline cluster 6: #68):
+Current result (baseline clusters 6 and 2: #68, #136, #121):
 
 ```
 go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
@@ -80,6 +80,15 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue68_headers_columns_zero` | passes; `columns(0)` is read as `columns(1)` (#68) |
 | `issue68_headers_after_other_line` | passes; a `_headers_` line that isn't the first line still starts records (#68) |
 | `issue68_headers_unicode` | passes; column widths count characters, not bytes (#68) |
+| `issue121_indented_end_needs_indented_blank` | passes; an indented `{{ _end_ }}` matches only blank lines with that indent (#121) |
+| `issue136_capture_then_start_matches_only_that_text` | passes; `interface {{ name }} {{ _start_ }}` doesn't match a line with more text (#136) |
+| `issue136_capture_after_start_is_cut` | passes; a variable after `{{ _start_ }}` is cut from the regex (#136) |
+| `issue136_start_first_on_line_matches_blank` | passes; `{{ _start_ }} interface {{ name }}` matches blank lines only (#136) |
+| `issue136_end_cuts_text_after_it` | passes; `exit {{ _end_ }} now` matches `exit`, not `exit later` (#136) |
+| `issue136_start_after_two_spaces` | passes; the whitespace before `{{ _start_ }}` is dropped (#136) |
+| `issue136_start_exact_space_keeps_space` | passes; with `_exact_space_` the space before `{{ _start_ }}` stays (#136) |
+| `issue136_start_re_extension` | `design:`; `{{ _start_ \| re(...) }}` matches the `re()`, TTP ignores it (#136) |
+| `issue136_capture_after_end_gets_no_value` | `design:`; a variable after `{{ _end_ }}` gets no value, TTP saves the matched line text in it (#136) |
 
 Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Since refactor C1 gottp assembles records with a port of `_results_class` (`internal/compiled/assembler.go`), and since C2 a group with children and all its descendants go through one assembler (`internal/compiled/tree.go`), so most of them pass. Those gottp still gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
 
@@ -98,8 +107,8 @@ Record-assembly pins for refactor C (#60). Each is a minimal template for one ru
 | `issue69_failed_start_condition_ends_record` | a start line rejected by a condition ends the record (#69) |
 | `issue79_line_joinmatches_skips_start_line` | `_line_` loses its position to the start line (#79) |
 | `issue79_line_without_joinmatches_joins_lines` | `_line_` joins lines even without joinmatches (#79) |
-| `issue136_start_only_line_matches_trailing_text` | `text {{ _start_ }}` matches only that exact text (#136) |
-| `issue136_startempty_tie_with_start_pattern` | the same, where a start pattern also matches the line (#136) |
+| `issue136_start_only_line_matches_trailing_text` | passes; `text {{ _start_ }}` matches only that exact text (#136) |
+| `issue136_startempty_tie_with_start_pattern` | passes; the same, where a start pattern also matches the line (#136) |
 | `issue60_asm_startempty_records` | `{{ _start_ }}` starts an empty record |
 | `issue60_asm_end_then_restart` | after `_end_`, lines are dropped until the next start |
 | `issue60_asm_add_without_overwrite` | a repeated ordinary line keeps its first value |

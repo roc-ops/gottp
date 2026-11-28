@@ -171,6 +171,10 @@ func (c *callChecker) group(g *CompiledGroup) error {
 				return err
 			}
 		}
+		indicator, cut := pattern.CutVariables(cp)
+		for _, name := range cut {
+			c.warnings = append(c.warnings, fmt.Sprintf("%s, line %q: variable %q comes after {{ %s }}, so it captures nothing: as in Python TTP, the line's regex ends where {{ %s }} is. Move {{ %s }} to the end of the line, or make it a function of the variable ({{ %s | %s }})", scope, strings.TrimSpace(cp.Original), name, indicator, indicator, indicator, name, indicator))
+		}
 	}
 	// Function attributes are read as name(value), as TTP's
 	// extract_function reads them.

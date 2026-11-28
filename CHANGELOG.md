@@ -4,6 +4,13 @@ All notable changes to GoTTP will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed: a line's regex ends at `{{ _start_ }}`/`{{ _end_ }}`, as in TTP (baseline cluster 2, #136, #121)
+- **A line stops at a `_start_` or `_end_` variable (#136).** Python TTP's `regex_deleteVar` cuts the line's regex there, with the whitespace before it. gottp matched anything after it (`.*?`), so `interface {{ _start_ }}` also matched `interface Gi1`, `interface {{ name }} {{ _start_ }}` matched `interface Gi1 extra`, and `ospf {{ _start_ }}` matched `ospf3 0`. Now each matches only its own text: records that such a line used to start or end on the wrong line change.
+- **A variable after the indicator captures nothing** (`interface {{ _start_ }} {{ name }}`), as in TTP. `GetWarnings()` names it: move the indicator to the end of the line or use it as a function (`{{ name | _start_ }}`). TTP saves the matched line text in such a variable when the line has no other capture; gottp doesn't (see `test/comparison/KNOWN_DIFFERENCES.md`).
+- **`{{ _start_ | re(...) }}` stays a gottp extension.** A `_start_`/`_end_` variable with its own `re()` isn't cut and matches the regex; TTP ignores the `re()`.
+- #121 (an indented standalone `{{ _end_ }}` matched any blank line) was already fixed by #33; this adds its repro. `test_slack_answer_3` (listed under #100) now passes.
+- TTP's `_end_` off-by-one (#139) is not part of this change.
+
 ### Added: the `_headers_` indicator (baseline cluster 6, #68)
 - **`{{ _headers_ }}` parses fixed-width tables, as in TTP.** The text before it is the header row, and each header becomes a variable that captures its column by position. The regex is TTP's `regex_headers` regex: the first `columns-1` columns are exactly as wide as their header, column `columns` is 1 character up to that width, later columns are 0 up to their width, and the last column takes the rest of the line. `columns` defaults to the header count minus 2; set it with `{{ _headers_ | columns(N) }}`. The line starts a record. Values are stripped.
 - **TTP's quirks are kept.** Each header runs `exclude(header)`, so the header row is dropped, and so is any row that has a header's name inside that header's column (`Namex` under `Name`). A row of only spaces matches with empty values; an empty line doesn't. A tab in the header row's indent counts as 4 characters. Text after `{{ _headers_ }}` is ignored.

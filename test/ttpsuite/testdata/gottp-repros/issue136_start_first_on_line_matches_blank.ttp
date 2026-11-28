@@ -1,0 +1,4 @@
+<group name="g">
+{{ _start_ }} interface {{ name }}
+ v {{ v }}
+</group>

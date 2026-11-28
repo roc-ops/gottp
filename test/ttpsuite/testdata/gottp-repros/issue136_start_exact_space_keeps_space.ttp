@@ -1,0 +1,4 @@
+<group name="g">
+interface {{ _start_ | _exact_space_ }}
+ v {{ v }}
+</group>

@@ -1,0 +1,6 @@
+interface Gi1
+ v x
+interface
+ v y
+interface Te1
+ v z
