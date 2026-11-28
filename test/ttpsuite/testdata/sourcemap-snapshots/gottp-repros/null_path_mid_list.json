@@ -1,0 +1,9 @@
+{
+ "inputs": {
+  "Default_Input": [
+   {"LineNumber":0,"Matched":true,"Matches":[{"StartCol":0,"EndCol":6,"GroupName":"a._.b*","PatternIndex":0,"Variables":{"v":{"StartCol":5,"EndCol":6}},"ResultPath":"a.b[0]"}]},
+   {"LineNumber":1,"Matched":true,"Matches":[{"StartCol":0,"EndCol":6,"GroupName":"a._.b*","PatternIndex":0,"Variables":{"v":{"StartCol":5,"EndCol":6}},"ResultPath":"a.b[1]"}]},
+   {"LineNumber":2,"Matched":false,"Matches":[]}
+  ]
+ }
+}

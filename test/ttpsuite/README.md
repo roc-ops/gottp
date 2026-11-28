@@ -10,9 +10,9 @@ go test ./test/ttpsuite -v | grep -E 'suite:|repros:|parity:|snapshots:'
 
 ```
 TTP 0.10.1 suite: pass 126 / skipped-by-issue 68 / design 6 of 200
-gottp repros: pass 192 / skipped-by-issue 2 / design 3 of 197
-source-map parity: same 400 / diverge 0 of 400
-stream snapshots: 196 streamable of 400 cases
+gottp repros: pass 195 / skipped-by-issue 2 / design 3 of 200
+source-map parity: same 403 / diverge 0 of 403
+stream snapshots: 198 streamable of 403 cases
 ```
 
 The Go tests need no Python, so they run in plain `go test ./...` and in CI. There are five:
@@ -104,6 +104,9 @@ The Go tests need no Python, so they run in plain `go test ./...` and in CI. The
 | `issue167_dynamic_double_star_merges` | passes; records saved at one `vprns.{{ id }}**` key merge (#167) |
 | `issue167_static_double_star_merges` | passes; records saved at a static `vprns**` merge, the first value of a key winning (#167) |
 | `issue167_double_star_with_child_merges` | passes; children of merged `**` records go under the merged record (#167) |
+| `null_path_mid_dynamic` | passes; a `_` mid-path (`x._.{{ intf }}`) is skipped, but the first record's branch also adds a `"_"` key, as TTP's `list_to_dict_fwd` does (it compares a tuple with `"_"`) |
+| `null_path_mid_list` | passes; the same for `a._.b*`, which adds `"_": {"b": []}` |
+| `null_path_twice` | passes; with `_._` the first record is saved under `"_"`, and later ones merge into the root, as TTP's `dict_by_path` pops the leading `_` from the record's path |
 
 Record-assembly pins for refactor C (#60). Each is a minimal template for one rule of TTP's `_results_class` (one winning match per position, start/startempty/add/join/end), recorded from TTP 0.10.1. Since refactor C1 gottp assembles records with a port of `_results_class` (`internal/compiled/assembler.go`), and since C2 a group with children and all its descendants go through one assembler (`internal/compiled/tree.go`), so most of them pass. Those gottp still gets wrong are in `known_failures.json` under the issue named by their prefix; `issue60_asm_*` cases without a dedicated issue are listed under #60.
 

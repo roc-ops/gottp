@@ -376,10 +376,10 @@ func (o *smObserver) aliasMacroRenames(root func(*smRecord) *smRecord) {
 // locateStored returns the paths of the last n values stored at keys (a
 // dotted path split into keys, formatters removed) in results, just after
 // they were stored there. A list met on the way is entered at its last
-// element, which is where storeAtPath put the newest value. It is the
-// fallback path of records whose maps were copied while being stored (a
-// "**" path merges a record into an existing dict) or later (a Starlark
-// macro on the parent), so they can't be found by identity.
+// element, which is where saveCurElements (dict_by_path) put the newest
+// value. It is the fallback path of records whose maps were copied while
+// being stored (a "**" path merges a record into an existing dict) or later
+// (a Starlark macro on the parent), so they can't be found by identity.
 func locateStored(results map[string]interface{}, keys []string, n int) []string {
 	var b strings.Builder
 	var cur interface{} = results
@@ -444,13 +444,14 @@ func escapePathKey(k string) string {
 }
 
 // segmentKeys returns the keys of resolved path segments. A "_" segment
-// (TTP's null path) names no key: its records live in their parent.
+// (TTP's null path) is skipped as dict_by_path skips it (walkKeys).
 func segmentKeys(parts []pathPart) []string {
-	keys := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p.key != "" && p.key != "_" {
-			keys = append(keys, p.key)
+	keys := walkKeys(parts)
+	out := keys[:0]
+	for _, k := range keys {
+		if k != "" {
+			out = append(out, k)
 		}
 	}
-	return keys
+	return out
 }

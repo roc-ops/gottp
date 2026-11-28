@@ -203,7 +203,10 @@ editor/
 │   ├── app.js              # Main application logic
 │   ├── wasm-bridge.js      # WASM loading and function wrappers
 │   ├── examples.js         # Sample templates and data
+│   ├── result-path.js      # Source-map ResultPath helpers (escaped keys)
 │   └── monaco-config.js    # Monaco Editor configuration
+├── test/
+│   └── result-path.test.js # Tests for result-path.js
 ├── wasm/
 │   ├── main.go             # WASM entry point and JS bindings
 │   └── go.mod              # Go module for WASM
@@ -256,6 +259,15 @@ TTP uses a template-based approach to parse text data. Here are some key concept
 For more detailed TTP documentation, visit the [GoTTP User Guide](../USER_GUIDE.md).
 
 ## Development
+
+### Running the JS Tests
+
+The source-map navigation helpers in `js/result-path.js` have Node tests
+(Node 18 or later, no dependencies). From the repository root:
+
+```bash
+node --test editor/test/*.test.js
+```
 
 ### Adding New Examples
 

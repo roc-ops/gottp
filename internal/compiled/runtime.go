@@ -652,6 +652,10 @@ type flatSaver struct {
 	segs    []string
 	// static is the formed path when it has no variables, formed once.
 	static []pathPart
+	// yang is set when the group's records are YANG-validated; pathVals
+	// then holds the path values forming each record's path removed.
+	yang     bool
+	pathVals pathValues
 }
 
 func (r *Runtime) newFlatSaver(group *compiler.CompiledGroup, vars map[string]interface{}) *flatSaver {
@@ -662,6 +666,7 @@ func (r *Runtime) newFlatSaver(group *compiler.CompiledGroup, vars map[string]in
 	if !strings.Contains(group.Name, "{{") {
 		fs.static, _ = r.formPath(fs.segs, nil, vars)
 	}
+	fs.yang = r.yangValidator != nil && group.Attributes["yang"] != ""
 	return fs
 }
 
@@ -671,6 +676,10 @@ func (r *Runtime) newFlatSaver(group *compiler.CompiledGroup, vars map[string]in
 func (fs *flatSaver) save(m map[string]interface{}, smr *smRecord) bool {
 	parts := fs.static
 	if parts == nil {
+		var taken map[string]interface{}
+		if fs.yang {
+			taken = takenPathValues(fs.segs, m)
+		}
 		var ok bool
 		if parts, ok = fs.r.formPath(fs.segs, m, fs.vars); !ok {
 			if smr != nil {
@@ -678,6 +687,7 @@ func (fs *flatSaver) save(m map[string]interface{}, smr *smRecord) bool {
 			}
 			return false
 		}
+		fs.pathVals.note(m, taken)
 	}
 	saveAt(fs.results, parts, m, smr, fs.obs)
 	return true
@@ -862,7 +872,7 @@ func (r *Runtime) finishFlat(group *compiler.CompiledGroup, pl *groupPipeline, f
 	var jobs []yangJob
 	if r.yangValidator != nil && records != nil {
 		if yangPath, ok := group.Attributes["yang"]; ok && yangPath != "" {
-			jobs = append(jobs, yangJob{key: group.Name, path: yangPath, name: group.Name, group: group, data: records})
+			jobs = append(jobs, yangJob{key: group.Name, path: yangPath, name: group.Name, group: group, data: fs.pathVals.restoreAll(records)})
 		}
 	}
 

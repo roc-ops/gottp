@@ -293,6 +293,10 @@ type treeRun struct {
 	// parent record, for YANG validation once the tree is complete.
 	yangOrder []yangKey
 	yangLists map[yangKey][]map[string]interface{}
+	// pathVals holds, per saved record of a yang= group (by identity), the
+	// path-variable values forming its path removed from it, so YANG
+	// validates the record as it was matched.
+	pathVals pathValues
 }
 
 type yangKey struct {
@@ -517,6 +521,10 @@ func (t *treeRun) topLevel(tg *treeGroup) bool {
 // way, so a child record goes under the last record at its parent's path. A
 // merge_with_last record (target set) is merged into target.
 func (t *treeRun) saveRecord(tg *treeGroup, m map[string]interface{}, smr *smRecord, target map[string]interface{}) {
+	var taken map[string]interface{}
+	if tg.yang != "" && t.r.yangValidator != nil && target == nil {
+		taken = takenPathValues(tg.path, m)
+	}
 	parts, ok := t.formPath(tg, m)
 	if !ok {
 		if smr != nil {
@@ -541,6 +549,7 @@ func (t *treeRun) saveRecord(tg *treeGroup, m map[string]interface{}, smr *smRec
 	if !saveAt(t.results, parts, m, smr, t.obs) {
 		return
 	}
+	t.pathVals.note(m, taken)
 	if t.topLevel(tg) {
 		t.top0 = append(t.top0, m)
 	}
@@ -605,21 +614,35 @@ func (t *treeRun) lastElement(tg *treeGroup, rec map[string]interface{}) map[str
 // there is none. It creates nothing.
 func lastMapAt(root map[string]interface{}, parts []pathPart) map[string]interface{} {
 	var cur interface{} = root
-	for _, p := range parts {
-		if p.key == "_" {
-			continue
-		}
+	for _, key := range walkKeys(parts) {
 		m, ok := lastMap(cur)
 		if !ok {
 			return nil
 		}
-		cur, ok = m[p.key]
+		cur, ok = m[key]
 		if !ok {
 			return nil
 		}
 	}
 	m, _ := lastMap(cur)
 	return m
+}
+
+// walkKeys is the keys dict_by_path walks for parts: a "_" segment is
+// skipped, and the segment after it taken as a key even when it is "_"
+// too; a "_" last segment ends the path.
+func walkKeys(parts []pathPart) []string {
+	keys := make([]string, 0, len(parts))
+	for i := 0; i < len(parts); i++ {
+		if parts[i].key == "_" {
+			if i == len(parts)-1 {
+				break
+			}
+			i++
+		}
+		keys = append(keys, parts[i].key)
+	}
+	return keys
 }
 
 // lastMap is v, or the last item of v if v is a list, as a map.
@@ -632,6 +655,72 @@ func lastMap(v interface{}) (map[string]interface{}, bool) {
 	}
 	m, ok := v.(map[string]interface{})
 	return m, ok
+}
+
+// pathValues maps a saved record (by identity) to the values of its path
+// variables that forming its path removed from it (see takenPathValues).
+type pathValues map[uintptr]map[string]interface{}
+
+// takenPathValues is the values in m of the variables of the path segs,
+// which formPath removes from m, or nil when m has none.
+func takenPathValues(segs []string, m map[string]interface{}) map[string]interface{} {
+	var taken map[string]interface{}
+	for _, seg := range segs {
+		if !strings.Contains(seg, "{{") {
+			continue
+		}
+		for _, sub := range dynPathVarRe.FindAllStringSubmatch(seg, -1) {
+			if v, ok := m[sub[1]]; ok {
+				if taken == nil {
+					taken = make(map[string]interface{})
+				}
+				taken[sub[1]] = v
+			}
+		}
+	}
+	return taken
+}
+
+// note records taken as the path values removed from the saved record m.
+func (pv *pathValues) note(m map[string]interface{}, taken map[string]interface{}) {
+	if len(taken) == 0 {
+		return
+	}
+	if *pv == nil {
+		*pv = make(pathValues)
+	}
+	(*pv)[mapID(m)] = taken
+}
+
+// restore is m as YANG validates it: a copy with its removed path values
+// back, or m itself when forming its path removed none.
+func (pv pathValues) restore(m map[string]interface{}) map[string]interface{} {
+	taken := pv[mapID(m)]
+	if len(taken) == 0 {
+		return m
+	}
+	c := make(map[string]interface{}, len(m)+len(taken))
+	for k, v := range m {
+		c[k] = v
+	}
+	for k, v := range taken {
+		if _, ok := c[k]; !ok {
+			c[k] = v
+		}
+	}
+	return c
+}
+
+// restoreAll restores each record of records (see restore).
+func (pv pathValues) restoreAll(records []map[string]interface{}) []map[string]interface{} {
+	if len(pv) == 0 {
+		return records
+	}
+	out := make([]map[string]interface{}, len(records))
+	for i, m := range records {
+		out[i] = pv.restore(m)
+	}
+	return out
 }
 
 // pathPart is one resolved path segment and its formatter ("", "*" or
@@ -714,7 +803,7 @@ func saveAt(root map[string]interface{}, parts []pathPart, data interface{}, smr
 			empty = el
 		}
 	}
-	saved := saveCurElements(root, parts, data)
+	saved, at := saveCurElementsAt(root, parts, data)
 	if saved == saveSkipped {
 		if smr != nil {
 			smr.dropped = true
@@ -732,17 +821,20 @@ func saveAt(root map[string]interface{}, parts []pathPart, data interface{}, smr
 				if prev := obs.owners[mapID(empty)]; prev != nil && prev != smr {
 					prev.alias = smr
 				}
+				// m took empty's place in the results, so no record owns
+				// empty any more.
+				delete(obs.owners, mapID(empty))
 			}
 			return true
 		}
-		if el := lastMapAt(root, parts); el != nil {
+		if el := lastMapAt(root, at); el != nil {
 			if owner := obs.owners[mapID(el)]; owner != nil && owner != smr {
 				smr.alias = owner
 				return true
 			}
 		}
 	}
-	smr.rel = locatePath(root, segmentKeys(parts))
+	smr.rel = locatePath(root, segmentKeys(at))
 	return true
 }
 
@@ -755,10 +847,10 @@ func (t *treeRun) result() (interface{}, []yangJob, error) {
 	var jobs []yangJob
 	if r.yangValidator != nil {
 		if t.top.yang != "" && len(t.top0) > 0 {
-			jobs = append(jobs, yangJob{key: t.top.cg.Name, path: t.top.yang, name: t.top.cg.Name, group: t.top.cg, data: t.top0})
+			jobs = append(jobs, yangJob{key: t.top.cg.Name, path: t.top.yang, name: t.top.cg.Name, group: t.top.cg, data: t.pathVals.restoreAll(t.top0)})
 		}
 		for _, key := range t.yangOrder {
-			list := t.yangLists[key]
+			list := t.pathVals.restoreAll(t.yangLists[key])
 			var data interface{} = list
 			if len(list) == 1 {
 				data = list[0]
@@ -787,17 +879,31 @@ const (
 // saveCurElements ports save_curelements for a record saved at parts below
 // root (the top group's last record).
 func saveCurElements(root map[string]interface{}, parts []pathPart, data interface{}) saveResult {
+	saved, _ := saveCurElementsAt(root, parts, data)
+	return saved
+}
+
+// saveCurElementsAt is saveCurElements, also returning the path data went
+// to: parts, except when value_to_list merged data at a null path, which it
+// reads without parts' leading "_" (see below).
+func saveCurElementsAt(root map[string]interface{}, parts []pathPart, data interface{}) (saveResult, []pathPart) {
+	orig := parts
 	parts = append([]pathPart(nil), parts...)
 	e := dictByPath(parts, root)
+	// dict_by_path pops a leading "_" from the record's own PATH list when
+	// more follows, so value_to_list below sees the path without it.
+	if len(parts) > 1 && parts[0].key == "_" {
+		parts = parts[1:]
+	}
 	dataMap, isMap := data.(map[string]interface{})
 	switch el := e.(type) {
 	case *listRef:
 		if !truthy(data) {
-			return saveSkipped
+			return saveSkipped, orig
 		}
 		*el.list = append(*el.list, data)
 		el.store()
-		return saveStored
+		return saveStored, orig
 	case map[string]interface{}:
 		switch {
 		case parts[len(parts)-1].formatter == "**" && isMap:
@@ -810,22 +916,23 @@ func saveCurElements(root map[string]interface{}, parts []pathPart, data interfa
 		case len(el) != 0:
 			valueToList(root, parts, data)
 			if parts[len(parts)-1].key == "_" {
-				// A null path merges data into el instead.
-				return saveMerged
+				// A null path merges data into the element at parts
+				// instead (the root for "_._").
+				return saveMerged, parts
 			}
-			return saveStored
+			return saveStored, orig
 		case isMap:
 			// TTP updates the empty element; storing the record itself
 			// keeps its identity for the source map.
 			if replaceEmpty(root, parts, el, dataMap) {
-				return saveStored
+				return saveStored, orig
 			}
 			for k, v := range dataMap {
 				el[k] = v
 			}
 		}
 	}
-	return saveMerged
+	return saveMerged, orig
 }
 
 // listRef is a list found by dictByPath, with a way to store it back after
@@ -911,12 +1018,8 @@ func listToDictFwd(parts []pathPart) map[string]interface{} {
 	if len(parts) == 0 {
 		return map[string]interface{}{}
 	}
-	if parts[0].key == "_" {
-		if len(parts) == 1 {
-			return map[string]interface{}{}
-		}
-		parts = parts[1:]
-	}
+	// TTP's list_to_dict_fwd means to skip a "_" here too, but it compares
+	// the (key, formatter) tuple with "_", so a "_" is always a key.
 	name := parts[0].key
 	if parts[0].formatter == "*" {
 		if len(parts) == 1 {
@@ -970,22 +1073,20 @@ func replaceEmpty(root map[string]interface{}, parts []pathPart, el, data map[st
 	if len(parts) == 0 || parts[len(parts)-1].key == "_" {
 		return false
 	}
+	keys := walkKeys(parts)
 	var cur interface{} = root
-	for i := 0; i < len(parts)-1; i++ {
-		if parts[i].key == "_" {
-			continue
-		}
+	for _, k := range keys[:len(keys)-1] {
 		m, ok := lastMap(cur)
 		if !ok {
 			return false
 		}
-		cur = m[parts[i].key]
+		cur = m[k]
 	}
 	m, ok := lastMap(cur)
 	if !ok {
 		return false
 	}
-	key := parts[len(parts)-1].key
+	key := keys[len(keys)-1]
 	if existing, ok := m[key].(map[string]interface{}); ok && mapID(existing) == mapID(el) {
 		m[key] = data
 		return true

@@ -119,6 +119,8 @@ var streamParityExceptions = map[string]string{
 	"test_output_formatters/test_table_formatter_multiple_input": "<output format=table> reshapes Parse's result",
 	"test_output_functions/test_cerberus_validate_per_input":     "a group named \"_\" (the null path) merges its record into the root of Parse's result",
 	"gottp-repros/issue167_static_double_star_merges":            "a \"**\" path merges the records into one in Parse's result (#167)",
+	"gottp-repros/null_path_mid_list":                            "a mid-path \"_\" adds an empty \"_\" branch to Parse's result, as TTP's list_to_dict_fwd does",
+	"gottp-repros/null_path_twice":                               "a \"_._\" path merges the later records into the root of Parse's result",
 }
 
 var errNotStreamable = errors.New("not streamable")

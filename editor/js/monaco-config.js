@@ -7,6 +7,38 @@ let inputEditor = null;
 let templateEditor = null;
 let outputEditor = null;
 
+// ResultPath helpers (splitResultPath, joinResultPath, locateResultPath, ...)
+// come from js/result-path.js, loaded before this file. A ResultPath escapes
+// a ".", "*" or "\" inside a key with "\" (interfaces.Gi0/0\.10), and ""
+// is the root of the results.
+
+function escapeRegExp(s) {
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// jsonKeyRegExp matches key as a JSON object key ("key":) in output text.
+function jsonKeyRegExp(key) {
+    return new RegExp(escapeRegExp(JSON.stringify(String(key))) + '\\s*:');
+}
+
+// decodeJSONKey decodes the text between a JSON key's quotes.
+function decodeJSONKey(raw) {
+    try {
+        return JSON.parse('"' + raw + '"');
+    } catch (e) {
+        return raw;
+    }
+}
+
+// matchResultPath is a source-map match's ResultPath; "" (the root) is a
+// path, so only a match without one falls back to its GroupName.
+function matchResultPath(match) {
+    if (typeof match.ResultPath === 'string') {
+        return match.ResultPath;
+    }
+    return match.GroupName || '';
+}
+
 // TTP Language Definition - Simplified to avoid infinite recursion
 const ttpLanguageDefinition = {
     id: 'ttp',
@@ -302,8 +334,9 @@ async function initMonacoEditor() {
                         if (resultPath) {
                             // Highlight the key in output editor
                             const line = model.getLineContent(position.lineNumber);
-                            const jsonKeyRegex = new RegExp(`"${resultPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*:`);
-                            const keyMatch = line.match(jsonKeyRegex);
+                            const pathSegs = splitResultPath(resultPath);
+                            const lastKey = segmentKeyAndIndex(pathSegs[pathSegs.length - 1] || '').key;
+                            const keyMatch = line.match(jsonKeyRegExp(lastKey));
                             if (keyMatch) {
                                 const keyStart = keyMatch.index + 1;
                                 const keyEnd = keyMatch.index + keyMatch[0].length - 3;
@@ -426,8 +459,8 @@ async function initMonacoEditor() {
                                         }
                                     }
                                     
-                                    const resultPath = match.ResultPath || match.GroupName || '';
-                                    if (resultPath) {
+                                    const resultPath = normalizeResultPath(matchResultPath(match));
+                                    {
                                         // Find the match order for this specific match
                                         // We need to find the match that corresponds to this exact input position
                                         const matches = sourceMapNavigationData.resultPathToMatches[resultPath];
@@ -448,7 +481,7 @@ async function initMonacoEditor() {
                                         if (clickedVariable) {
                                             // Construct path to the variable: resultPath.variableName
                                             // For array paths, we need to navigate to the specific array item first
-                                            const variablePath = resultPath + '.' + clickedVariable;
+                                            const variablePath = childResultPath(resultPath, clickedVariable);
                                             navigateToResultPath(variablePath, matchOrder);
                                         } else {
                                             // Navigate to the object/array itself
@@ -609,7 +642,8 @@ function buildSourceMapNavigationData(sourceMap, inputName = 'Default_Input') {
     inputSourceMap.Lines.forEach((lineMapping, lineIndex) => {
         if (lineMapping.Matches && lineMapping.Matches.length > 0) {
             lineMapping.Matches.forEach((match, matchIndex) => {
-                const resultPath = match.ResultPath || match.GroupName || '';
+                const resultPath = normalizeResultPath(matchResultPath(match));
+                const isRoot = resultPath === '' && typeof match.ResultPath === 'string';
                 const groupName = match.GroupName || '';
                 const matchKey = `${lineIndex}-${matchIndex}`;
                 
@@ -629,7 +663,7 @@ function buildSourceMapNavigationData(sourceMap, inputName = 'Default_Input') {
                 // 2. The pattern index is <= a previous pattern index (pattern reset = new object), OR
                 // 3. There's a significant line gap (more than 1 line = likely new object)
                 let matchOrder = null;
-                if (resultPath) {
+                if (resultPath || isRoot) {
                     if (!matchOrderPerPath[resultPath]) {
                         matchOrderPerPath[resultPath] = 0;
                     }
@@ -671,7 +705,7 @@ function buildSourceMapNavigationData(sourceMap, inputName = 'Default_Input') {
                     matchOrder: matchOrder // Order within this result path (for array indexing)
                 };
                 
-                if (resultPath) {
+                if (resultPath || isRoot) {
                     if (!sourceMapNavigationData.resultPathToMatches[resultPath]) {
                         sourceMapNavigationData.resultPathToMatches[resultPath] = [];
                     }
@@ -681,7 +715,7 @@ function buildSourceMapNavigationData(sourceMap, inputName = 'Default_Input') {
                     // This allows clicking on properties in the output to navigate back to the input
                     if (match.Variables) {
                         Object.keys(match.Variables).forEach(varName => {
-                            const variablePath = resultPath + '.' + varName;
+                            const variablePath = childResultPath(resultPath, varName);
                             if (!sourceMapNavigationData.resultPathToMatches[variablePath]) {
                                 sourceMapNavigationData.resultPathToMatches[variablePath] = [];
                             }
@@ -692,7 +726,7 @@ function buildSourceMapNavigationData(sourceMap, inputName = 'Default_Input') {
                 }
                 
                 // Also map by group name as fallback
-                if (groupName && groupName !== resultPath) {
+                if (groupName && groupName !== resultPath && groupName !== '_') {
                     if (!sourceMapNavigationData.resultPathToMatches[groupName]) {
                         sourceMapNavigationData.resultPathToMatches[groupName] = [];
                     }
@@ -747,10 +781,7 @@ function navigateInputToResult(lineNumber, column) {
     }
     
     if (targetMatch) {
-        const resultPath = targetMatch.ResultPath || targetMatch.GroupName || '';
-        if (resultPath) {
-            navigateToResultPath(resultPath);
-        }
+        navigateToResultPath(matchResultPath(targetMatch));
     }
 }
 
@@ -760,7 +791,7 @@ function navigateInputToResult(lineNumber, column) {
  */
 function navigateToResultPath(resultPath, matchOrder = null) {
     const outputEditor = getOutputEditor();
-    if (!outputEditor || !resultPath) {
+    if (!outputEditor || typeof resultPath !== 'string') {
         return;
     }
     
@@ -775,33 +806,51 @@ function navigateToResultPath(resultPath, matchOrder = null) {
     let targetColumn = 1;
     
     
-    // Remove formatters (* and **) from path for matching
-    const pathWithoutFormatters = resultPath.replace(/\*+$/, '');
+    // Exact: find the path's key (or array item) in the JSON output. A
+    // variable whose key isn't in the output (a path variable, which forms
+    // the record's path) goes to the nearest record above it.
+    {
+        const segs = splitResultPath(resultPath);
+        for (let n = segs.length; n >= 0; n--) {
+            const hit = locateResultPath(content, joinResultPath(segs.slice(0, n)), n === segs.length ? matchOrder : null);
+            if (hit && (hit.kind !== 'root' || segs.length === 0)) {
+                revealOutputTarget(outputEditor, hit.line, hit.col, hit.kind === 'key' ? hit.endCol : null, resultPath);
+                return;
+            }
+        }
+    }
     
-    // Parse array indices from the path
-    // Handle paths like:
+    // Otherwise (output that isn't JSON) search the text for the keys.
+    // The path's segments, unescaped, formatters (* and **) removed:
     //   "show_system_detail.smms[0]" -> arrayName=smms, index=0, variableName=null
     //   "show_system_detail.smms[0].serial" -> arrayName=smms, index=0, variableName=serial
-    const arrayIndexMatch = pathWithoutFormatters.match(/^(.+)\[(\d+)\](?:\.(.+))?$/);
+    //   "interfaces.Gi0/0\.10" -> ["interfaces", "Gi0/0.10"]
+    const pathSegments = splitResultPath(resultPath);
     let arrayName = null;
     let arrayIndex = null;
     let variableName = null;
-    
-    if (arrayIndexMatch) {
-        const fullArrayPath = arrayIndexMatch[1]; // "show_system_detail.smms"
-        arrayIndex = parseInt(arrayIndexMatch[2], 10); // 0
-        variableName = arrayIndexMatch[3] || null; // "serial" or null
-        const lastDotIdx = fullArrayPath.lastIndexOf('.');
-        arrayName = lastDotIdx >= 0 ? fullArrayPath.substring(lastDotIdx + 1) : fullArrayPath;
+    let varPathParts = [];
+    let arraySegIdx = -1;
+    for (let k = pathSegments.length - 1; k >= 0; k--) {
+        if (segmentKeyAndIndex(pathSegments[k]).index !== null) {
+            arraySegIdx = k;
+            break;
+        }
+    }
+    if (arraySegIdx >= 0) {
+        const seg = segmentKeyAndIndex(pathSegments[arraySegIdx]);
+        arrayName = seg.key;
+        arrayIndex = seg.index;
+        varPathParts = pathSegments.slice(arraySegIdx + 1);
+        variableName = varPathParts.length > 0 ? varPathParts[varPathParts.length - 1] : null;
     }
     
     // Check if the path contains a variable (for non-array paths)
-    const pathParts = pathWithoutFormatters.split('.');
-    const hasVariable = pathParts.length > 1 && !arrayIndexMatch;
+    const hasVariable = pathSegments.length > 1 && arraySegIdx < 0;
     if (hasVariable) {
-        variableName = pathParts[pathParts.length - 1];
+        variableName = pathSegments[pathSegments.length - 1];
     }
-    const basePath = hasVariable ? pathParts.slice(0, -1).join('.') : pathWithoutFormatters;
+    const baseKeys = (hasVariable ? pathSegments.slice(0, -1) : pathSegments).map(seg => segmentKeyAndIndex(seg).key);
     
     // Strategy 1: If we have an array path like "smms[0]", find the array and navigate to the nth item
     let arrayKeyLine = -1;
@@ -809,20 +858,17 @@ function navigateToResultPath(resultPath, matchOrder = null) {
     if (arrayName !== null && arrayIndex !== null) {
         // First, find the parent context if the path has multiple parts
         // For "show_system_detail.smms[0]", we need to find "smms" inside "show_system_detail"
-        const fullArrayPath = pathWithoutFormatters.match(/^(.+)\[(\d+)\]/)?.[1] || arrayName;
-        const parentParts = fullArrayPath.split('.');
-        const arrayNameEscaped = arrayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const parentParts = pathSegments.slice(0, arraySegIdx + 1);
         
         // If there's a parent context, find it first
         let searchStartLine = 0;
         if (parentParts.length > 1) {
             // Find the parent key first (e.g., "show_system_detail")
-            const parentKey = parentParts[0];
-            const parentKeyEscaped = parentKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const parentKey = segmentKeyAndIndex(parentParts[0]).key;
             
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
-                const parentMatch = line.match(new RegExp(`"${parentKeyEscaped}"\\s*:`));
+                const parentMatch = line.match(jsonKeyRegExp(parentKey));
                 if (parentMatch) {
                     searchStartLine = i;
                     break;
@@ -833,7 +879,7 @@ function navigateToResultPath(resultPath, matchOrder = null) {
         // Now search for the array key starting from the parent context
         for (let i = searchStartLine; i < lines.length; i++) {
             const line = lines[i];
-            const jsonKeyMatch = line.match(new RegExp(`"${arrayNameEscaped}"\\s*:`));
+            const jsonKeyMatch = line.match(jsonKeyRegExp(arrayName));
             if (jsonKeyMatch) {
                 arrayKeyLine = i + 1;
                 
@@ -883,7 +929,6 @@ function navigateToResultPath(resultPath, matchOrder = null) {
                                 // If we have a variableName, find it within this object
                                 // Handle nested paths like "io.model" by splitting and navigating through each level
                                 if (variableName) {
-                                    const varPathParts = variableName.split('.');
                                     let searchStartLine = j + 1;
                                     let currentDepth = 1;
                                     let foundFinalVar = false;
@@ -896,7 +941,6 @@ function navigateToResultPath(resultPath, matchOrder = null) {
                                     // Navigate through each part of the variable path
                                     for (let partIdx = 0; partIdx < varPathParts.length; partIdx++) {
                                         const currentPart = varPathParts[partIdx];
-                                        const partEscaped = currentPart.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                                         const isLastPart = partIdx === varPathParts.length - 1;
                                         let foundPart = false;
                                         
@@ -908,7 +952,7 @@ function navigateToResultPath(resultPath, matchOrder = null) {
                                             // Look for the key on this line BEFORE counting braces
                                             // For the last part (the actual variable), only match at the expected indent level
                                             // This prevents finding "serial" inside "io" when we want the direct "serial"
-                                            const varMatch = objLine.match(new RegExp(`"${partEscaped}"\\s*:`));
+                                            const varMatch = objLine.match(jsonKeyRegExp(currentPart));
                                             if (varMatch) {
                                                 // For single-part paths (like just "serial"), only match at the property level
                                                 // For nested paths (like "io.serial"), allow traversing into nested objects
@@ -987,36 +1031,44 @@ function navigateToResultPath(resultPath, matchOrder = null) {
         }
     }
     
-    // Strategy 1b: Try exact match for non-array paths
-    if (arrayKeyLine <= 0) {
-        const searchPath = basePath.replace(/\*+$/, '').replace(/\[\d+\]$/, ''); // Remove trailing asterisks and array indices
-        const escapedPath = searchPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const jsonKeyMatch = line.match(new RegExp(`"${escapedPath}"\\s*:`));
-            if (jsonKeyMatch) {
-                arrayKeyLine = i + 1;
-                targetLine = i + 1;
-                targetColumn = jsonKeyMatch.index + 1;
+    // Strategy 1b: for non-array paths, find each key of the path in turn,
+    // each after the one before
+    if (arrayKeyLine <= 0 && baseKeys.length > 0) {
+        let from = 0;
+        let found = null;
+        for (const key of baseKeys) {
+            found = null;
+            for (let i = from; i < lines.length; i++) {
+                const jsonKeyMatch = lines[i].match(jsonKeyRegExp(key));
+                if (jsonKeyMatch) {
+                    found = { line: i, column: jsonKeyMatch.index + 1 };
+                    break;
+                }
+            }
+            if (!found) {
                 break;
             }
+            from = found.line + 1;
+        }
+        if (found) {
+            arrayKeyLine = found.line + 1;
+            targetLine = found.line + 1;
+            targetColumn = found.column;
         }
     }
     
     // Strategy 2: Split path by dots only (colons might be part of the key name)
     // Handle paths like "cms:show-cable-modem.modem-entry" where the first part has a colon
     if (arrayKeyLine <= 0) {
-        const dotParts = basePath.replace(/\*+$/, '').split('.').filter(p => p.length > 0);
+        const dotParts = baseKeys.filter(p => p.length > 0);
         
         if (dotParts.length > 0) {
             // Try the last part of basePath (most specific, excluding variable)
             const lastPart = dotParts[dotParts.length - 1];
-            const lastPartEscaped = lastPart.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
-                const jsonKeyMatch = line.match(new RegExp(`"${lastPartEscaped}"\\s*:`));
+                const jsonKeyMatch = line.match(jsonKeyRegExp(lastPart));
                 if (jsonKeyMatch) {
                     arrayKeyLine = i + 1;
                     targetLine = i + 1;
@@ -1028,9 +1080,8 @@ function navigateToResultPath(resultPath, matchOrder = null) {
     }
     
     // Strategy 3: Try first part (might contain colons)
-    if (arrayKeyLine <= 0 && basePath.includes('.')) {
-        const firstPart = basePath.replace(/\*+$/, '').split('.')[0];
-        const firstPartEscaped = firstPart.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (arrayKeyLine <= 0 && baseKeys.length > 1) {
+        const firstPart = baseKeys[0];
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -1039,7 +1090,7 @@ function navigateToResultPath(resultPath, matchOrder = null) {
             
             // Top-level keys typically have 0-4 spaces of indentation
             if (indent <= 4) {
-                const jsonKeyMatch = line.match(new RegExp(`"${firstPartEscaped}"\\s*:`));
+                const jsonKeyMatch = line.match(jsonKeyRegExp(firstPart));
                 if (jsonKeyMatch) {
                     arrayKeyLine = i + 1;
                     targetLine = i + 1;
@@ -1152,7 +1203,6 @@ function navigateToResultPath(resultPath, matchOrder = null) {
                             
                             // If we have a variable name, find that property within this object
                             if (variableName) {
-                                const variableEscaped = variableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                                 const objectIndent = indent;
                                 const propertyIndent = objectIndent + 2; // Properties are indented 2 spaces inside object
                                 
@@ -1167,7 +1217,7 @@ function navigateToResultPath(resultPath, matchOrder = null) {
                                     
                                     // Check if this line contains the property we're looking for
                                     if (propIndent === propertyIndent) {
-                                        const propMatch = propLine.match(new RegExp(`"${variableEscaped}"\\s*:`));
+                                        const propMatch = propLine.match(jsonKeyRegExp(variableName));
                                         if (propMatch) {
                                             targetLine = j + 1;
                                             targetColumn = propMatch.index + 1;
@@ -1222,48 +1272,40 @@ function navigateToResultPath(resultPath, matchOrder = null) {
     }
     
     if (targetLine > 0) {
-        // Navigate to the line and column
-        outputEditor.setPosition({ lineNumber: targetLine, column: targetColumn });
-        outputEditor.revealLineInCenter(targetLine);
-        
-        // If we have a variable name, highlight just the property key
-        let highlightRange;
-        if (variableName && targetLine > 0) {
-            // Find the property key on the target line
-            const targetLineContent = lines[targetLine - 1];
-            const variableEscaped = variableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const propMatch = targetLineContent.match(new RegExp(`"${variableEscaped}"\\s*:`));
+        let keyEnd = null;
+        if (variableName) {
+            const propMatch = lines[targetLine - 1].match(jsonKeyRegExp(variableName));
             if (propMatch) {
-                // Highlight from opening quote to closing quote
-                const keyStart = propMatch.index + 1;
-                const matchStr = propMatch[0];
-                const closingQuoteIndex = matchStr.indexOf('"', 1);
-                const keyEnd = propMatch.index + closingQuoteIndex + 2; // Include closing quote
-                highlightRange = new monaco.Range(targetLine, keyStart, targetLine, keyEnd);
-            } else {
-                // Fallback to whole line
-                highlightRange = new monaco.Range(targetLine, 1, targetLine, 1000);
+                targetColumn = propMatch.index + 1;
+                keyEnd = propMatch.index + propMatch[0].indexOf('"', 1) + 2;
             }
-        } else {
-            // Highlight the whole line for object/array navigation
-            highlightRange = new monaco.Range(targetLine, 1, targetLine, 1000);
         }
-        
-        // Highlight briefly
-        const decorations = outputEditor.deltaDecorations([], [{
-            range: highlightRange,
-            options: {
-                className: 'source-map-hover-highlight',
-                isWholeLine: !variableName,
-                hoverMessage: { value: `Result path: ${resultPath}` }
-            }
-        }]);
-        
-        // Remove highlight after 2 seconds
-        setTimeout(() => {
-            outputEditor.deltaDecorations(decorations, []);
-        }, 2000);
+        revealOutputTarget(outputEditor, targetLine, targetColumn, keyEnd, resultPath);
     }
+}
+
+/**
+ * Reveal a line of the output editor and highlight it briefly: the key from
+ * column to keyEnd (exclusive), or the whole line when keyEnd is null.
+ */
+function revealOutputTarget(outputEditor, targetLine, targetColumn, keyEnd, resultPath) {
+    outputEditor.setPosition({ lineNumber: targetLine, column: targetColumn });
+    outputEditor.revealLineInCenter(targetLine);
+    const highlightRange = keyEnd !== null
+        ? new monaco.Range(targetLine, targetColumn, targetLine, keyEnd)
+        : new monaco.Range(targetLine, 1, targetLine, 1000);
+    const decorations = outputEditor.deltaDecorations([], [{
+        range: highlightRange,
+        options: {
+            className: 'source-map-hover-highlight',
+            isWholeLine: keyEnd === null,
+            hoverMessage: { value: `Result path: ${resultPath === '' ? '(root)' : resultPath}` }
+        }
+    }]);
+    // Remove highlight after 2 seconds
+    setTimeout(() => {
+        outputEditor.deltaDecorations(decorations, []);
+    }, 2000);
 }
 
 /**
@@ -1272,8 +1314,14 @@ function navigateToResultPath(resultPath, matchOrder = null) {
  * @param {Object} outputPosition - Optional output editor position to help select the right match
  */
 function navigateResultToInput(resultPath, outputPosition = null) {
-    // Remove formatters (* and **) from path for matching
-    const pathWithoutFormatters = resultPath.replace(/\*+$/, '');
+    // Compare paths by their segments (unescaped, formatters removed), so
+    // an escaped "." in a key (interfaces.Gi0/0\.10) is not a separator.
+    const pathSegs = splitResultPath(resultPath);
+    const pathWithoutFormatters = joinResultPath(pathSegs);
+    const sameSegs = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+    const endsWithSegs = (a, b) => b.length > 0 && a.length > b.length && sameSegs(a.slice(a.length - b.length), b);
+    const startsWithSegs = (a, b) => a.length > b.length && sameSegs(a.slice(0, b.length), b);
+    const entries = Object.entries(sourceMapNavigationData.resultPathToMatches).map(([key, value]) => [splitResultPath(key), value]);
     
     // Try exact match first
     let matches = sourceMapNavigationData.resultPathToMatches[pathWithoutFormatters] || 
@@ -1282,20 +1330,10 @@ function navigateResultToInput(resultPath, outputPosition = null) {
     // If no exact match, try to find nested paths
     // For nested paths like "parent.nested", try to match the full path or parts
     if (!matches || matches.length === 0) {
-        // Try to find paths that end with this path (for nested groups)
-        // e.g., if resultPath is "nested", look for "parent.nested"
-        // Also handle cases where resultPath is "parent.nested" and we need to find exact match
-        for (const [key, value] of Object.entries(sourceMapNavigationData.resultPathToMatches)) {
-            const keyWithoutFormatters = key.replace(/\*+$/, '');
-            // Exact match (with or without formatters)
-            if (key === pathWithoutFormatters || key === resultPath || 
-                keyWithoutFormatters === pathWithoutFormatters) {
-                matches = value;
-                break;
-            }
-            // Ends with match (for nested groups where we only have the nested part)
-            if (keyWithoutFormatters.endsWith('.' + pathWithoutFormatters) || 
-                key.endsWith('.' + resultPath)) {
+        // Exact match (formatters aside), else a path that ends with this
+        // path (for nested groups where we only have the nested part)
+        for (const [keySegs, value] of entries) {
+            if (sameSegs(keySegs, pathSegs) || endsWithSegs(keySegs, pathSegs)) {
                 matches = value;
                 break;
             }
@@ -1305,10 +1343,8 @@ function navigateResultToInput(resultPath, outputPosition = null) {
     // If still no match, try to find paths that start with this path
     // e.g., if resultPath is "parent", look for "parent.nested"
     if (!matches || matches.length === 0) {
-        for (const [key, value] of Object.entries(sourceMapNavigationData.resultPathToMatches)) {
-            const keyWithoutFormatters = key.replace(/\*+$/, '');
-            if (keyWithoutFormatters.startsWith(pathWithoutFormatters + '.') || 
-                key.startsWith(resultPath + '.')) {
+        for (const [keySegs, value] of entries) {
+            if (startsWithSegs(keySegs, pathSegs)) {
                 matches = value;
                 break;
             }
@@ -1318,17 +1354,17 @@ function navigateResultToInput(resultPath, outputPosition = null) {
     // If still no match, try group name fallback (last resort)
     // Extract the last part of the path (group name)
     if (!matches || matches.length === 0) {
-        const pathParts = pathWithoutFormatters.split('.');
-        const groupName = pathParts[pathParts.length - 1]; // Get last part of path
-        matches = sourceMapNavigationData.resultPathToMatches[groupName];
+        if (pathSegs.length > 0) {
+            matches = sourceMapNavigationData.resultPathToMatches[joinResultPath(pathSegs.slice(-1))];
+        }
     }
     
     // If still no match, try all keys that contain this path (very last resort)
     if (!matches || matches.length === 0) {
-        for (const [key, value] of Object.entries(sourceMapNavigationData.resultPathToMatches)) {
-            const keyWithoutFormatters = key.replace(/\*+$/, '');
-            if (keyWithoutFormatters.includes(pathWithoutFormatters) || 
-                pathWithoutFormatters.includes(keyWithoutFormatters)) {
+        for (const [keySegs, value] of entries) {
+            const keyPath = joinResultPath(keySegs);
+            if (pathWithoutFormatters && keyPath && (keyPath.includes(pathWithoutFormatters) || 
+                pathWithoutFormatters.includes(keyPath))) {
                 matches = value;
                 break;
             }
@@ -1431,7 +1467,7 @@ function navigateResultToInput(resultPath, outputPosition = null) {
                 // Try to find the result path that contains this group
                 for (const [key, value] of Object.entries(sourceMapNavigationData.resultPathToMatches)) {
                     if (key.includes('modem-entry') || key.includes('cms')) {
-                        const pathParts = key.split('.');
+                        const pathParts = splitResultPath(key);
                         arrayKeyName = pathParts[0]; // e.g., "cms:show-cable-modem"
                         break;
                     }
@@ -1615,12 +1651,14 @@ function navigateResultToInput(resultPath, outputPosition = null) {
     
     // Check if resultPath contains a variable name (e.g., "version-info*.file-name")
     // If so, we should highlight just that variable, not the whole match
-    const pathParts = resultPath.split('.');
-    const hasVariable = pathParts.length > 1;
-    const variableName = hasVariable ? pathParts[pathParts.length - 1] : null;
+    // A variable of a record at the root ("" ResultPath) has a one-segment
+    // path, so any last segment that names one of the match's variables is
+    // tried.
+    const pathParts = splitResultPath(resultPath);
+    const variableName = pathParts.length > 0 ? segmentKeyAndIndex(pathParts[pathParts.length - 1]).key : null;
     
     let highlightRange;
-    if (hasVariable && variableName) {
+    if (variableName) {
         // Find the variable in the source map match
         const inputSourceMap = sourceMapNavigationData.sourceMap?.Inputs?.['Default_Input'];
         if (inputSourceMap && inputSourceMap.Lines) {
@@ -1629,7 +1667,7 @@ function navigateResultToInput(resultPath, outputPosition = null) {
                 // Find the match that corresponds to this match info
                 const sourceMatch = lineMapping.Matches.find(m => 
                     m.StartCol === match.startCol && 
-                    (m.ResultPath || m.GroupName) === (match.groupName || resultPath.split('.')[0])
+                    (m.GroupName || '') === (match.groupName || '')
                 );
                 
                 if (sourceMatch && sourceMatch.Variables && sourceMatch.Variables[variableName]) {
@@ -1842,6 +1880,13 @@ function findResultPathAtPosition(model, position) {
         return null;
     }
     
+    // The exact path of the JSON key under the cursor, as a ResultPath
+    // (keys escaped), when the source map has it
+    const exactPath = resultPathAt(model.getValue(), lineNumber, column);
+    if (exactPath !== null && sourceMapNavigationData.resultPathToMatches[exactPath]) {
+        return exactPath;
+    }
+    
     // Try to extract JSON key at this position
     // Look for quoted strings that might be keys
     const jsonKeyRegex = /"([^"]+)":/g;
@@ -1854,10 +1899,10 @@ function findResultPathAtPosition(model, position) {
         const keyEnd = match.index + match[0].length - 3; // Before ":"
         
         if (column >= keyStart && column <= keyEnd) {
-            const key = match[1];
+            const key = decodeJSONKey(match[1]);
             // Check if this key exists in our result path mapping
-            if (sourceMapNavigationData.resultPathToMatches[key]) {
-                return key;
+            if (sourceMapNavigationData.resultPathToMatches[escapeResultPathKey(key)]) {
+                return escapeResultPathKey(key);
             }
             // Store as potential match
             bestMatch = match;
@@ -1878,18 +1923,19 @@ function findResultPathAtPosition(model, position) {
         // the JSON has nested keys "cms" -> "show-cable-modem" -> "modem-entry*"
         for (const [resultPath, matches] of Object.entries(sourceMapNavigationData.resultPathToMatches)) {
             // Check if result path contains this key (handles nested paths)
-            const pathParts = resultPath.split(/[.:]/);
+            const segs = splitResultPath(resultPath);
+            const pathParts = segs.flatMap(seg => seg.split(':'));
             if (pathParts.includes(bestKey)) {
                 return resultPath;
             }
             // Also check if key matches any part of the path
-            if (resultPath.includes(bestKey) || bestKey.includes(resultPath.split(/[.:]/)[0])) {
+            if (segs.some(seg => seg.includes(bestKey)) || (pathParts.length > 0 && bestKey.includes(pathParts[0]))) {
                 return resultPath;
             }
         }
         
         // Return the key anyway - might match a group name
-        return bestKey;
+        return escapeResultPathKey(bestKey);
     }
     
     // Try YAML key format
@@ -1897,8 +1943,8 @@ function findResultPathAtPosition(model, position) {
     const yamlMatch = line.match(yamlKeyRegex);
     if (yamlMatch && column <= yamlMatch[0].length) {
         const key = yamlMatch[2].trim();
-        if (sourceMapNavigationData.resultPathToMatches[key]) {
-            return key;
+        if (sourceMapNavigationData.resultPathToMatches[escapeResultPathKey(key)]) {
+            return escapeResultPathKey(key);
         }
         const fullPath = buildFullResultPath(model, lineNumber, key);
         if (fullPath && sourceMapNavigationData.resultPathToMatches[fullPath]) {
@@ -1907,13 +1953,13 @@ function findResultPathAtPosition(model, position) {
         
         // Try to match by checking if any result path contains this key
         for (const [resultPath, matches] of Object.entries(sourceMapNavigationData.resultPathToMatches)) {
-            const pathParts = resultPath.split(/[.:]/);
+            const pathParts = splitResultPath(resultPath).flatMap(seg => seg.split(':'));
             if (pathParts.includes(key)) {
                 return resultPath;
             }
         }
         
-        return key;
+        return escapeResultPathKey(key);
     }
     
     return null;
@@ -2021,8 +2067,9 @@ function buildFullResultPath(model, lineNumber, key) {
     let targetKey = key;
     let targetIndent = currentIndent;
     
-    // Start with the clicked key
-    pathParts.unshift(targetKey);
+    // Start with the clicked key. Keys are escaped as in a ResultPath
+    // (escapeResultPathKey), so the path compares with the source map's.
+    pathParts.unshift(escapeResultPathKey(targetKey));
     
     // Walk backwards to find parent keys and array structures
     for (let i = lineNumber - 1; i >= 1; i--) {
@@ -2037,7 +2084,7 @@ function buildFullResultPath(model, lineNumber, key) {
             // Check if this line is an array start or object key
             const jsonKeyMatch = line.match(/"([^"]+)":\s*(\[)?/);
             if (jsonKeyMatch) {
-                const parentKey = jsonKeyMatch[1];
+                const parentKey = escapeResultPathKey(decodeJSONKey(jsonKeyMatch[1]));
                 const isArray = jsonKeyMatch[2] === '[';
                 
                 if (isArray) {
@@ -2112,14 +2159,11 @@ function applySourceMapOutputDecorations(sourceMap, resultData) {
     
     const keysToSearch = new Set();
     resultPaths.forEach(resultPath => {
-        const pathWithoutFormatters = resultPath.replace(/\*+$/, '');
-        const pathParts = pathWithoutFormatters.split('.');
+        const pathParts = splitResultPath(resultPath);
         if (pathParts.length > 0) {
-            // Add the last part (the actual property name)
-            const lastPart = pathParts[pathParts.length - 1];
-            // Handle array indices like "smms[0]" -> extract "smms"
-            const keyWithoutIndex = lastPart.replace(/\[\d+\]$/, '');
-            keysToSearch.add(keyWithoutIndex);
+            // Add the last part (the actual property name), unescaped;
+            // handle array indices like "smms[0]" -> extract "smms"
+            keysToSearch.add(segmentKeyAndIndex(pathParts[pathParts.length - 1]).key);
         }
     });
     
@@ -2133,15 +2177,19 @@ function applySourceMapOutputDecorations(sourceMap, resultData) {
         let match;
         
         while ((match = keyRegex.exec(line)) !== null) {
-            const key = match[1];
+            const key = decodeJSONKey(match[1]);
             
             // Check if this key is one we care about (has source map matches)
             if (!keysToSearch.has(key)) {
                 continue;
             }
             
-            // Build the full path for this specific occurrence
-            const fullPath = buildFullResultPath(model, lineNumber, key);
+            // The full path of this occurrence: exact from the JSON, else
+            // built from the lines above it
+            let fullPath = resultPathAt(content, lineNumber, match.index + 2);
+            if (fullPath === null || !sourceMapNavigationData.resultPathToMatches[fullPath]) {
+                fullPath = buildFullResultPath(model, lineNumber, key);
+            }
             
             // Check if this full path has matches in our source map
             if (fullPath && sourceMapNavigationData.resultPathToMatches[fullPath]) {
